@@ -12,6 +12,7 @@ import {
   touchpoints,
   settings,
   users,
+  googleSyncTombstones,
 } from '@/db/schema';
 import { listContactsWithDetails, splitFullName } from '@/lib/contacts-service';
 import { logger } from '@/lib/logger';
@@ -170,6 +171,7 @@ export function exportFullBackupJson() {
     customFieldTemplates: db.select().from(customFieldTemplates).all(),
     contactCustomFields: db.select().from(contactCustomFields).all(),
     touchpoints: db.select().from(touchpoints).all(),
+    googleSyncTombstones: db.select().from(googleSyncTombstones).all(),
   };
 
   logger.info('backup.export', 'Exported full Touchpoint JSON backup', {
@@ -181,9 +183,14 @@ export function exportFullBackupJson() {
   return payload;
 }
 
-export function restoreFromBackupJson(payload: ReturnType<typeof exportFullBackupJson>) {
+export function restoreFromBackupJson(
+  payload: ReturnType<typeof exportFullBackupJson> & {
+    googleSyncTombstones?: Array<typeof googleSyncTombstones.$inferInsert>;
+  }
+) {
   const db = getDb();
 
+  db.delete(googleSyncTombstones).run();
   db.delete(contactCustomFields).run();
   db.delete(customFieldTemplates).run();
   db.delete(touchpoints).run();
@@ -205,6 +212,8 @@ export function restoreFromBackupJson(payload: ReturnType<typeof exportFullBacku
   if (payload.contactCustomFields?.length)
     db.insert(contactCustomFields).values(payload.contactCustomFields).run();
   if (payload.touchpoints?.length) db.insert(touchpoints).values(payload.touchpoints).run();
+  if (payload.googleSyncTombstones?.length)
+    db.insert(googleSyncTombstones).values(payload.googleSyncTombstones).run();
 
   logger.info('backup.restore', 'Restored Touchpoint database from JSON backup', {
     contacts: payload.contacts?.length || 0,
@@ -244,6 +253,7 @@ export function verifyIcalToken(token: string): boolean {
 
 export function wipeAllData(): { deleted: boolean } {
   const db = getDb();
+  db.delete(googleSyncTombstones).run();
   db.delete(contactCustomFields).run();
   db.delete(customFieldTemplates).run();
   db.delete(touchpoints).run();
@@ -253,6 +263,8 @@ export function wipeAllData(): { deleted: boolean } {
   db.delete(contactGroups).run();
   db.delete(contacts).run();
   db.delete(groups).run();
-  logger.warn('data.wipe', 'All contacts, groups, touchpoints, topics, and relationships permanently deleted');
+  db.update(settings).set({ lastGoogleSyncAt: null }).run();
+  logger.warn('data.wipe', 'All contacts, groups, touchpoints, topics, relationships, and sync tombstones permanently deleted');
   return { deleted: true };
 }
+

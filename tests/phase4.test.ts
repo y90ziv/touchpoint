@@ -1,6 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createDatabase, setTestDb } from '@/db';
-import { createContact, createGroup, listContactsWithDetails } from '@/lib/contacts-service';
+import {
+  createContact,
+  createGroup,
+  listContactsWithDetails,
+  mergeContacts,
+  deleteContact,
+} from '@/lib/contacts-service';
 import { addTopic, createRelationship } from '@/lib/touchpoints-service';
 import { importGoogleCandidatesAdditiveOnly } from '@/lib/google-sync';
 import {
@@ -74,6 +80,92 @@ describe('Phase 4: Google Additive-Only Sync, Telegram Bot & Outgoing Webhook', 
     expect(checkC300.fullName).toBe('Brand New Contact');
     expect(checkC300.company).toBe('Wix');
     expect(checkC300.keepInTouch).toBe(false);
+  });
+
+  it('never re-imports merged duplicates, deleted Google contacts (Option 1), or pre-sync timestamped contacts (Option 3)', () => {
+    // Initial import of 3 Google contacts (c1 and c2 are duplicates, c3 will be deleted)
+    const firstBatch = [
+      {
+        resourceName: 'people/c1',
+        fullName: 'Alex Rivera',
+        phone: '+1-555-010-1111',
+        updatedAt: '2026-10-10T10:00:00Z',
+      },
+      {
+        resourceName: 'people/c2',
+        fullName: 'Alex Rivera',
+        phone: '+1-555-010-1111',
+        email: 'alex@example.com',
+        updatedAt: '2026-10-10T10:05:00Z',
+      },
+      {
+        resourceName: 'people/c3',
+        fullName: 'Unwanted Contact',
+        phone: '+1-555-010-2222',
+        updatedAt: '2026-10-10T10:10:00Z',
+      },
+    ];
+
+    const firstSync = importGoogleCandidatesAdditiveOnly(firstBatch);
+    expect(firstSync.imported).toBe(3);
+
+    const importedContacts = listContactsWithDetails();
+    const c1 = importedContacts.find((c) => c.googleResourceName === 'people/c1')!;
+    const c2 = importedContacts.find((c) => c.googleResourceName === 'people/c2')!;
+    const c3 = importedContacts.find((c) => c.googleResourceName === 'people/c3')!;
+
+    // User merges c2 into c1, and deletes c3
+    mergeContacts(c1.id, c2.id);
+    deleteContact(c3.id);
+    expect(listContactsWithDetails().length).toBe(1);
+
+    // User clicks Import again:
+    // - c1 is existing
+    // - c2 and c3 are tombstoned (Option 1) even if their updatedAt in Google changed
+    // - c_legacy is an old contact with updatedAt <= lastGoogleSyncAt (Option 3)
+    // - c_new is a genuinely new contact created after lastGoogleSyncAt
+    const secondSync = importGoogleCandidatesAdditiveOnly(
+      [
+        {
+          resourceName: 'people/c1',
+          fullName: 'Alex Rivera',
+          updatedAt: '2026-10-18T12:00:00Z',
+        },
+        {
+          resourceName: 'people/c2',
+          fullName: 'Alex Rivera',
+          updatedAt: '2026-10-18T12:05:00Z',
+        },
+        {
+          resourceName: 'people/c3',
+          fullName: 'Unwanted Contact',
+          updatedAt: '2026-10-18T12:10:00Z',
+        },
+        {
+          resourceName: 'people/c_legacy',
+          fullName: 'Previously Merged Before Upgrade',
+          updatedAt: '2026-10-10T09:00:00Z',
+        },
+        {
+          resourceName: 'people/c_new',
+          fullName: 'New Contact Added Today',
+          phone: '+1-555-010-9999',
+          updatedAt: '2026-10-18T15:00:00Z',
+        },
+      ],
+      { lastGoogleSyncAt: '2026-10-18T11:00:00Z' }
+    );
+
+    expect(secondSync.scanned).toBe(5);
+    expect(secondSync.imported).toBe(1);
+    expect(secondSync.skippedExisting).toBe(4);
+
+    const finalContacts = listContactsWithDetails();
+    expect(finalContacts.length).toBe(2);
+    expect(finalContacts.map((c) => c.googleResourceName).sort()).toEqual([
+      'people/c1',
+      'people/c_new',
+    ]);
   });
 
   it('builds rich Telegram reminders (with Work, Pets, Relationships, Topics & WhatsApp link) and handles two-step button callbacks', () => {

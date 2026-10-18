@@ -147,6 +147,14 @@ CREATE TABLE IF NOT EXISTS touchpoints (
   note TEXT,
   created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS google_sync_tombstones (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  google_resource_name TEXT NOT NULL UNIQUE,
+  reason TEXT NOT NULL DEFAULT 'merged',
+  target_contact_id INTEGER REFERENCES contacts(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL
+);
 `;
 
 import { AsyncLocalStorage } from 'async_hooks';

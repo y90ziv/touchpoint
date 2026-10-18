@@ -11,6 +11,7 @@ import {
   contactCustomFields,
   touchpoints,
   settings,
+  googleSyncTombstones,
 } from '@/db/schema';
 import { evaluateContactCadence } from '@/lib/cadence';
 import { logger } from '@/lib/logger';
@@ -253,6 +254,22 @@ export function updateContact(
 
 export function deleteContact(id: number) {
   const db = getDb();
+  const existing = db
+    .select({ googleResourceName: contacts.googleResourceName })
+    .from(contacts)
+    .where(eq(contacts.id, id))
+    .get();
+  if (existing?.googleResourceName) {
+    db.insert(googleSyncTombstones)
+      .values({
+        googleResourceName: existing.googleResourceName,
+        reason: 'deleted',
+        targetContactId: null,
+        createdAt: new Date().toISOString(),
+      })
+      .onConflictDoNothing()
+      .run();
+  }
   db.delete(contacts).where(eq(contacts.id, id)).run();
   logger.crud('DELETE', 'contact', { id });
 }
@@ -401,6 +418,25 @@ export function executeBulkContactOperation(input: {
       }
     }
   } else if (action === 'delete') {
+    const toDelete = db
+      .select({ googleResourceName: contacts.googleResourceName })
+      .from(contacts)
+      .where(inArray(contacts.id, contactIds))
+      .all();
+    const now = new Date().toISOString();
+    for (const row of toDelete) {
+      if (row.googleResourceName) {
+        db.insert(googleSyncTombstones)
+          .values({
+            googleResourceName: row.googleResourceName,
+            reason: 'deleted',
+            targetContactId: null,
+            createdAt: now,
+          })
+          .onConflictDoNothing()
+          .run();
+      }
+    }
     db.delete(contacts).where(inArray(contacts.id, contactIds)).run();
   }
 
@@ -468,6 +504,8 @@ export function detectDuplicateContacts(): DuplicatePair[] {
  * Contact Merger:
  * Merges `secondaryId` into `primaryId`, combining groups, relationships, topics,
  * important dates, custom fields, and touchpoint history, then deletes `secondaryId`.
+ * Records any merged Google `resourceName` in `google_sync_tombstones` so future
+ * Google Contacts imports never re-import the merged duplicate.
  */
 export function mergeContacts(
   primaryId: number,
@@ -506,6 +544,35 @@ export function mergeContacts(
     latestContactedAt = secondary.lastContactedAt;
   }
 
+  const keptResourceName = primary.googleResourceName || secondary.googleResourceName || null;
+
+  // Clear secondary's googleResourceName first so unique index never collides if primary adopts it,
+  // and record a tombstone if secondary had a distinct Google resourceName that was merged away.
+  if (secondary.googleResourceName) {
+    db.update(contacts)
+      .set({ googleResourceName: null })
+      .where(eq(contacts.id, secondaryId))
+      .run();
+
+    if (secondary.googleResourceName !== keptResourceName) {
+      db.insert(googleSyncTombstones)
+        .values({
+          googleResourceName: secondary.googleResourceName,
+          reason: 'merged',
+          targetContactId: primaryId,
+          createdAt: new Date().toISOString(),
+        })
+        .onConflictDoNothing()
+        .run();
+    }
+  }
+
+  // Re-point any previous tombstones that referenced secondaryId to primaryId
+  db.update(googleSyncTombstones)
+    .set({ targetContactId: primaryId })
+    .where(eq(googleSyncTombstones.targetContactId, secondaryId))
+    .run();
+
   db.update(contacts)
     .set({
       fullName: fieldOverrides?.fullName ?? primary.fullName,
@@ -524,7 +591,7 @@ export function mergeContacts(
       pets: JSON.stringify(combinedPets),
       keepInTouch: primary.keepInTouch || secondary.keepInTouch,
       customIntervalDays: primary.customIntervalDays ?? secondary.customIntervalDays,
-      googleResourceName: primary.googleResourceName || secondary.googleResourceName,
+      googleResourceName: keptResourceName,
       lastContactedAt: latestContactedAt,
     })
     .where(eq(contacts.id, primaryId))

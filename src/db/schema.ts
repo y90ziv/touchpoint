@@ -173,3 +173,18 @@ export const touchpoints = sqliteTable('touchpoints', {
   note: text('note'),
   createdAt: text('created_at').notNull(),
 });
+
+export const googleSyncTombstones = sqliteTable(
+  'google_sync_tombstones',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    googleResourceName: text('google_resource_name').notNull(),
+    reason: text('reason').notNull().default('merged'), // 'merged' | 'deleted'
+    targetContactId: integer('target_contact_id').references(() => contacts.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [uniqueIndex('idx_google_tombstone_resource').on(table.googleResourceName)]
+);
+

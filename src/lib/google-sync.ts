@@ -1,7 +1,7 @@
 import { google } from 'googleapis';
 import { eq, isNotNull } from 'drizzle-orm';
 import { getDb } from '@/db';
-import { contacts, settings } from '@/db/schema';
+import { contacts, settings, googleSyncTombstones } from '@/db/schema';
 import { logger } from '@/lib/logger';
 import { splitFullName } from '@/lib/contacts-service';
 
@@ -13,17 +13,22 @@ export interface GooglePersonCandidate {
   company?: string | null;
   jobTitle?: string | null;
   birthday?: string | null;
+  updatedAt?: string | null;
 }
 
 /**
- * Pure Additive-Only Sync Engine:
- * - Inserts ONLY contacts whose `resourceName` does not yet exist in Touchpoint.
+ * Pure Additive-Only Sync Engine (Option 1 + Option 3):
+ * - Option 1 (Tombstone Ledger): Skips any `resourceName` present in `contacts.google_resource_name`
+ *   OR in `google_sync_tombstones` (previously merged or deleted Google contacts).
+ * - Option 3 (Timestamp Cutoff): When the database already has Google contacts and `lastGoogleSyncAt`
+ *   is recorded, skips any candidate whose Google `updatedAt` timestamp is older than or equal to
+ *   `lastGoogleSyncAt` (and records a tombstone so previously merged/dismissed contacts never return).
  * - NEVER overwrites existing contacts in Touchpoint.
  * - NEVER deletes contacts in Touchpoint that were removed from Google.
  */
 export function importGoogleCandidatesAdditiveOnly(
   candidates: GooglePersonCandidate[],
-  options: { skipEmailOnly?: boolean } = {}
+  options: { skipEmailOnly?: boolean; lastGoogleSyncAt?: string | null } = {}
 ): {
   scanned: number;
   imported: number;
@@ -37,9 +42,25 @@ export function importGoogleCandidatesAdditiveOnly(
     .where(isNotNull(contacts.googleResourceName))
     .all();
 
+  const tombstoneRows = db
+    .select({ googleResourceName: googleSyncTombstones.googleResourceName })
+    .from(googleSyncTombstones)
+    .all();
+
   const existingResourceNames = new Set(
     existingRows.map((r) => r.googleResourceName).filter(Boolean) as string[]
   );
+  const tombstonedResourceNames = new Set(
+    tombstoneRows.map((r) => r.googleResourceName).filter(Boolean) as string[]
+  );
+
+  const currentSettings = db.select().from(settings).get();
+  const effectiveLastSyncIso =
+    options.lastGoogleSyncAt !== undefined
+      ? options.lastGoogleSyncAt
+      : currentSettings?.lastGoogleSyncAt || null;
+  const lastSyncEpochMs =
+    existingRows.length > 0 && effectiveLastSyncIso ? Date.parse(effectiveLastSyncIso) : NaN;
 
   let imported = 0;
   let skippedExisting = 0;
@@ -52,10 +73,33 @@ export function importGoogleCandidatesAdditiveOnly(
       continue;
     }
 
-    // Rule 1: Never overwrite existing contacts
-    if (existingResourceNames.has(person.resourceName)) {
+    // Rule 1 (Option 1): Never overwrite existing contacts or re-import merged/deleted tombstones
+    if (
+      existingResourceNames.has(person.resourceName) ||
+      tombstonedResourceNames.has(person.resourceName)
+    ) {
       skippedExisting++;
       continue;
+    }
+
+    // Rule 2 (Option 3): If an initial sync has already occurred, skip candidates whose Google
+    // updateTime is older than or equal to lastGoogleSyncAt (and backfill a tombstone so they
+    // stay permanently dismissed even if touched later).
+    if (!Number.isNaN(lastSyncEpochMs) && person.updatedAt) {
+      const candidateEpochMs = Date.parse(person.updatedAt);
+      if (!Number.isNaN(candidateEpochMs) && candidateEpochMs <= lastSyncEpochMs) {
+        db.insert(googleSyncTombstones)
+          .values({
+            googleResourceName: person.resourceName,
+            reason: 'merged',
+            createdAt: now,
+          })
+          .onConflictDoNothing()
+          .run();
+        tombstonedResourceNames.add(person.resourceName);
+        skippedExisting++;
+        continue;
+      }
     }
 
     // Optional filter: skip email-only contacts if enabled
@@ -64,7 +108,7 @@ export function importGoogleCandidatesAdditiveOnly(
       continue;
     }
 
-    // Rule 2: Insert new contact with keepInTouch = false
+    // Rule 3: Insert genuinely new contact with keepInTouch = false
     const { firstName, lastName } = splitFullName(person.fullName);
     db.insert(contacts)
       .values({
@@ -89,7 +133,6 @@ export function importGoogleCandidatesAdditiveOnly(
   }
 
   // Update lastGoogleSyncAt in settings if row exists
-  const currentSettings = db.select().from(settings).get();
   if (currentSettings) {
     db.update(settings)
       .set({ lastGoogleSyncAt: now })
@@ -163,7 +206,7 @@ export async function runLiveGooglePeopleSync(redirectUri: string) {
         resourceName: 'people/me',
         pageSize: 500,
         pageToken: nextPageToken,
-        personFields: 'names,emailAddresses,phoneNumbers,birthdays,organizations',
+        personFields: 'names,emailAddresses,phoneNumbers,birthdays,organizations,metadata',
       });
 
     const connections = res.data.connections || [];
@@ -186,6 +229,15 @@ export async function runLiveGooglePeopleSync(redirectUri: string) {
         birthday = bday.year ? `${bday.year}-${mm}-${dd}` : `${mm}-${dd}`;
       }
 
+      // Extract latest updateTime from Google PersonMetadata sources
+      let updatedAt: string | null = null;
+      const sources: Array<{ updateTime?: string }> = c.metadata?.sources || [];
+      for (const src of sources) {
+        if (src.updateTime && (!updatedAt || src.updateTime > updatedAt)) {
+          updatedAt = src.updateTime;
+        }
+      }
+
       candidates.push({
         resourceName,
         fullName,
@@ -194,6 +246,7 @@ export async function runLiveGooglePeopleSync(redirectUri: string) {
         company,
         jobTitle,
         birthday,
+        updatedAt,
       });
     }
 
@@ -202,6 +255,7 @@ export async function runLiveGooglePeopleSync(redirectUri: string) {
 
   return importGoogleCandidatesAdditiveOnly(candidates, {
     skipEmailOnly: cfg.skipGoogleEmailOnly,
+    lastGoogleSyncAt: cfg.lastGoogleSyncAt,
   });
 }
 
