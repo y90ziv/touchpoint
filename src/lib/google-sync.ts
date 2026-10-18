@@ -1,0 +1,287 @@
+import { google } from 'googleapis';
+import { eq, isNotNull } from 'drizzle-orm';
+import { getDb } from '@/db';
+import { contacts, settings } from '@/db/schema';
+import { logger } from '@/lib/logger';
+import { splitFullName } from '@/lib/contacts-service';
+
+export interface GooglePersonCandidate {
+  resourceName: string;
+  fullName: string;
+  phone?: string | null;
+  email?: string | null;
+  company?: string | null;
+  jobTitle?: string | null;
+  birthday?: string | null;
+}
+
+/**
+ * Pure Additive-Only Sync Engine:
+ * - Inserts ONLY contacts whose `resourceName` does not yet exist in Touchpoint.
+ * - NEVER overwrites existing contacts in Touchpoint.
+ * - NEVER deletes contacts in Touchpoint that were removed from Google.
+ */
+export function importGoogleCandidatesAdditiveOnly(
+  candidates: GooglePersonCandidate[],
+  options: { skipEmailOnly?: boolean } = {}
+): {
+  scanned: number;
+  imported: number;
+  skippedExisting: number;
+  skippedFiltered: number;
+} {
+  const db = getDb();
+  const existingRows = db
+    .select({ googleResourceName: contacts.googleResourceName })
+    .from(contacts)
+    .where(isNotNull(contacts.googleResourceName))
+    .all();
+
+  const existingResourceNames = new Set(
+    existingRows.map((r) => r.googleResourceName).filter(Boolean) as string[]
+  );
+
+  let imported = 0;
+  let skippedExisting = 0;
+  let skippedFiltered = 0;
+  const now = new Date().toISOString();
+
+  for (const person of candidates) {
+    if (!person.resourceName || !person.fullName?.trim()) {
+      skippedFiltered++;
+      continue;
+    }
+
+    // Rule 1: Never overwrite existing contacts
+    if (existingResourceNames.has(person.resourceName)) {
+      skippedExisting++;
+      continue;
+    }
+
+    // Optional filter: skip email-only contacts if enabled
+    if (options.skipEmailOnly && !person.phone?.trim()) {
+      skippedFiltered++;
+      continue;
+    }
+
+    // Rule 2: Insert new contact with keepInTouch = false
+    const { firstName, lastName } = splitFullName(person.fullName);
+    db.insert(contacts)
+      .values({
+        source: 'google',
+        googleResourceName: person.resourceName,
+        firstName: firstName || null,
+        lastName: lastName || null,
+        fullName: person.fullName.trim(),
+        phone: person.phone?.trim() || null,
+        email: person.email?.trim() || null,
+        company: person.company?.trim() || null,
+        jobTitle: person.jobTitle?.trim() || null,
+        pets: '[]',
+        birthday: person.birthday || null,
+        keepInTouch: false,
+        createdAt: now,
+      })
+      .run();
+
+    existingResourceNames.add(person.resourceName);
+    imported++;
+  }
+
+  // Update lastGoogleSyncAt in settings if row exists
+  const currentSettings = db.select().from(settings).get();
+  if (currentSettings) {
+    db.update(settings)
+      .set({ lastGoogleSyncAt: now })
+      .where(eq(settings.id, currentSettings.id))
+      .run();
+  }
+
+  logger.info('google.sync', 'Completed additive-only Google Contacts sync', {
+    scanned: candidates.length,
+    imported,
+    skippedExisting,
+    skippedFiltered,
+  });
+
+  return {
+    scanned: candidates.length,
+    imported,
+    skippedExisting,
+    skippedFiltered,
+  };
+}
+
+export function getGoogleOAuthClient(redirectUri: string) {
+  const db = getDb();
+  const cfg = db.select().from(settings).get();
+  if (!cfg?.googleClientId || !cfg?.googleClientSecret) {
+    throw new Error('Google OAuth Client ID and Secret are not configured in Settings.');
+  }
+  const cleanRedirectUri = redirectUri.replace('0.0.0.0', 'localhost');
+  return new google.auth.OAuth2(cfg.googleClientId, cfg.googleClientSecret, cleanRedirectUri);
+}
+
+export function generateGoogleAuthUrl(redirectUri: string): string {
+  const cleanUri = redirectUri.replace('0.0.0.0', 'localhost');
+  const db = getDb();
+  const cfg = db.select().from(settings).get();
+  const oauth2Client = getGoogleOAuthClient(cleanUri);
+
+  const scopes = ['https://www.googleapis.com/auth/contacts.readonly'];
+  if (cfg?.googleCalendarPushEnabled) {
+    scopes.push('https://www.googleapis.com/auth/calendar.events');
+  }
+
+  return oauth2Client.generateAuthUrl({
+    access_type: 'offline',
+    prompt: 'consent',
+    scope: scopes,
+    state: cleanUri,
+  });
+}
+
+export async function runLiveGooglePeopleSync(redirectUri: string) {
+  const db = getDb();
+  const cfg = db.select().from(settings).get();
+  if (!cfg?.googleRefreshToken) {
+    throw new Error('Google account is not connected yet.');
+  }
+
+  const oauth2Client = getGoogleOAuthClient(redirectUri);
+  oauth2Client.setCredentials({ refresh_token: cfg.googleRefreshToken });
+
+  const peopleService = google.people({ version: 'v1', auth: oauth2Client });
+  const candidates: GooglePersonCandidate[] = [];
+  let nextPageToken: string | undefined = undefined;
+
+  logger.info('google.sync', 'Fetching contacts from Google People API (outbound permitted)');
+
+  do {
+    const res: { data: { connections?: Array<Record<string, any>>; nextPageToken?: string | null } } =
+      await peopleService.people.connections.list({
+        resourceName: 'people/me',
+        pageSize: 500,
+        pageToken: nextPageToken,
+        personFields: 'names,emailAddresses,phoneNumbers,birthdays,organizations',
+      });
+
+    const connections = res.data.connections || [];
+    for (const c of connections) {
+      const resourceName = c.resourceName || '';
+      const fullName = c.names?.[0]?.displayName || '';
+      if (!resourceName || !fullName) continue;
+
+      const phone = c.phoneNumbers?.[0]?.value || null;
+      const email = c.emailAddresses?.[0]?.value || null;
+      const org = c.organizations?.[0];
+      const company = org?.name || null;
+      const jobTitle = org?.title || null;
+
+      let birthday: string | null = null;
+      const bday = c.birthdays?.[0]?.date;
+      if (bday && bday.month && bday.day) {
+        const mm = String(bday.month).padStart(2, '0');
+        const dd = String(bday.day).padStart(2, '0');
+        birthday = bday.year ? `${bday.year}-${mm}-${dd}` : `${mm}-${dd}`;
+      }
+
+      candidates.push({
+        resourceName,
+        fullName,
+        phone,
+        email,
+        company,
+        jobTitle,
+        birthday,
+      });
+    }
+
+    nextPageToken = res.data.nextPageToken || undefined;
+  } while (nextPageToken);
+
+  return importGoogleCandidatesAdditiveOnly(candidates, {
+    skipEmailOnly: cfg.skipGoogleEmailOnly,
+  });
+}
+
+/**
+ * Outbound Google Calendar Push (Option 3):
+ * Disabled by default for strict privacy. When explicitly enabled by the user,
+ * pushes upcoming touchpoint due dates outward from the container to Google Calendar API.
+ */
+export async function pushScheduleToGoogleCalendar(
+  redirectUri: string,
+  events: Array<{ contactId: number; fullName: string; nextDueDate: string; intervalDays: number }>
+): Promise<{ pushed: number }> {
+  const db = getDb();
+  const cfg = db.select().from(settings).get();
+
+  if (!cfg?.googleCalendarPushEnabled) {
+    throw new Error(
+      'Outbound Google Calendar Push is disabled. Enable it first to allow outbound connections to Google Calendar URLs.'
+    );
+  }
+
+  if (!cfg.googleRefreshToken) {
+    throw new Error('Google account is not connected yet.');
+  }
+
+  const oauth2Client = getGoogleOAuthClient(redirectUri);
+  oauth2Client.setCredentials({ refresh_token: cfg.googleRefreshToken });
+
+  const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+  const calendarId = cfg.googleCalendarId || 'primary';
+
+  logger.info(
+    'google.calendar.push',
+    `Pushing ${events.length} touchpoint reminders outward to Google Calendar (${calendarId})`
+  );
+
+  let pushed = 0;
+  for (const ev of events) {
+    await calendar.events.insert({
+      calendarId,
+      requestBody: {
+        summary: `📞 Touchpoint: Reach out to ${ev.fullName}`,
+        description: `Scheduled Touchpoint reminder (every ${ev.intervalDays} days).`,
+        start: { date: ev.nextDueDate },
+        end: { date: ev.nextDueDate },
+      },
+    });
+    pushed++;
+  }
+
+  logger.info('google.calendar.push', 'Completed outbound Google Calendar push', { pushed });
+  return { pushed };
+}
+
+export async function testGoogleConnection(redirectUri: string): Promise<{
+  ok: boolean;
+  totalGoogleContactsSampled: number;
+}> {
+  const db = getDb();
+  const cfg = db.select().from(settings).get();
+  if (!cfg?.googleRefreshToken) {
+    throw new Error('No Google Refresh Token configured. Click "Authorize with Google" or paste a Refresh Token first.');
+  }
+
+  const oauth2Client = getGoogleOAuthClient(redirectUri);
+  oauth2Client.setCredentials({ refresh_token: cfg.googleRefreshToken });
+
+  const peopleService = google.people({ version: 'v1', auth: oauth2Client });
+  const res: { data: { connections?: Array<Record<string, any>>; totalItems?: number | null } } =
+    await peopleService.people.connections.list({
+      resourceName: 'people/me',
+      pageSize: 10,
+      personFields: 'names',
+    });
+
+  const count = res.data.totalItems ?? (res.data.connections?.length || 0);
+  logger.info('google.test', 'Verified Google People API connection', { count });
+  return {
+    ok: true,
+    totalGoogleContactsSampled: count,
+  };
+}
+

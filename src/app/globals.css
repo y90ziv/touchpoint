@@ -1,0 +1,363 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 0. Obsidian & Electric Cobalt (Default Signature) */
+[data-theme="leadflow"][data-mode="dark"],
+[data-theme="cobalt"][data-mode="dark"],
+:root[data-mode="dark"],
+:root:not([data-mode="light"]) {
+  --tp-bg: #09090b;
+  --tp-sidebar: #0c0d0f;
+  --tp-card: #121316;
+  --tp-card-hover: #17181d;
+  --tp-border: rgba(255, 255, 255, 0.09);
+  --tp-text: #fafafa;
+  --tp-muted: #8e8e99;
+  --tp-primary: #2b7fff;
+  --tp-primary-fg: #ffffff;
+  --tp-overdue: #ef4444;
+  --tp-warning: #f59e0b;
+  --tp-success: #10b981;
+  --tp-font-heading: var(--font-geist-sans), -apple-system, sans-serif;
+  --tp-font-body: var(--font-geist-sans), -apple-system, sans-serif;
+}
+
+[data-theme="leadflow"][data-mode="light"],
+[data-theme="cobalt"][data-mode="light"],
+:root[data-mode="light"] {
+  --tp-bg: #fbfbfc;
+  --tp-sidebar: #f4f4f6;
+  --tp-card: #ffffff;
+  --tp-card-hover: #f7f7f9;
+  --tp-border: rgba(0, 0, 0, 0.08);
+  --tp-text: #09090b;
+  --tp-muted: #64748b;
+  --tp-primary: #2b7fff;
+  --tp-primary-fg: #ffffff;
+  --tp-overdue: #ef4444;
+  --tp-warning: #f59e0b;
+  --tp-success: #10b981;
+  --tp-font-heading: var(--font-geist-sans), -apple-system, sans-serif;
+  --tp-font-body: var(--font-geist-sans), -apple-system, sans-serif;
+}
+
+/* 1. Warm Studio */
+[data-theme="studio"][data-mode="dark"] {
+  --tp-bg: #0c0b0a;
+  --tp-sidebar: #100f0e;
+  --tp-card: #161514;
+  --tp-card-hover: #1d1b1a;
+  --tp-border: rgba(255, 255, 255, 0.09);
+  --tp-text: #fafaf9;
+  --tp-muted: #9c9994;
+  --tp-primary: #e85d3a;
+  --tp-primary-fg: #ffffff;
+  --tp-overdue: #e85d3a;
+  --tp-warning: #d97706;
+  --tp-success: #10b981;
+  --tp-font-heading: var(--font-geist-sans), sans-serif;
+  --tp-font-body: var(--font-geist-sans), sans-serif;
+}
+
+[data-theme="studio"][data-mode="light"] {
+  --tp-bg: #f9f8f6;
+  --tp-sidebar: #f2efe9;
+  --tp-card: #ffffff;
+  --tp-card-hover: #f5f3ef;
+  --tp-border: #e4e0d8;
+  --tp-text: #18181b;
+  --tp-muted: #71717a;
+  --tp-primary: #e85d3a;
+  --tp-primary-fg: #ffffff;
+  --tp-overdue: #dc2626;
+  --tp-warning: #d97706;
+  --tp-success: #059669;
+  --tp-font-heading: 'Outfit', sans-serif;
+  --tp-font-body: 'Figtree', sans-serif;
+}
+
+/* 2. Nordic Pine & Sage */
+[data-theme="nordic"][data-mode="dark"] {
+  --tp-bg: #0d1513;
+  --tp-sidebar: #090f0e;
+  --tp-card: #14201d;
+  --tp-card-hover: #1b2a26;
+  --tp-border: #233530;
+  --tp-text: #f0fdf4;
+  --tp-muted: #86a39b;
+  --tp-primary: #10b981;
+  --tp-primary-fg: #052e16;
+  --tp-overdue: #e07a5f;
+  --tp-warning: #f59e0b;
+  --tp-success: #10b981;
+  --tp-font-heading: 'Plus Jakarta Sans', sans-serif;
+  --tp-font-body: 'Inter', sans-serif;
+}
+
+[data-theme="nordic"][data-mode="light"] {
+  --tp-bg: #f4f6f4;
+  --tp-sidebar: #ebefec;
+  --tp-card: #ffffff;
+  --tp-card-hover: #f8faf8;
+  --tp-border: #d8e0da;
+  --tp-text: #111c18;
+  --tp-muted: #5c7068;
+  --tp-primary: #059669;
+  --tp-primary-fg: #ffffff;
+  --tp-overdue: #d9534f;
+  --tp-warning: #d97706;
+  --tp-success: #059669;
+  --tp-font-heading: 'Plus Jakarta Sans', sans-serif;
+  --tp-font-body: 'Inter', sans-serif;
+}
+
+/* 3. Midnight Indigo */
+[data-theme="midnight"][data-mode="dark"] {
+  --tp-bg: #090d16;
+  --tp-sidebar: #06090f;
+  --tp-card: #111827;
+  --tp-card-hover: #1a2234;
+  --tp-border: #1f2937;
+  --tp-text: #f8fafc;
+  --tp-muted: #94a3b8;
+  --tp-primary: #6366f1;
+  --tp-primary-fg: #ffffff;
+  --tp-overdue: #f43f5e;
+  --tp-warning: #f59e0b;
+  --tp-success: #10b981;
+  --tp-font-heading: 'Space Grotesk', sans-serif;
+  --tp-font-body: 'DM Sans', sans-serif;
+}
+
+[data-theme="midnight"][data-mode="light"] {
+  --tp-bg: #f8fafc;
+  --tp-sidebar: #f1f5f9;
+  --tp-card: #ffffff;
+  --tp-card-hover: #f8fafc;
+  --tp-border: #e2e8f0;
+  --tp-text: #0f172a;
+  --tp-muted: #64748b;
+  --tp-primary: #4f46e5;
+  --tp-primary-fg: #ffffff;
+  --tp-overdue: #e11d48;
+  --tp-warning: #d97706;
+  --tp-success: #059669;
+  --tp-font-heading: 'Space Grotesk', sans-serif;
+  --tp-font-body: 'DM Sans', sans-serif;
+}
+
+/* 4. Kyoto Ink & Gold */
+[data-theme="kyoto"][data-mode="dark"] {
+  --tp-bg: #121316;
+  --tp-sidebar: #0d0e11;
+  --tp-card: #191b20;
+  --tp-card-hover: #21242b;
+  --tp-border: #2a2d36;
+  --tp-text: #faf8f5;
+  --tp-muted: #9ca3af;
+  --tp-primary: #d97706;
+  --tp-primary-fg: #ffffff;
+  --tp-overdue: #ef4444;
+  --tp-warning: #f59e0b;
+  --tp-success: #10b981;
+  --tp-font-heading: 'Sora', sans-serif;
+  --tp-font-body: 'Plus Jakarta Sans', sans-serif;
+}
+
+[data-theme="kyoto"][data-mode="light"] {
+  --tp-bg: #faf8f5;
+  --tp-sidebar: #f2efe9;
+  --tp-card: #ffffff;
+  --tp-card-hover: #f9f6f0;
+  --tp-border: #e5e0d5;
+  --tp-text: #18181b;
+  --tp-muted: #71717a;
+  --tp-primary: #b45309;
+  --tp-primary-fg: #ffffff;
+  --tp-overdue: #dc2626;
+  --tp-warning: #d97706;
+  --tp-success: #059669;
+  --tp-font-heading: 'Sora', sans-serif;
+  --tp-font-body: 'Plus Jakarta Sans', sans-serif;
+}
+
+body {
+  background-color: var(--tp-bg);
+  color: var(--tp-text);
+  font-family: var(--tp-font-body);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--tp-font-heading);
+}
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 0.9rem;
+  padding-right: 2.25rem !important;
+}
+
+/* Custom Themed Scrollbars */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--tp-border);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--tp-muted);
+}
+
+/* React Datepicker Touchpoint Theme Overrides */
+.react-datepicker-wrapper {
+  width: 100%;
+}
+.react-datepicker-popper {
+  z-index: 100 !important;
+}
+.react-datepicker {
+  background-color: var(--tp-card) !important;
+  color: var(--tp-text) !important;
+  border: 1px solid var(--tp-border) !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+  font-family: inherit !important;
+  padding: 0.5rem;
+}
+.react-datepicker__header {
+  background-color: var(--tp-bg) !important;
+  border-bottom: 1px solid var(--tp-border) !important;
+  border-top-left-radius: 0.5rem !important;
+  border-top-right-radius: 0.5rem !important;
+  padding-top: 0.5rem;
+}
+.react-datepicker__current-month,
+.react-datepicker-time__header,
+.react-datepicker-year-header {
+  color: var(--tp-text) !important;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+.react-datepicker__day-name {
+  color: var(--tp-muted) !important;
+  font-weight: 500;
+  font-size: 0.75rem;
+}
+.react-datepicker__day {
+  color: var(--tp-text) !important;
+  border-radius: 0.375rem !important;
+  font-size: 0.8125rem;
+  transition: all 0.15s ease;
+}
+.react-datepicker__day:hover {
+  background-color: var(--tp-card-hover) !important;
+  color: var(--tp-text) !important;
+}
+.react-datepicker__day--selected,
+.react-datepicker__day--keyboard-selected {
+  background-color: var(--tp-primary) !important;
+  color: var(--tp-primary-fg) !important;
+  font-weight: 600;
+}
+.react-datepicker__day--today {
+  font-weight: 700;
+  border: 1px solid var(--tp-primary) !important;
+}
+.react-datepicker__day--outside-month {
+  color: var(--tp-muted) !important;
+  opacity: 0.35;
+}
+.react-datepicker__triangle {
+  display: none !important;
+}
+.react-datepicker__year-select,
+.react-datepicker__month-select {
+  background-color: var(--tp-bg) !important;
+  color: var(--tp-text) !important;
+  border: 1px solid var(--tp-border) !important;
+  border-radius: 0.375rem !important;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  margin: 0 0.25rem;
+}
+.react-datepicker__navigation-icon::before {
+  border-color: var(--tp-muted) !important;
+}
+.react-datepicker__navigation:hover .react-datepicker__navigation-icon::before {
+  border-color: var(--tp-text) !important;
+}
+.react-datepicker__close-icon {
+  padding-right: 8px !important;
+}
+.react-datepicker__close-icon::after {
+  background-color: var(--tp-muted) !important;
+  color: var(--tp-bg) !important;
+  font-size: 14px !important;
+  width: 18px !important;
+  height: 18px !important;
+  line-height: 16px !important;
+}
+.react-datepicker__close-icon:hover::after {
+  background-color: var(--tp-primary) !important;
+}
+
+/* Full Viewport 100% Scaling — No Outer Slack/Scrollbar */
+html, body {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Accessible & Visible Range Slider Track & Thumb */
+input[type="range"] {
+  accent-color: var(--tp-primary);
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 8px;
+  background-color: rgba(140, 140, 150, 0.25);
+  border: 1px solid var(--tp-border);
+  border-radius: 9999px;
+}
+
+input[type="range"]::-moz-range-track {
+  height: 8px;
+  background-color: rgba(140, 140, 150, 0.25);
+  border: 1px solid var(--tp-border);
+  border-radius: 9999px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  margin-top: -5px;
+  height: 18px;
+  width: 18px;
+  border-radius: 9999px;
+  background-color: var(--tp-primary);
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  -webkit-appearance: none;
+}
+
+input[type="range"]::-moz-range-thumb {
+  height: 18px;
+  width: 18px;
+  border-radius: 9999px;
+  background-color: var(--tp-primary);
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+}
+
