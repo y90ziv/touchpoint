@@ -1,0 +1,43 @@
+{
+  "name": "Touchpoint — SBB Chronometer Dispatch × Apple HIG",
+  "direction": "sbb-chronometer-apple-hig",
+  "precedence": "apple-design",
+  "defaultTheme": "sbb",
+  "fonts": {
+    "sans": "Plus Jakarta Sans, -apple-system, BlinkMacSystemFont, sans-serif",
+    "mono": "JetBrains Mono, ui-monospace, SFMono-Regular, monospace"
+  },
+  "tokens": {
+    "light": {
+      "bg": "#f6f6f3",
+      "card": "#ffffff",
+      "fg": "#111317",
+      "muted": "#525866",
+      "border": "#d0d4dc",
+      "primary": "#c92121",
+      "overdue": "#c92121",
+      "dueSoon": "#b45309",
+      "onTrack": "#0f766e"
+    },
+    "dark": {
+      "bg": "#0f1115",
+      "card": "#171a20",
+      "fg": "#f3f5f8",
+      "muted": "#a0a8b8",
+      "border": "#2a2f3a",
+      "primary": "#ef4444",
+      "overdue": "#f87171",
+      "dueSoon": "#fbbf24",
+      "onTrack": "#34d399"
+    }
+  },
+  "accessibility": {
+    "minContrastText": 4.5,
+    "minDesktopBodyPx": 13,
+    "minCaptionPx": 11,
+    "minHitTargetPt": 28,
+    "prefersReducedMotion": true,
+    "prefersReducedTransparency": true,
+    "prefersContrastMore": true
+  }
+}

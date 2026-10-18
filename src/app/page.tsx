@@ -445,10 +445,10 @@ export default function TouchpointApp() {
     'dashboard' | 'contacts' | 'groups' | 'map' | 'calendar' | 'settings' | 'help'
   >('dashboard');
 
-  const [themePreset, setThemePreset] = useState<'leadflow' | 'studio' | 'nordic' | 'midnight' | 'kyoto'>(
-    'leadflow'
+  const [themePreset, setThemePreset] = useState<'sbb' | 'leadflow' | 'studio' | 'nordic' | 'midnight' | 'kyoto'>(
+    'sbb'
   );
-  const [themeMode, setThemeMode] = useState<'dark' | 'light'>('dark');
+  const [themeMode, setThemeMode] = useState<'dark' | 'light'>('light');
 
   const [contacts, setContacts] = useState<ContactItem[]>([]);
   const [groups, setGroups] = useState<GroupItem[]>([]);
@@ -736,21 +736,21 @@ export default function TouchpointApp() {
       if (rData.nodes) setGraph(rData);
       if (sData.settings) {
         setSettingsState(sData.settings);
-        let preset = (sData.settings.themePreset || 'leadflow') as typeof themePreset;
+        let preset = (sData.settings.themePreset || 'sbb') as typeof themePreset;
+        let mode: 'dark' | 'light' = sData.settings.themeMode === 'dark' ? 'dark' : 'light';
         if (
-          preset === 'studio' &&
           typeof window !== 'undefined' &&
-          !localStorage.getItem('tp_leadflow_migrated_v1')
+          !localStorage.getItem('tp_sbb_dispatch_migrated_v1')
         ) {
-          preset = 'leadflow';
-          localStorage.setItem('tp_leadflow_migrated_v1', '1');
+          preset = 'sbb';
+          mode = 'light';
+          localStorage.setItem('tp_sbb_dispatch_migrated_v1', '1');
           fetch('/api/settings', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ themePreset: 'leadflow' }),
+            body: JSON.stringify({ themePreset: 'sbb', themeMode: 'light' }),
           }).catch(() => {});
         }
-        const mode = sData.settings.themeMode === 'light' ? 'light' : 'dark';
         setThemePreset(preset);
         setThemeMode(mode);
         applyThemeAttributes(preset, mode);
@@ -1072,7 +1072,7 @@ export default function TouchpointApp() {
   };
 
   const handleSwitchTheme = async (
-    preset: 'leadflow' | 'studio' | 'nordic' | 'midnight' | 'kyoto',
+    preset: 'sbb' | 'leadflow' | 'studio' | 'nordic' | 'midnight' | 'kyoto',
     mode: 'dark' | 'light'
   ) => {
     setThemePreset(preset);
@@ -2279,25 +2279,29 @@ export default function TouchpointApp() {
 
   return (
     <div className="h-screen w-screen overflow-hidden flex bg-background text-foreground">
-      {/* Left Sidebar Navigation (LeadFlow-AI Architectural Sidebar) */}
-      <aside className="w-64 h-full overflow-y-auto bg-sidebar border-r border-border flex flex-col justify-between p-5 shrink-0 select-none">
-        <div className="space-y-6">
-          {/* Brand Header */}
-          <div className="flex items-center justify-between px-1">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-primary/15 border border-primary/25 flex items-center justify-center shadow-sm shrink-0">
+      {/* Left Sidebar Navigation (SBB Anodised Graphite Rail — Refined per Apple HIG sidebars.md) */}
+      <aside className="w-64 h-full overflow-y-auto bg-[#141619] text-[#f6f6f3] border-r border-[#262b36] flex flex-col justify-between p-4 shrink-0 select-none">
+        <div className="space-y-5">
+          {/* Brand Header (branding.md: concise identity, defers to content) */}
+          <div className="flex items-center justify-between px-2 pb-3.5 border-b border-[#262b36]">
+            <div className="flex items-center gap-2.5">
+              <div className="relative w-8 h-8 rounded-lg bg-[#1f2329] border border-[#323844] flex items-center justify-center shrink-0">
                 <img
                   src="/logo.png"
                   alt="Touchpoint Logo"
-                  className="w-6 h-6 rounded-lg object-contain"
+                  className="w-5 h-5 object-contain"
+                />
+                <span
+                  className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#c92121] ring-2 ring-[#141619]"
+                  title="Cadence Engine Active"
                 />
               </div>
               <div>
-                <div className="font-bold text-base tracking-tight text-foreground leading-none">
+                <div className="font-bold text-[15px] tracking-tight text-[#f6f6f3] leading-tight">
                   Touchpoint
                 </div>
-                <div className="text-[10px] font-medium text-muted mt-1">
-                  Relationship CRM
+                <div className="font-mono text-[11px] font-medium text-[#a3aab8] leading-tight">
+                  Cadence PRM
                 </div>
               </div>
             </div>
@@ -2305,20 +2309,24 @@ export default function TouchpointApp() {
               onClick={() =>
                 handleSwitchTheme(themePreset, themeMode === 'dark' ? 'light' : 'dark')
               }
-              title="Toggle Dark / Light Mode"
-              className="p-2 rounded-xl border border-border bg-card hover:bg-card-hover text-muted hover:text-foreground transition shadow-sm"
+              title="Toggle Appearance"
+              aria-label="Toggle Light or Dark Appearance"
+              className="min-h-[28px] min-w-[28px] p-1.5 rounded-lg border border-[#2d323d] bg-[#1c2026] hover:bg-[#282d36] text-[#d6dae2] hover:text-[#f6f6f3] flex items-center justify-center transition"
             >
               {themeMode === 'dark' ? (
                 <Sun className="w-4 h-4 text-amber-400" />
               ) : (
-                <Moon className="w-4 h-4 text-primary" />
+                <Moon className="w-4 h-4 text-[#f6f6f3]" />
               )}
             </button>
           </div>
 
-          {/* Primary Navigation (LeadFlow Main Section) */}
-          <div className="space-y-1.5">
-            <nav className="space-y-1 text-xs">
+          {/* Primary Navigation (sidebars.md: succinct Title-Style labels, <=2 levels, no fake 01-07 sequence) */}
+          <div className="space-y-1">
+            <div className="px-2.5 pb-1 text-[11px] font-semibold text-[#a3aab8]">
+              Workspace
+            </div>
+            <nav className="space-y-0.5 text-[13px]" aria-label="Workspace Navigation">
               {[
                 {
                   id: 'dashboard',
@@ -2327,10 +2335,24 @@ export default function TouchpointApp() {
                   badge: attentionContacts.length,
                   urgent: attentionContacts.length > 0,
                 },
-                { id: 'contacts', label: 'Contacts', icon: Users, badge: contacts.length },
-                { id: 'groups', label: 'Groups', icon: FolderKanban, badge: groups.length },
+                {
+                  id: 'contacts',
+                  label: 'Contacts',
+                  icon: Users,
+                  badge: contacts.length,
+                },
+                {
+                  id: 'groups',
+                  label: 'Groups',
+                  icon: FolderKanban,
+                  badge: groups.length,
+                },
                 { id: 'map', label: 'Relationships', icon: Network },
-                { id: 'calendar', label: 'Calendar & Schedule', icon: CalendarIcon },
+                {
+                  id: 'calendar',
+                  label: 'Calendar & Schedule',
+                  icon: CalendarIcon,
+                },
               ].map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
@@ -2338,24 +2360,28 @@ export default function TouchpointApp() {
                   <button
                     key={item.id}
                     onClick={() => setActiveTab(item.id as typeof activeTab)}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-left transition-all duration-150 ${
+                    className={`w-full min-h-[34px] flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left transition-colors ${
                       isActive
-                        ? 'bg-primary/15 text-primary font-semibold shadow-sm'
-                        : 'text-muted hover:text-foreground hover:bg-card/70 font-medium'
+                        ? 'bg-[#252a34] text-[#ffffff] font-semibold border-l-[3px] border-[#c92121]'
+                        : 'text-[#d6dae2] hover:text-[#ffffff] hover:bg-[#1d2129] font-medium'
                     }`}
                   >
-                    <span className="flex items-center gap-3">
-                      <Icon className={`w-4 h-4 ${isActive ? 'text-primary' : 'text-muted'}`} />
-                      <span className="text-[13px]">{item.label}</span>
+                    <span className="flex items-center gap-2.5 min-w-0">
+                      <Icon
+                        className={`w-4 h-4 shrink-0 ${
+                          isActive ? 'text-[#ff5c5c]' : 'text-[#a3aab8]'
+                        }`}
+                      />
+                      <span className="truncate">{item.label}</span>
                     </span>
                     {item.badge !== undefined && item.badge > 0 && (
                       <span
-                        className={`font-mono text-[10px] px-2 py-0.5 rounded-full ${
+                        className={`font-mono text-[11px] px-1.5 py-0.5 rounded-md font-semibold tabular-nums ${
                           item.urgent
-                            ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30 font-semibold'
+                            ? 'bg-[#c92121] text-white'
                             : isActive
-                            ? 'bg-primary/20 text-primary font-semibold'
-                            : 'bg-card border border-border text-muted'
+                            ? 'bg-[#323846] text-[#f6f6f3]'
+                            : 'bg-[#1c2026] text-[#b8bfcc]'
                         }`}
                       >
                         {item.badge}
@@ -2367,12 +2393,12 @@ export default function TouchpointApp() {
             </nav>
           </div>
 
-          {/* Secondary Navigation (LeadFlow Settings Section) */}
-          <div className="space-y-1.5 pt-2 border-t border-border/60">
-            <div className="px-3.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted/70">
-              Settings
+          {/* Secondary Navigation */}
+          <div className="space-y-1 pt-3 border-t border-[#262b36]">
+            <div className="px-2.5 pb-1 text-[11px] font-semibold text-[#a3aab8]">
+              System
             </div>
-            <nav className="space-y-1 text-xs">
+            <nav className="space-y-0.5 text-[13px]" aria-label="System Navigation">
               {[
                 { id: 'settings', label: 'Settings', icon: SettingsIcon },
                 { id: 'help', label: 'Help & Guide', icon: BookOpen },
@@ -2383,15 +2409,19 @@ export default function TouchpointApp() {
                   <button
                     key={item.id}
                     onClick={() => setActiveTab(item.id as typeof activeTab)}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-left transition-all duration-150 ${
+                    className={`w-full min-h-[34px] flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left transition-colors ${
                       isActive
-                        ? 'bg-primary/15 text-primary font-semibold shadow-sm'
-                        : 'text-muted hover:text-foreground hover:bg-card/70 font-medium'
+                        ? 'bg-[#252a34] text-[#ffffff] font-semibold border-l-[3px] border-[#c92121]'
+                        : 'text-[#d6dae2] hover:text-[#ffffff] hover:bg-[#1d2129] font-medium'
                     }`}
                   >
-                    <span className="flex items-center gap-3">
-                      <Icon className={`w-4 h-4 ${isActive ? 'text-primary' : 'text-muted'}`} />
-                      <span className="text-[13px]">{item.label}</span>
+                    <span className="flex items-center gap-2.5">
+                      <Icon
+                        className={`w-4 h-4 ${
+                          isActive ? 'text-[#ff5c5c]' : 'text-[#a3aab8]'
+                        }`}
+                      />
+                      <span>{item.label}</span>
                     </span>
                   </button>
                 );
@@ -2400,116 +2430,121 @@ export default function TouchpointApp() {
           </div>
         </div>
 
-        {/* Bottom LeadFlow Feature Card */}
-        <div className="space-y-3">
-          <div className="rounded-2xl bg-gradient-to-br from-primary/15 via-card to-card border border-primary/25 p-4 space-y-2.5 shadow-sm">
+        {/* Bottom Network Cadence Status Readout (sidebars.md: passive telemetry only; primary actions live in toolbar) */}
+        <div className="space-y-2.5 pt-3 border-t border-[#262b36]">
+          <div className="rounded-lg bg-[#1b1f27] border border-[#2d323e] p-3 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-primary flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" /> Network Health
+              <span className="text-[12px] font-semibold text-[#d6dae2] flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" /> Network Health
               </span>
-              <span className="text-xs font-bold font-mono text-foreground">
+              <span className="text-[12px] font-bold font-mono text-[#ffffff] tabular-nums">
                 {health.scorePercent}%
               </span>
             </div>
-            <div className="w-full h-1.5 rounded-full bg-background overflow-hidden border border-border/60">
+            <div className="w-full h-1.5 rounded-full bg-[#0f1115] overflow-hidden">
               <div
-                className="h-full rounded-full bg-primary transition-all duration-500"
+                className="h-full bg-[#c92121] rounded-full transition-all duration-300"
                 style={{ width: `${Math.max(4, Math.min(100, health.scorePercent))}%` }}
               />
             </div>
-            <p className="text-[11px] text-muted leading-snug">
-              {health.onTrackCount} of {health.totalTrackedCount} tracked contacts on schedule.
+            <p className="font-mono text-[11px] text-[#b8bfcc] leading-snug tabular-nums">
+              {health.onTrackCount} of {health.totalTrackedCount} on schedule
             </p>
-            <button
-              type="button"
-              onClick={() => setShowNewContactModal(true)}
-              className="w-full py-2 rounded-xl bg-primary hover:opacity-95 text-primary-fg font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm transition"
-            >
-              <Plus className="w-3.5 h-3.5" /> Add New Contact
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between px-2 text-[11px] text-muted">
-            <span>Theme: <strong className="capitalize text-foreground font-medium">{themePreset}</strong></span>
-            <span className="text-emerald-400 font-medium">● Additive Sync</span>
           </div>
         </div>
       </aside>
 
-      {/* Main Content Shell (LeadFlow Top Header + Scrollable Canvas) */}
+      {/* Main Content Shell */}
       <main className="flex-1 h-full flex flex-col overflow-hidden bg-background">
         {statusToast && (
-          <div className="fixed bottom-5 right-5 z-50 bg-card border border-primary text-foreground px-4 py-2.5 rounded-xl shadow-xl text-xs font-medium flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+          <div
+            role="status"
+            aria-live="polite"
+            className="fixed bottom-5 right-5 z-50 bg-[#141619] border border-[#323846] text-[#f6f6f3] px-4 py-2.5 rounded-xl shadow-xl text-[13px] font-medium flex items-center gap-2.5"
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-400" />
             {statusToast}
           </div>
         )}
 
-        {/* LeadFlow Sticky Top Utility Header Bar */}
-        <header className="h-16 px-8 border-b border-border bg-card/80 backdrop-blur-sm flex items-center justify-between gap-4 shrink-0">
-          {/* Left: Global Search Pill */}
-          <div
+        {/* Sticky Top Toolbar (liquid-glass.md: Functional Layer translucent bar) */}
+        <header className="h-14 px-6 border-b border-border apple-glass-bar flex items-center justify-between gap-4 shrink-0 z-20">
+          {/* Left: Global Search Field Trigger (searching.md: primary position, clear scope) */}
+          <button
+            type="button"
             onClick={() => setShowQuickSearchModal(true)}
-            className="flex-1 max-w-md bg-background hover:bg-card-hover border border-border px-4 py-2 rounded-full flex items-center justify-between text-xs text-muted cursor-pointer transition shadow-sm"
+            className="flex-1 max-w-md min-h-[34px] bg-background/90 hover:bg-card border border-border px-3 py-1.5 rounded-lg flex items-center justify-between text-[13px] text-muted cursor-pointer transition"
           >
-            <span className="flex items-center gap-2.5 min-w-0">
-              <Search className="w-3.5 h-3.5 text-muted shrink-0" />
+            <span className="flex items-center gap-2 min-w-0">
+              <Search className="w-4 h-4 text-muted shrink-0" />
               <span className="truncate">
                 {searchQuery
-                  ? `Searching: "${searchQuery}"`
-                  : 'Search contacts, company, notes...'}
+                  ? `Filtered by "${searchQuery}"`
+                  : 'Search Contacts, Companies, or Notes…'}
               </span>
             </span>
-            <kbd className="px-2 py-0.5 rounded-md bg-card border border-border text-[10px] font-mono font-medium shrink-0 ml-2">
+            <kbd className="px-1.5 py-0.5 rounded bg-card border border-border text-[11px] font-mono font-medium text-muted shrink-0 ml-2">
               ⌘K
             </kbd>
-          </div>
+          </button>
 
-          {/* Right: Vacation Mode, Notifications/Duplicates & User Profile Pill */}
-          <div className="flex items-center gap-3 text-xs">
+          {/* Right: Toolbar Actions & Operator Profile (buttons.md: one prominent primary button, comfortable >=28pt hit targets) */}
+          <div className="flex items-center gap-2 text-[13px]">
             <button
+              type="button"
               onClick={() => setShowPauseModal(true)}
-              className={`px-3.5 py-2 rounded-full border font-medium flex items-center gap-1.5 transition ${
+              className={`min-h-[32px] px-3 py-1.5 rounded-lg border font-medium flex items-center gap-1.5 transition ${
                 isGlobalPaused
-                  ? 'bg-amber-500/15 border-amber-500/50 text-amber-300 hover:bg-amber-500/25'
-                  : 'bg-background border-border text-muted hover:text-foreground hover:bg-card-hover'
+                  ? 'bg-amber-500/15 border-amber-500/40 text-amber-700 dark:text-amber-300'
+                  : 'bg-background border-border text-foreground hover:bg-card-hover'
               }`}
             >
-              <Palmtree className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <Palmtree className="w-3.5 h-3.5 text-amber-500 shrink-0" />
               <span>
-                {isGlobalPaused ? `Paused (${remainingPauseDays}d left)` : 'Vacation Mode'}
+                {isGlobalPaused ? `Paused (${remainingPauseDays}d)` : 'Vacation Mode…'}
               </span>
             </button>
 
             {duplicates.length > 0 && (
               <button
+                type="button"
                 onClick={() => setShowMergeModal(true)}
-                className="px-3 py-2 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 font-medium flex items-center gap-1.5 hover:bg-amber-500/20 transition"
+                className="min-h-[32px] px-3 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-800 dark:text-amber-300 font-medium flex items-center gap-1.5 hover:bg-amber-500/25 transition"
                 title="Review potential duplicate contacts"
               >
                 <GitMerge className="w-3.5 h-3.5" />
-                <span>{duplicates.length} Duplicates</span>
+                <span>Merge Duplicates ({duplicates.length})…</span>
               </button>
             )}
 
-            {/* LeadFlow User Profile Pill (Avatar + Name + Role + Logout) */}
-            <div className="flex items-center gap-2.5 pl-3 border-l border-border">
-              <div className="w-8 h-8 rounded-full bg-primary text-primary-fg flex items-center justify-center font-bold text-xs shadow-sm shrink-0">
-                {(currentUser?.username || 'O').slice(0, 2).toUpperCase()}
+            <button
+              type="button"
+              onClick={() => setShowNewContactModal(true)}
+              className="min-h-[32px] px-3.5 py-1.5 rounded-lg bg-primary hover:opacity-95 text-primary-fg font-semibold flex items-center gap-1.5 shadow-xs transition"
+            >
+              <Plus className="w-4 h-4" />
+              <span>New Contact…</span>
+            </button>
+
+            {/* Operator Profile */}
+            <div className="flex items-center gap-2 pl-2.5 border-l border-border">
+              <div className="w-7 h-7 rounded-full bg-[#141619] text-[#f6f6f3] flex items-center justify-center font-mono font-semibold text-[11px] shrink-0">
+                {(currentUser?.username || 'OP').slice(0, 2).toUpperCase()}
               </div>
-              <div className="hidden sm:block leading-tight">
-                <div className="font-semibold text-foreground text-xs">
+              <div className="hidden md:block leading-tight">
+                <div className="font-semibold text-foreground text-[12px]">
                   {currentUser?.username || 'Workspace Owner'}
                 </div>
-                <div className="text-[10px] text-muted">Admin</div>
               </div>
               {!authDisabled && currentUser && (
                 <button
+                  type="button"
                   onClick={handleLogout}
-                  title="Sign out"
-                  className="p-1.5 rounded-lg hover:bg-card-hover text-muted hover:text-rose-400 transition ml-1"
+                  title="Sign Out"
+                  aria-label="Sign Out"
+                  className="min-h-[28px] min-w-[28px] p-1.5 rounded-lg hover:bg-card-hover text-muted hover:text-overdue flex items-center justify-center transition"
                 >
-                  <LogOut className="w-3.5 h-3.5" />
+                  <LogOut className="w-4 h-4" />
                 </button>
               )}
             </div>
@@ -3328,49 +3363,59 @@ export default function TouchpointApp() {
             </div>
           )}
 
-        {/* TAB 2: CONTACTS DIRECTORY, BULK OPS & MERGER */}
+        {/* TAB 2: CONTACTS DIRECTORY, BULK OPS & MERGER (Apple HIG + SBB Chronometer Baton Signature) */}
         {activeTab === 'contacts' && (
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            {/* View Header (layout.md & buttons.md: clear Title-Style heading, single prominent primary action) */}
+            <div className="flex flex-wrap items-end justify-between gap-3 pb-3 border-b border-border">
               <div>
-                <h1 className="text-xl font-bold">Contacts ({contacts.length})</h1>
-                <p className="text-xs text-muted">
-                  Manage Google, Local, and vCard contacts, Company/Notes, and Keep-in-Touch
-                  toggles
+                <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                  Contacts Directory{' '}
+                  <span className="font-mono text-base font-semibold text-muted tabular-nums">
+                    ({contacts.length})
+                  </span>
+                </h1>
+                <p className="text-[13px] text-muted mt-0.5">
+                  Manage Google, Local, and vCard contacts, company details, notes, and cadence tracking
                 </p>
               </div>
-              <div className="flex items-center gap-2 text-xs">
+              <div className="flex items-center gap-2 text-[13px]">
                 {duplicates.length > 0 && (
                   <button
+                    type="button"
                     onClick={() => setShowMergeModal(true)}
-                    className="px-3 py-2 rounded-lg border border-warning text-warning font-medium flex items-center gap-1.5"
+                    className="min-h-[34px] px-3.5 py-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 text-amber-800 dark:text-amber-300 font-medium flex items-center gap-1.5 hover:bg-amber-500/25 transition"
                   >
-                    <GitMerge className="w-3.5 h-3.5" /> {duplicates.length} Duplicates
+                    <GitMerge className="w-4 h-4" /> Merge Duplicates ({duplicates.length})…
                   </button>
                 )}
                 <button
+                  type="button"
                   onClick={() => setShowNewContactModal(true)}
-                  className="px-3 py-2 rounded-lg bg-primary text-primary-fg font-semibold flex items-center gap-1.5"
+                  className="min-h-[34px] px-4 py-1.5 rounded-lg bg-primary hover:opacity-95 text-primary-fg font-semibold flex items-center gap-1.5 shadow-xs transition"
                 >
-                  <Plus className="w-3.5 h-3.5" /> Add Local Contact
+                  <Plus className="w-4 h-4" /> New Local Contact…
                 </button>
               </div>
             </div>
 
-            {/* Quick Filter & Search Bar */}
-            <div className="bg-card border border-border rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
-              <div className="flex-1 min-w-[220px] flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-background border border-border focus-within:border-primary transition">
-                <Search className="w-3.5 h-3.5 text-muted shrink-0" />
+            {/* Scope & Filter Bar (searching.md › Scope bars and tokens) */}
+            <div className="bg-card border border-border rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-[13px]">
+              <div className="flex-1 min-w-[240px] min-h-[34px] flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-background border border-border focus-within:border-primary transition">
+                <Search className="w-4 h-4 text-muted shrink-0" />
                 <input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Filter contacts by name, phone, company, notes... (⌘K)"
-                  className="w-full bg-transparent border-none text-xs text-foreground placeholder:text-muted focus:outline-none"
+                  placeholder="Filter contacts by name, phone, company, or notes… (⌘K)"
+                  aria-label="Filter contacts"
+                  className="w-full bg-transparent border-none text-[13px] text-foreground placeholder:text-muted focus:outline-none"
                 />
                 {searchQuery && (
                   <button
+                    type="button"
                     onClick={() => setSearchQuery('')}
-                    className="text-muted hover:text-foreground shrink-0"
+                    aria-label="Clear filter"
+                    className="min-h-[24px] min-w-[24px] flex items-center justify-center text-muted hover:text-foreground shrink-0"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -3389,11 +3434,12 @@ export default function TouchpointApp() {
                 ].map((chip) => (
                   <button
                     key={chip.id}
+                    type="button"
                     onClick={() => setSearchFilterTab(chip.id as typeof searchFilterTab)}
-                    className={`px-2.5 py-1 rounded-lg border text-xs transition ${
+                    className={`min-h-[32px] px-3 py-1 rounded-lg border text-[12px] font-medium tabular-nums transition ${
                       searchFilterTab === chip.id
-                        ? 'bg-primary text-primary-fg border-primary font-medium'
-                        : 'bg-background border-border text-muted hover:text-foreground'
+                        ? 'bg-foreground text-background border-foreground font-semibold'
+                        : 'bg-background border-border text-muted hover:text-foreground hover:bg-card-hover'
                     }`}
                   >
                     {chip.label}
@@ -3405,7 +3451,8 @@ export default function TouchpointApp() {
                   onChange={(e) =>
                     setSearchFilterGroup(e.target.value === '' ? null : Number(e.target.value))
                   }
-                  className="px-2.5 py-1 rounded-lg bg-background border border-border text-xs"
+                  aria-label="Filter by group"
+                  className="min-h-[32px] px-2.5 py-1 rounded-lg bg-background border border-border text-[12px] font-medium text-foreground"
                 >
                   <option value="">All Groups</option>
                   {groups.map((g) => (
@@ -3417,12 +3464,13 @@ export default function TouchpointApp() {
 
                 {(searchQuery || searchFilterTab !== 'all' || searchFilterGroup !== null) && (
                   <button
+                    type="button"
                     onClick={() => {
                       setSearchQuery('');
                       setSearchFilterTab('all');
                       setSearchFilterGroup(null);
                     }}
-                    className="px-2 py-1 text-muted hover:text-foreground underline text-xs"
+                    className="min-h-[32px] px-2.5 py-1 text-[12px] font-semibold text-primary hover:underline"
                   >
                     Reset
                   </button>
@@ -3433,18 +3481,18 @@ export default function TouchpointApp() {
                   <button
                     type="button"
                     onClick={() => setShowColumnsPopover((prev) => !prev)}
-                    className="px-2.5 py-1 rounded-lg bg-background border border-border text-xs text-muted hover:text-foreground flex items-center gap-1.5 transition"
+                    className="min-h-[32px] px-3 py-1 rounded-lg bg-background border border-border text-[12px] font-medium text-foreground hover:bg-card-hover flex items-center gap-1.5 transition"
                   >
-                    <Eye className="w-3.5 h-3.5" />
+                    <Eye className="w-3.5 h-3.5 text-muted" />
                     <span>Columns ({effectiveActiveColumns.length})</span>
                   </button>
 
                   {showColumnsPopover && (
-                    <div className="absolute right-0 top-8 z-30 bg-card border border-border rounded-xl p-3 shadow-xl w-72 space-y-2 text-xs animate-in fade-in duration-100">
-                      <div className="font-semibold pb-1.5 border-b border-border text-foreground flex items-center justify-between">
+                    <div className="absolute right-0 top-10 z-30 bg-card border border-border rounded-xl p-3.5 shadow-2xl w-72 space-y-2.5 text-[12px] animate-in fade-in duration-100">
+                      <div className="font-semibold pb-2 border-b border-border text-foreground flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
                           <SlidersHorizontal className="w-3.5 h-3.5 text-primary" />
-                          <span>Columns &amp; Reorder</span>
+                          <span>Customize Columns</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <button
@@ -3458,14 +3506,15 @@ export default function TouchpointApp() {
                           <button
                             type="button"
                             onClick={() => setShowColumnsPopover(false)}
-                            className="text-muted hover:text-foreground text-xs"
+                            aria-label="Close column customizer"
+                            className="min-h-[24px] min-w-[24px] text-muted hover:text-foreground text-xs"
                           >
                             ✕
                           </button>
                         </div>
                       </div>
-                      <p className="text-[11px] text-muted leading-tight">
-                        Toggle visibility, reorder with ▲/▼, or drag borders in table to resize (double-click border to reset).
+                      <p className="text-[11px] text-muted leading-snug">
+                        Toggle visibility, reorder with ▲/▼, or drag column dividers in the table to resize (double-click divider to reset).
                       </p>
                       <div className="space-y-1 max-h-72 overflow-y-auto pr-0.5">
                         {columnOrder.map((colId, index) => {
@@ -3489,7 +3538,7 @@ export default function TouchpointApp() {
                                   reorderColumns(sourceColId, colId);
                                 }
                               }}
-                              className="flex items-center justify-between gap-1 p-1.5 rounded hover:bg-background border border-transparent hover:border-border transition group"
+                              className="flex items-center justify-between gap-1 p-1.5 rounded-lg hover:bg-background border border-transparent hover:border-border transition group"
                             >
                               <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0 select-none">
                                 <input
@@ -3507,7 +3556,7 @@ export default function TouchpointApp() {
                                   type="button"
                                   onClick={() => moveColumnToTop(colId)}
                                   title="Move to 1st place"
-                                  className="px-1.5 py-0.5 text-[10px] rounded bg-background border border-border hover:bg-primary hover:text-primary-fg text-muted transition font-medium"
+                                  className="px-1.5 py-0.5 text-[11px] rounded bg-background border border-border hover:bg-primary hover:text-primary-fg text-muted transition font-mono font-semibold"
                                 >
                                   1st
                                 </button>
@@ -3516,6 +3565,7 @@ export default function TouchpointApp() {
                                   disabled={index === 0}
                                   onClick={() => moveColumn(colId, 'up')}
                                   title="Move up"
+                                  aria-label={`Move ${meta.label} up`}
                                   className="p-1 rounded bg-background border border-border hover:bg-card-hover disabled:opacity-30 text-muted transition"
                                 >
                                   ▲
@@ -3525,6 +3575,7 @@ export default function TouchpointApp() {
                                   disabled={index === columnOrder.length - 1}
                                   onClick={() => moveColumn(colId, 'down')}
                                   title="Move down"
+                                  aria-label={`Move ${meta.label} down`}
                                   className="p-1 rounded bg-background border border-border hover:bg-card-hover disabled:opacity-30 text-muted transition"
                                 >
                                   ▼
@@ -3547,15 +3598,15 @@ export default function TouchpointApp() {
             </div>
 
             {selectedContactIds.length > 0 && (
-              <div className="bg-card border border-primary/40 shadow-lg rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-foreground px-2 py-0.5 rounded bg-primary/15 text-primary">
-                    {selectedContactIds.length} contact{selectedContactIds.length > 1 ? 's' : ''} selected
+              <div className="bg-card border border-primary/50 shadow-md rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-[13px]">
+                <div className="flex items-center gap-2.5">
+                  <span className="sbb-baton sbb-baton-overdue">
+                    {selectedContactIds.length} Selected
                   </span>
                   <button
                     type="button"
                     onClick={() => setSelectedContactIds([])}
-                    className="text-muted hover:text-foreground text-[11px] underline"
+                    className="text-[12px] font-medium text-muted hover:text-foreground underline"
                   >
                     Deselect All
                   </button>
@@ -3569,10 +3620,10 @@ export default function TouchpointApp() {
                         handleBulkAction('assign_group', Number(e.target.value));
                       }
                     }}
-                    className="px-2.5 py-1.5 rounded-lg bg-background border border-border text-foreground font-medium text-xs cursor-pointer hover:border-primary transition"
+                    className="min-h-[32px] px-2.5 py-1 rounded-lg bg-background border border-border text-foreground font-medium text-[12px] cursor-pointer hover:border-primary transition"
                   >
                     <option value="" disabled>
-                      + Assign to Group...
+                      + Assign to Group…
                     </option>
                     {groups.map((g) => (
                       <option key={g.id} value={g.id}>
@@ -3589,10 +3640,10 @@ export default function TouchpointApp() {
                         handleBulkAction('remove_group', Number(e.target.value));
                       }
                     }}
-                    className="px-2.5 py-1.5 rounded-lg bg-background border border-border text-foreground font-medium text-xs cursor-pointer hover:border-primary transition"
+                    className="min-h-[32px] px-2.5 py-1 rounded-lg bg-background border border-border text-foreground font-medium text-[12px] cursor-pointer hover:border-primary transition"
                   >
                     <option value="" disabled>
-                      − Remove from Group...
+                      − Remove from Group…
                     </option>
                     {groups.map((g) => (
                       <option key={g.id} value={g.id}>
@@ -3604,14 +3655,14 @@ export default function TouchpointApp() {
                   <button
                     type="button"
                     onClick={() => handleBulkAction('enable_keep_in_touch')}
-                    className="px-2.5 py-1.5 rounded-lg bg-background border border-border hover:bg-card-hover text-foreground font-medium"
+                    className="min-h-[32px] px-2.5 py-1 rounded-lg bg-background border border-border hover:bg-card-hover text-foreground font-medium text-[12px]"
                   >
                     Enable Keep in Touch
                   </button>
                   <button
                     type="button"
                     onClick={() => handleBulkAction('disable_keep_in_touch')}
-                    className="px-2.5 py-1.5 rounded-lg bg-background border border-border hover:bg-card-hover text-muted hover:text-foreground"
+                    className="min-h-[32px] px-2.5 py-1 rounded-lg bg-background border border-border hover:bg-card-hover text-muted hover:text-foreground font-medium text-[12px]"
                   >
                     Disable Keep in Touch
                   </button>
@@ -3622,7 +3673,7 @@ export default function TouchpointApp() {
                         handleBulkAction('delete');
                       }
                     }}
-                    className="px-2.5 py-1.5 rounded-lg border border-overdue/60 bg-overdue/10 text-overdue hover:bg-overdue/20 font-medium flex items-center gap-1.5"
+                    className="min-h-[32px] px-3 py-1 rounded-lg bg-overdue text-white hover:opacity-90 font-semibold text-[12px] flex items-center gap-1.5"
                   >
                     <Trash2 className="w-3.5 h-3.5" /> Delete Selected
                   </button>
@@ -3630,16 +3681,18 @@ export default function TouchpointApp() {
               </div>
             )}
 
+            {/* Multicolumn Contacts Table (lists-and-tables.md: Title-Style column headings, resizable columns, alternating row backgrounds, SBB Chronometer Cadence Baton signature) */}
             <div className="bg-card border border-border rounded-xl overflow-x-auto w-full scrollbar-thin">
-              <table className="w-full text-left border-collapse text-xs whitespace-nowrap min-w-max table-fixed">
+              <table className="w-full text-left border-collapse text-[13px] whitespace-nowrap min-w-max table-fixed">
                 <thead>
-                  <tr className="border-b border-border text-muted">
+                  <tr className="border-b border-border bg-background/80 text-muted text-[12px] font-semibold">
                     <th
-                      className="p-3 w-10 min-w-[40px] max-w-[40px]"
+                      className="p-3 w-10 min-w-[40px] max-w-[40px] border-r border-border/50"
                       style={{ width: '40px', minWidth: '40px', maxWidth: '40px' }}
                     >
                       <input
                         type="checkbox"
+                        aria-label="Select all contacts on this page"
                         checked={
                           paginatedContacts.length > 0 &&
                           paginatedContacts.every((c) => selectedContactIds.includes(c.id))
@@ -3690,7 +3743,7 @@ export default function TouchpointApp() {
                             minWidth: `${colWidth}px`,
                             maxWidth: `${colWidth}px`,
                           }}
-                          className={`p-3 relative group/th select-none ${
+                          className={`p-3 relative group/th select-none border-r border-border/50 last:border-r-0 ${
                             isActions ? 'text-right' : ''
                           }`}
                         >
@@ -3699,34 +3752,36 @@ export default function TouchpointApp() {
                               isActions ? 'justify-end' : ''
                             }`}
                           >
-                            <span className="cursor-grab active:cursor-grabbing text-muted/50 group-hover/th:text-muted shrink-0">
+                            <span className="cursor-grab active:cursor-grabbing text-muted/60 group-hover/th:text-foreground shrink-0">
                               ⠿
                             </span>
-                            <span className="truncate" title={title}>
+                            <span className="truncate text-foreground" title={title}>
                               {title}
                             </span>
                             <div className="opacity-0 group-hover/th:opacity-100 flex items-center gap-0.5 ml-auto shrink-0 transition">
                               <button
                                 type="button"
                                 disabled={idx === 0}
-                                title="Shift left"
+                                title="Shift column left"
+                                aria-label={`Shift ${title} column left`}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   moveColumn(colId, 'left');
                                 }}
-                                className="p-0.5 hover:bg-background rounded text-[10px] text-muted hover:text-foreground disabled:opacity-20"
+                                className="p-0.5 hover:bg-background rounded text-[11px] text-muted hover:text-foreground disabled:opacity-20"
                               >
                                 ◀
                               </button>
                               <button
                                 type="button"
                                 disabled={idx === effectiveActiveColumns.length - 1}
-                                title="Shift right"
+                                title="Shift column right"
+                                aria-label={`Shift ${title} column right`}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   moveColumn(colId, 'right');
                                 }}
-                                className="p-0.5 hover:bg-background rounded text-[10px] text-muted hover:text-foreground disabled:opacity-20"
+                                className="p-0.5 hover:bg-background rounded text-[11px] text-muted hover:text-foreground disabled:opacity-20"
                               >
                                 ▶
                               </button>
@@ -3748,338 +3803,405 @@ export default function TouchpointApp() {
                                 : 'hover:bg-primary/40 group-hover/th:bg-border/60'
                             }`}
                           >
-                            <div className="w-[1.5px] h-3.5 bg-muted/30 group-hover/th:bg-primary rounded-full" />
+                            <div className="w-[1.5px] h-3.5 bg-muted/40 group-hover/th:bg-primary" />
                           </div>
                         </th>
                       );
                     })}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="divide-y divide-border/70">
                   {paginatedContacts.length === 0 ? (
                     <tr>
                       <td
                         colSpan={effectiveActiveColumns.length + 1}
-                        className="p-8 text-center text-muted"
+                        className="p-8 text-center text-[13px] text-muted"
                       >
                         No contacts match the current filters.
                       </td>
                     </tr>
                   ) : (
-                    paginatedContacts.map((c) => (
-                      <tr key={c.id} className="hover:bg-card-hover">
-                        <td
-                          className="p-3 w-10 min-w-[40px] max-w-[40px]"
-                          style={{ width: '40px', minWidth: '40px', maxWidth: '40px' }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedContactIds.includes(c.id)}
-                            onChange={(e) =>
-                              setSelectedContactIds((prev) =>
-                                e.target.checked
-                                  ? [...prev, c.id]
-                                  : prev.filter((id) => id !== c.id)
-                              )
-                            }
-                          />
-                        </td>
-                        {effectiveActiveColumns.map((colId) => {
-                          const colWidth =
-                            columnWidths[colId] || DEFAULT_COLUMN_WIDTHS[colId] || 140;
-                          const cellStyle = {
-                            width: `${colWidth}px`,
-                            minWidth: `${colWidth}px`,
-                            maxWidth: `${colWidth}px`,
-                          };
+                    paginatedContacts.map((c) => {
+                      const statusBorder =
+                        c.cadence.status === 'overdue'
+                          ? 'border-l-[3px] border-l-[#c92121]'
+                          : c.cadence.status === 'due_today'
+                          ? 'border-l-[3px] border-l-[#b45309]'
+                          : c.cadence.status === 'due_soon'
+                          ? 'border-l-[3px] border-l-[#0050d8]'
+                          : c.cadence.status === 'on_track'
+                          ? 'border-l-[3px] border-l-[#15803d]'
+                          : 'border-l-[3px] border-l-transparent';
 
-                          switch (colId) {
-                            case 'firstName':
-                              return (
-                                <td
-                                  key="firstName"
-                                  style={cellStyle}
-                                  onClick={() => setActiveContactDrawer(c)}
-                                  className="p-3 font-medium cursor-pointer overflow-hidden"
-                                >
-                                  <div className="flex items-center gap-2 overflow-hidden">
-                                    {!effectiveActiveColumns.includes('name') && (
-                                      <ProgressRingAvatar
-                                        name={c.fullName}
-                                        progressPercent={c.cadence.progressPercent}
-                                        status={c.cadence.status}
-                                        size="sm"
-                                      />
-                                    )}
-                                    <span className="text-sm hover:underline truncate">
-                                      {c.firstName || '—'}
-                                    </span>
-                                  </div>
-                                </td>
-                              );
-                            case 'lastName':
-                              return (
-                                <td
-                                  key="lastName"
-                                  style={cellStyle}
-                                  onClick={() => setActiveContactDrawer(c)}
-                                  className="p-3 font-medium cursor-pointer overflow-hidden"
-                                >
-                                  <span className="text-sm hover:underline truncate block">
-                                    {c.lastName || '—'}
-                                  </span>
-                                </td>
-                              );
-                            case 'name':
-                              return (
-                                <td
-                                  key="name"
-                                  style={cellStyle}
-                                  onClick={() => setActiveContactDrawer(c)}
-                                  className="p-3 font-medium cursor-pointer overflow-hidden"
-                                >
-                                  <div className="flex items-center gap-2.5 overflow-hidden">
-                                    <ProgressRingAvatar
-                                      name={c.fullName}
-                                      progressPercent={c.cadence.progressPercent}
-                                      status={c.cadence.status}
-                                      size="sm"
-                                    />
-                                    <div className="overflow-hidden min-w-0">
-                                      <div className="text-sm hover:underline font-semibold truncate">
-                                        {c.fullName}
-                                      </div>
-                                      {!effectiveActiveColumns.includes('phone') &&
-                                        !effectiveActiveColumns.includes('email') && (
-                                          <div className="text-muted text-[11px] truncate">
-                                            {c.phone || c.email || '—'}
-                                          </div>
-                                        )}
-                                    </div>
-                                  </div>
-                                </td>
-                              );
-                            case 'phone':
-                              return (
-                                <td
-                                  key="phone"
-                                  style={cellStyle}
-                                  className="p-3 font-mono text-muted truncate"
-                                  title={c.phone || ''}
-                                >
-                                  {c.phone || '—'}
-                                </td>
-                              );
-                            case 'email':
-                              return (
-                                <td
-                                  key="email"
-                                  style={cellStyle}
-                                  className="p-3 text-muted truncate"
-                                  title={c.email || ''}
-                                >
-                                  {c.email || '—'}
-                                </td>
-                              );
-                            case 'birthday':
-                              return (
-                                <td
-                                  key="birthday"
-                                  style={cellStyle}
-                                  className="p-3 text-muted truncate"
-                                >
-                                  {c.birthday ? `🎂 ${formatDateByPattern(c.birthday, settingsState.dateFormat)}` : '—'}
-                                </td>
-                              );
-                            case 'significantDates': {
-                              const allDates: Array<{ label: string; date: string }> = [];
-                              if (c.importantDates && c.importantDates.length > 0) {
-                                allDates.push(...c.importantDates);
-                              } else if (c.significantDate) {
-                                allDates.push({ label: 'Milestone', date: c.significantDate });
+                      const batonClass =
+                        c.cadence.status === 'overdue'
+                          ? 'sbb-baton sbb-baton-overdue'
+                          : c.cadence.status === 'due_today'
+                          ? 'sbb-baton sbb-baton-warning'
+                          : c.cadence.status === 'due_soon'
+                          ? 'sbb-baton sbb-baton-due'
+                          : 'sbb-baton sbb-baton-ok';
+
+                      const batonLabel = !c.keepInTouch
+                        ? 'Off'
+                        : c.cadence.daysUntilDue < 0
+                        ? `-${String(Math.abs(c.cadence.daysUntilDue)).padStart(2, '0')}d`
+                        : c.cadence.daysUntilDue === 0
+                        ? 'Today'
+                        : `+${String(c.cadence.daysUntilDue).padStart(2, '0')}d`;
+
+                      return (
+                        <tr
+                          key={c.id}
+                          className={`even:bg-background/35 hover:bg-card-hover transition-colors ${statusBorder}`}
+                        >
+                          <td
+                            className="p-3 w-10 min-w-[40px] max-w-[40px] border-r border-border/40"
+                            style={{ width: '40px', minWidth: '40px', maxWidth: '40px' }}
+                          >
+                            <input
+                              type="checkbox"
+                              aria-label={`Select ${c.fullName}`}
+                              checked={selectedContactIds.includes(c.id)}
+                              onChange={(e) =>
+                                setSelectedContactIds((prev) =>
+                                  e.target.checked
+                                    ? [...prev, c.id]
+                                    : prev.filter((id) => id !== c.id)
+                                )
                               }
-                              return (
-                                <td
-                                  key="significantDates"
-                                  style={cellStyle}
-                                  className="p-2.5 overflow-hidden"
-                                >
-                                  <div className="flex flex-wrap items-center gap-1 max-h-12 overflow-hidden">
-                                    {allDates.length > 0 ? (
-                                      allDates.map((d, idx) => (
-                                        <span
-                                          key={idx}
-                                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-500/10 border border-purple-500/25 text-purple-600 dark:text-purple-300 text-[11px] font-medium shrink-0"
-                                          title={`${d.label}: ${formatDateByPattern(d.date, settingsState.dateFormat)}`}
-                                        >
-                                          <span>📅</span>
-                                          <span className="font-semibold">{d.label}:</span>
-                                          <span>{formatDateByPattern(d.date, settingsState.dateFormat)}</span>
+                            />
+                          </td>
+                          {effectiveActiveColumns.map((colId) => {
+                            const colWidth =
+                              columnWidths[colId] || DEFAULT_COLUMN_WIDTHS[colId] || 140;
+                            const cellStyle = {
+                              width: `${colWidth}px`,
+                              minWidth: `${colWidth}px`,
+                              maxWidth: `${colWidth}px`,
+                            };
+
+                            switch (colId) {
+                              case 'firstName':
+                                return (
+                                  <td
+                                    key="firstName"
+                                    style={cellStyle}
+                                    onClick={() => setActiveContactDrawer(c)}
+                                    className="p-3 font-semibold cursor-pointer overflow-hidden border-r border-border/30"
+                                  >
+                                    <div className="flex items-center gap-2 overflow-hidden">
+                                      {!effectiveActiveColumns.includes('name') && (
+                                        <ProgressRingAvatar
+                                          name={c.fullName}
+                                          progressPercent={c.cadence.progressPercent}
+                                          status={c.cadence.status}
+                                          size="sm"
+                                        />
+                                      )}
+                                      <span className="text-[13px] hover:underline truncate">
+                                        {c.firstName || '—'}
+                                      </span>
+                                    </div>
+                                  </td>
+                                );
+                              case 'lastName':
+                                return (
+                                  <td
+                                    key="lastName"
+                                    style={cellStyle}
+                                    onClick={() => setActiveContactDrawer(c)}
+                                    className="p-3 font-semibold cursor-pointer overflow-hidden border-r border-border/30"
+                                  >
+                                    <span className="text-[13px] hover:underline truncate block">
+                                      {c.lastName || '—'}
+                                    </span>
+                                  </td>
+                                );
+                              case 'name':
+                                return (
+                                  <td
+                                    key="name"
+                                    style={cellStyle}
+                                    onClick={() => setActiveContactDrawer(c)}
+                                    className="p-3 font-medium cursor-pointer overflow-hidden border-r border-border/30"
+                                  >
+                                    <div className="flex items-center justify-between gap-2 overflow-hidden">
+                                      <div className="flex items-center gap-2.5 overflow-hidden min-w-0">
+                                        <ProgressRingAvatar
+                                          name={c.fullName}
+                                          progressPercent={c.cadence.progressPercent}
+                                          status={c.cadence.status}
+                                          size="sm"
+                                        />
+                                        <div className="overflow-hidden min-w-0">
+                                          <div className="text-[13px] hover:underline font-semibold text-foreground truncate">
+                                            {c.fullName}
+                                          </div>
+                                          {!effectiveActiveColumns.includes('phone') &&
+                                            !effectiveActiveColumns.includes('email') && (
+                                              <div className="text-muted font-mono text-[11px] truncate">
+                                                {c.phone || c.email || '—'}
+                                              </div>
+                                            )}
+                                        </div>
+                                      </div>
+                                      {c.keepInTouch && (
+                                        <span className={`${batonClass} shrink-0`} title={`Cadence status: ${c.cadence.status}`}>
+                                          {batonLabel}
                                         </span>
-                                      ))
-                                    ) : (
-                                      <span className="text-muted text-[11px] italic">—</span>
-                                    )}
-                                  </div>
-                                </td>
-                              );
-                            }
-                            case 'source':
-                              return (
-                                <td key="source" style={cellStyle} className="p-3 truncate">
-                                  <span className="px-2 py-0.5 rounded bg-background border border-border uppercase text-[10px]">
-                                    {c.source}
-                                  </span>
-                                </td>
-                              );
-                            case 'company':
-                              return (
-                                <td
-                                  key="company"
-                                  style={cellStyle}
-                                  className="p-3 text-muted truncate"
-                                  title={[c.jobTitle, c.company].filter(Boolean).join(' @ ') || ''}
-                                >
-                                  {[c.jobTitle, c.company].filter(Boolean).join(' @ ') || '—'}
-                                </td>
-                              );
-                            case 'notes':
-                              return (
-                                <td
-                                  key="notes"
-                                  style={cellStyle}
-                                  className="p-3 text-muted truncate"
-                                  title={c.notes || ''}
-                                >
-                                  {c.notes || '—'}
-                                </td>
-                              );
-                            case 'groups':
-                              return (
-                                <td
-                                  key="groups"
-                                  style={cellStyle}
-                                  className="p-2.5 overflow-hidden"
-                                >
-                                  <div className="flex flex-wrap items-center gap-1 max-h-12 overflow-hidden">
-                                    {c.groups.length > 0 ? (
-                                      c.groups.map((g) => (
-                                        <span
-                                          key={g.id}
-                                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border shrink-0 transition"
-                                          style={{
-                                            backgroundColor: `${g.color}15`,
-                                            borderColor: `${g.color}40`,
-                                            color: g.color,
-                                          }}
-                                          title={`${g.name} (Every ${g.intervalDays > 0 ? `${g.intervalDays} days` : 'manual'})`}
-                                        >
+                                      )}
+                                    </div>
+                                  </td>
+                                );
+                              case 'phone':
+                                return (
+                                  <td
+                                    key="phone"
+                                    style={cellStyle}
+                                    className="p-3 font-mono text-[12px] text-muted tabular-nums truncate border-r border-border/30"
+                                    title={c.phone || ''}
+                                  >
+                                    {c.phone || '—'}
+                                  </td>
+                                );
+                              case 'email':
+                                return (
+                                  <td
+                                    key="email"
+                                    style={cellStyle}
+                                    className="p-3 font-mono text-[12px] text-muted truncate border-r border-border/30"
+                                    title={c.email || ''}
+                                  >
+                                    {c.email || '—'}
+                                  </td>
+                                );
+                              case 'birthday':
+                                return (
+                                  <td
+                                    key="birthday"
+                                    style={cellStyle}
+                                    className="p-3 font-mono text-[12px] text-muted tabular-nums truncate border-r border-border/30"
+                                  >
+                                    {c.birthday
+                                      ? `🎂 ${formatDateByPattern(c.birthday, settingsState.dateFormat)}`
+                                      : '—'}
+                                  </td>
+                                );
+                              case 'significantDates': {
+                                const allDates: Array<{ label: string; date: string }> = [];
+                                if (c.importantDates && c.importantDates.length > 0) {
+                                  allDates.push(...c.importantDates);
+                                } else if (c.significantDate) {
+                                  allDates.push({ label: 'Milestone', date: c.significantDate });
+                                }
+                                return (
+                                  <td
+                                    key="significantDates"
+                                    style={cellStyle}
+                                    className="p-2.5 overflow-hidden border-r border-border/30"
+                                  >
+                                    <div className="flex flex-wrap items-center gap-1 max-h-12 overflow-hidden">
+                                      {allDates.length > 0 ? (
+                                        allDates.map((d, idx) => (
                                           <span
-                                            className="w-1.5 h-1.5 rounded-full shrink-0"
-                                            style={{ backgroundColor: g.color }}
-                                          />
-                                          <span className="truncate max-w-[90px]">{g.name}</span>
-                                          <span className="opacity-75 text-[9px] font-mono">
-                                            {g.intervalDays > 0 ? `${g.intervalDays}d` : 'man'}
+                                            key={idx}
+                                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background border border-border text-foreground text-[11px] font-medium shrink-0"
+                                            title={`${d.label}: ${formatDateByPattern(d.date, settingsState.dateFormat)}`}
+                                          >
+                                            <span>📅</span>
+                                            <span className="font-semibold">{d.label}:</span>
+                                            <span className="font-mono">
+                                              {formatDateByPattern(d.date, settingsState.dateFormat)}
+                                            </span>
                                           </span>
+                                        ))
+                                      ) : (
+                                        <span className="text-muted text-[12px]">—</span>
+                                      )}
+                                    </div>
+                                  </td>
+                                );
+                              }
+                              case 'source':
+                                return (
+                                  <td
+                                    key="source"
+                                    style={cellStyle}
+                                    className="p-3 truncate border-r border-border/30"
+                                  >
+                                    <span className="px-2 py-0.5 rounded-md bg-background border border-border capitalize font-medium text-[11px] text-foreground">
+                                      {c.source}
+                                    </span>
+                                  </td>
+                                );
+                              case 'company':
+                                return (
+                                  <td
+                                    key="company"
+                                    style={cellStyle}
+                                    className="p-3 text-muted font-medium truncate border-r border-border/30"
+                                    title={[c.jobTitle, c.company].filter(Boolean).join(' @ ') || ''}
+                                  >
+                                    {[c.jobTitle, c.company].filter(Boolean).join(' @ ') || '—'}
+                                  </td>
+                                );
+                              case 'notes':
+                                return (
+                                  <td
+                                    key="notes"
+                                    style={cellStyle}
+                                    className="p-3 text-muted truncate border-r border-border/30"
+                                    title={c.notes || ''}
+                                  >
+                                    {c.notes || '—'}
+                                  </td>
+                                );
+                              case 'groups':
+                                return (
+                                  <td
+                                    key="groups"
+                                    style={cellStyle}
+                                    className="p-2.5 overflow-hidden border-r border-border/30"
+                                  >
+                                    <div className="flex flex-wrap items-center gap-1 max-h-12 overflow-hidden">
+                                      {c.groups.length > 0 ? (
+                                        c.groups.map((g) => (
+                                          <span
+                                            key={g.id}
+                                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border shrink-0 transition"
+                                            style={{
+                                              backgroundColor: `${g.color}15`,
+                                              borderColor: `${g.color}50`,
+                                              color: g.color,
+                                            }}
+                                            title={`${g.name} (Every ${g.intervalDays > 0 ? `${g.intervalDays} days` : 'manual'})`}
+                                          >
+                                            <span
+                                              className="w-1.5 h-1.5 rounded-full shrink-0"
+                                              style={{ backgroundColor: g.color }}
+                                            />
+                                            <span className="truncate max-w-[90px]">{g.name}</span>
+                                            <span className="opacity-85 text-[11px] font-mono">
+                                              {g.intervalDays > 0 ? `${g.intervalDays}d` : 'man'}
+                                            </span>
+                                          </span>
+                                        ))
+                                      ) : (
+                                        <span className="text-muted text-[12px]">
+                                          Default ({c.cadence.effectiveIntervalDays}d)
                                         </span>
-                                      ))
-                                    ) : (
-                                      <span className="text-muted text-[11px] italic">
-                                        No group ({c.cadence.effectiveIntervalDays}d default)
-                                      </span>
-                                    )}
-                                    {c.customIntervalDays && (
-                                      <span
-                                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-background border border-border text-[10px] text-muted font-mono"
-                                        title={`Custom cadence override: Every ${c.customIntervalDays} days`}
+                                      )}
+                                      {c.customIntervalDays && (
+                                        <span
+                                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-background border border-border text-[11px] text-foreground font-mono font-medium"
+                                          title={`Custom cadence override: Every ${c.customIntervalDays} days`}
+                                        >
+                                          ⚡ {c.customIntervalDays}d
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                );
+                              case 'lastContacted':
+                                return (
+                                  <td
+                                    key="lastContacted"
+                                    style={cellStyle}
+                                    className="p-3 font-mono text-[12px] text-muted tabular-nums truncate border-r border-border/30"
+                                  >
+                                    {c.lastContactedAt
+                                      ? formatDateByPattern(
+                                          c.lastContactedAt,
+                                          settingsState.dateFormat
+                                        )
+                                      : 'Never'}
+                                  </td>
+                                );
+                              case 'keepInTouch':
+                                return (
+                                  <td
+                                    key="keepInTouch"
+                                    style={cellStyle}
+                                    className="p-3 border-r border-border/30"
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        await fetch(`/api/contacts/${c.id}`, {
+                                          method: 'PATCH',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ keepInTouch: !c.keepInTouch }),
+                                        });
+                                        loadAllData();
+                                      }}
+                                      className={`min-h-[28px] px-2.5 py-1 rounded-md text-[11px] font-semibold transition ${
+                                        c.keepInTouch
+                                          ? 'bg-foreground text-background'
+                                          : 'bg-background border border-border text-muted hover:text-foreground'
+                                      }`}
+                                    >
+                                      {c.keepInTouch ? 'Tracked' : 'Off'}
+                                    </button>
+                                  </td>
+                                );
+                              case 'actions':
+                                return (
+                                  <td key="actions" style={cellStyle} className="p-3 text-right">
+                                    <div className="inline-flex items-center justify-end gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => setActiveContactDrawer(c)}
+                                        className="min-h-[28px] px-2.5 py-1 rounded-md bg-background border border-border text-foreground hover:bg-card-hover font-medium text-[12px] transition"
+                                        title="Open Contact Inspector & Log Touchpoint"
                                       >
-                                        ⚡ {c.customIntervalDays}d
-                                      </span>
-                                    )}
-                                  </div>
-                                </td>
-                              );
-                            case 'lastContacted':
-                              return (
-                                <td
-                                  key="lastContacted"
-                                  style={cellStyle}
-                                  className="p-3 text-muted truncate"
-                                >
-                                  {c.lastContactedAt
-                                    ? formatDateByPattern(c.lastContactedAt, settingsState.dateFormat)
-                                    : 'Never'}
-                                </td>
-                              );
-                            case 'keepInTouch':
-                              return (
-                                <td key="keepInTouch" style={cellStyle} className="p-3">
-                                  <button
-                                    onClick={async () => {
-                                      await fetch(`/api/contacts/${c.id}`, {
-                                        method: 'PATCH',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ keepInTouch: !c.keepInTouch }),
-                                      });
-                                      loadAllData();
-                                    }}
-                                    className={`px-2.5 py-1 rounded font-medium transition ${
-                                      c.keepInTouch
-                                        ? 'bg-primary text-primary-fg'
-                                        : 'bg-background border border-border text-muted hover:text-foreground'
-                                    }`}
-                                  >
-                                    {c.keepInTouch ? 'Tracked' : 'Off'}
-                                  </button>
-                                </td>
-                              );
-                            case 'actions':
-                              return (
-                                <td key="actions" style={cellStyle} className="p-3 text-right">
-                                  <button
-                                    onClick={() => handleOpenEditContact(c)}
-                                    className="px-2.5 py-1 rounded bg-background border border-border hover:bg-card-hover font-medium inline-flex items-center gap-1 text-xs transition"
-                                  >
-                                    <Pencil className="w-3 h-3" /> Edit
-                                  </button>
-                                </td>
-                              );
-                            default:
-                              return null;
-                          }
-                        })}
-                      </tr>
-                    ))
+                                        Log…
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenEditContact(c)}
+                                        className="min-h-[28px] px-2.5 py-1 rounded-md bg-background border border-border hover:bg-card-hover font-medium inline-flex items-center gap-1 text-[12px] text-foreground transition"
+                                      >
+                                        <Pencil className="w-3 h-3 text-muted" /> Edit…
+                                      </button>
+                                    </div>
+                                  </td>
+                                );
+                              default:
+                                return null;
+                            }
+                          })}
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
             </div>
 
-            {/* Pagination Controls Bar */}
-            <div className="bg-card border border-border rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+            {/* Pagination Bar */}
+            <div className="bg-card border border-border rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-[13px]">
               <div className="flex items-center gap-3 text-muted">
-                <span>
+                <span className="tabular-nums">
                   Showing{' '}
                   <span className="font-semibold text-foreground">
                     {totalContacts === 0 ? 0 : startIndex + 1}
-                  </span>{' '}
-                  to{' '}
-                  <span className="font-semibold text-foreground">{endIndex}</span> of{' '}
+                  </span>
+                  –<span className="font-semibold text-foreground">{endIndex}</span> of{' '}
                   <span className="font-semibold text-foreground">{totalContacts}</span> contacts
                 </span>
                 <div className="flex items-center gap-1.5 pl-3 border-l border-border">
-                  <span>Show</span>
+                  <span>Rows per page:</span>
                   <select
                     value={contactsPageSize}
                     onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-                    className="px-2 py-1 rounded bg-background border border-border text-foreground font-medium text-xs cursor-pointer"
+                    aria-label="Rows per page"
+                    className="min-h-[28px] px-2 py-0.5 rounded-md bg-background border border-border text-foreground font-semibold text-[12px] cursor-pointer"
                   >
                     <option value={20}>20</option>
                     <option value={50}>50</option>
                     <option value={100}>100</option>
                   </select>
-                  <span>per page</span>
                 </div>
               </div>
 
@@ -4088,7 +4210,8 @@ export default function TouchpointApp() {
                   type="button"
                   disabled={safeCurrentPage <= 1}
                   onClick={() => setContactsCurrentPage(1)}
-                  className="px-2 py-1 rounded border border-border bg-background hover:bg-card-hover disabled:opacity-30 disabled:pointer-events-none transition"
+                  aria-label="First Page"
+                  className="min-h-[28px] px-2 py-1 rounded-md border border-border bg-background hover:bg-card-hover disabled:opacity-30 disabled:pointer-events-none font-medium transition"
                   title="First Page"
                 >
                   ««
@@ -4097,31 +4220,32 @@ export default function TouchpointApp() {
                   type="button"
                   disabled={safeCurrentPage <= 1}
                   onClick={() => setContactsCurrentPage((p) => Math.max(1, p - 1))}
-                  className="px-2.5 py-1 rounded border border-border bg-background hover:bg-card-hover disabled:opacity-30 disabled:pointer-events-none transition"
+                  className="min-h-[28px] px-2.5 py-1 rounded-md border border-border bg-background hover:bg-card-hover disabled:opacity-30 disabled:pointer-events-none font-medium transition"
                   title="Previous Page"
                 >
-                  ◀ Prev
+                  Previous
                 </button>
 
-                <span className="px-2 font-medium text-muted">
-                  Page <span className="text-foreground font-bold">{safeCurrentPage}</span> of{' '}
-                  <span className="text-foreground font-bold">{totalPages}</span>
+                <span className="px-2 font-medium text-muted tabular-nums">
+                  Page <span className="font-semibold text-foreground">{safeCurrentPage}</span> of{' '}
+                  <span className="font-semibold text-foreground">{totalPages}</span>
                 </span>
 
                 <button
                   type="button"
                   disabled={safeCurrentPage >= totalPages}
                   onClick={() => setContactsCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  className="px-2.5 py-1 rounded border border-border bg-background hover:bg-card-hover disabled:opacity-30 disabled:pointer-events-none transition"
+                  className="min-h-[28px] px-2.5 py-1 rounded-md border border-border bg-background hover:bg-card-hover disabled:opacity-30 disabled:pointer-events-none font-medium transition"
                   title="Next Page"
                 >
-                  Next ▶
+                  Next
                 </button>
                 <button
                   type="button"
                   disabled={safeCurrentPage >= totalPages}
                   onClick={() => setContactsCurrentPage(totalPages)}
-                  className="px-2 py-1 rounded border border-border bg-background hover:bg-card-hover disabled:opacity-30 disabled:pointer-events-none transition"
+                  aria-label="Last Page"
+                  className="min-h-[28px] px-2 py-1 rounded-md border border-border bg-background hover:bg-card-hover disabled:opacity-30 disabled:pointer-events-none font-medium transition"
                   title="Last Page"
                 >
                   »»
@@ -4737,8 +4861,9 @@ export default function TouchpointApp() {
 
               {openSettingsSection === 1 && (
                 <div className="px-5 pb-5 pt-1 space-y-4 border-t border-border">
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-2">
+                  <div className="grid grid-cols-2 md:grid-cols-6 gap-3 pt-2">
                     {[
+                      { id: 'sbb', label: 'SBB Dispatch', color: '#d92b2b' },
                       { id: 'leadflow', label: 'Electric Cobalt', color: '#2b7fff' },
                       { id: 'studio', label: 'Warm Studio', color: '#e85d3a' },
                       { id: 'nordic', label: 'Nordic Pine', color: '#10b981' },
@@ -6254,15 +6379,15 @@ export default function TouchpointApp() {
       {activeContactDrawer && (
         <div
           onClick={() => setActiveContactDrawer(null)}
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-2xl max-h-[88vh] bg-card border border-border rounded-2xl p-6 overflow-y-auto space-y-5 text-xs shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+            className="w-full max-w-2xl max-h-[88vh] bg-card border border-border rounded-2xl p-6 overflow-y-auto space-y-5 text-[13px] shadow-2xl animate-in fade-in zoom-in-95 duration-150"
           >
             {/* Header: Avatar, Name, Job/Company & Actions */}
-            <div className="flex items-start justify-between gap-3 pb-3 border-b border-border">
-              <div className="flex items-center gap-3">
+            <div className="flex items-start justify-between gap-3 pb-4 border-b border-border">
+              <div className="flex items-center gap-3.5">
                 <ProgressRingAvatar
                   name={activeContactDrawer.fullName}
                   progressPercent={activeContactDrawer.cadence.progressPercent}
@@ -6270,30 +6395,52 @@ export default function TouchpointApp() {
                   size="lg"
                 />
                 <div>
-                  <h2 className="text-base font-bold text-foreground">
-                    {activeContactDrawer.fullName}
-                  </h2>
-                  <div className="text-muted flex items-center gap-1.5 mt-0.5">
-                    <Briefcase className="w-3 h-3 text-muted" />
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-[17px] font-bold tracking-tight text-foreground">
+                      {activeContactDrawer.fullName}
+                    </h2>
+                    {activeContactDrawer.keepInTouch &&
+                      activeContactDrawer.cadence.daysUntilDue !== undefined && (
+                        <span
+                          className={`sbb-baton ${
+                            activeContactDrawer.cadence.daysUntilDue < 0
+                              ? 'sbb-baton-overdue'
+                              : activeContactDrawer.cadence.daysUntilDue === 0
+                              ? 'sbb-baton-due'
+                              : activeContactDrawer.cadence.daysUntilDue <= 5
+                              ? 'sbb-baton-warning'
+                              : 'sbb-baton-ok'
+                          }`}
+                        >
+                          {activeContactDrawer.cadence.daysUntilDue < 0
+                            ? `-${String(Math.abs(activeContactDrawer.cadence.daysUntilDue)).padStart(2, '0')}d`
+                            : activeContactDrawer.cadence.daysUntilDue === 0
+                            ? 'Today'
+                            : `+${String(activeContactDrawer.cadence.daysUntilDue).padStart(2, '0')}d`}
+                        </span>
+                      )}
+                  </div>
+                  <div className="text-muted flex items-center gap-1.5 mt-0.5 text-[12px]">
+                    <Briefcase className="w-3.5 h-3.5 text-muted" />
                     <span>
                       {[activeContactDrawer.jobTitle, activeContactDrawer.company]
                         .filter(Boolean)
-                        .join(' @ ') || 'No company/job title'}
+                        .join(' · ') || 'No company or job title'}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1.5 mt-1.5">
+                  <div className="flex items-center gap-2 mt-1.5">
                     <span
-                      className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                      className={`px-2 py-0.5 rounded-md text-[11px] font-semibold ${
                         activeContactDrawer.source === 'google'
-                          ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
-                          : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                          ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/35'
+                          : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/35'
                       }`}
                     >
                       {activeContactDrawer.source === 'google' ? 'Google Contact' : 'Local Contact'}
                     </span>
                     {(activeContactDrawer.firstName || activeContactDrawer.lastName) && (
-                      <span className="text-[10px] text-muted">
-                        First: <strong>{activeContactDrawer.firstName || '—'}</strong> | Last:{' '}
+                      <span className="text-[11px] text-muted">
+                        First: <strong>{activeContactDrawer.firstName || '—'}</strong> · Last:{' '}
                         <strong>{activeContactDrawer.lastName || '—'}</strong>
                       </span>
                     )}
@@ -6304,16 +6451,18 @@ export default function TouchpointApp() {
                 <button
                   type="button"
                   onClick={() => handleOpenEditContact(activeContactDrawer)}
-                  className="px-2.5 py-1.5 rounded-lg bg-background border border-border hover:bg-card-hover font-medium flex items-center gap-1.5 text-xs text-foreground shadow-sm"
-                  title="Edit All Details"
+                  className="px-3 py-1.5 min-h-[30px] rounded-lg bg-background border border-border hover:bg-card-hover font-medium flex items-center gap-1.5 text-[12px] text-foreground transition-colors"
+                  title="Edit Contact Details"
                 >
                   <Pencil className="w-3.5 h-3.5 text-primary" />
-                  <span>Edit</span>
+                  <span>Edit…</span>
                 </button>
                 <button
+                  type="button"
                   onClick={() => setActiveContactDrawer(null)}
-                  className="text-muted hover:text-foreground text-sm p-1.5 rounded hover:bg-card-hover"
-                  title="Close (ESC)"
+                  aria-label="Close contact inspector"
+                  className="text-muted hover:text-foreground text-[13px] px-2.5 py-1.5 min-h-[30px] min-w-[30px] rounded-lg border border-border hover:bg-card-hover font-semibold transition-colors"
+                  title="Close (Esc)"
                 >
                   ✕
                 </button>
@@ -6322,38 +6471,38 @@ export default function TouchpointApp() {
 
             {/* Quick Communication Actions (Phone & Email) */}
             <div className="space-y-2">
-              <div className="text-[11px] font-semibold text-muted uppercase tracking-wider">
-                Contact Details &amp; Quick Actions
+              <div className="text-[12px] font-semibold text-foreground">
+                Contact Channels &amp; Quick Dispatch
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {activeContactDrawer.phone ? (
-                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-background border border-border">
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-background border border-border">
                     <div className="flex items-center gap-2">
                       <Phone className="w-3.5 h-3.5 text-primary" />
-                      <span className="font-mono text-foreground">
+                      <span className="font-mono font-semibold text-foreground">
                         {activeContactDrawer.phone}
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <a
                         href={`tel:${cleanPhoneForDial(activeContactDrawer.phone)}`}
-                        className="px-2 py-1 rounded bg-card hover:bg-card-hover border border-border text-[11px] font-medium flex items-center gap-1 text-foreground"
+                        className="px-2.5 py-1 min-h-[28px] rounded-lg bg-card hover:bg-card-hover border border-border text-[12px] font-medium flex items-center gap-1.5 text-foreground transition-colors"
                         title="Voice Call"
                       >
-                        <Phone className="w-3 h-3 text-emerald-500" /> Call
+                        <Phone className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Call
                       </a>
                       <a
                         href={`https://wa.me/${cleanPhoneForDial(activeContactDrawer.phone)}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="px-2 py-1 rounded bg-card hover:bg-card-hover border border-border text-[11px] font-medium flex items-center gap-1 text-foreground"
+                        className="px-2.5 py-1 min-h-[28px] rounded-lg bg-card hover:bg-card-hover border border-border text-[12px] font-medium flex items-center gap-1.5 text-foreground transition-colors"
                         title="WhatsApp Chat"
                       >
-                        <MessageSquare className="w-3 h-3 text-emerald-500" /> WhatsApp
+                        <MessageSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> WhatsApp
                       </a>
                       <a
                         href={`sms:${cleanPhoneForDial(activeContactDrawer.phone)}`}
-                        className="px-2 py-1 rounded bg-card hover:bg-card-hover border border-border text-[11px] font-medium flex items-center gap-1 text-foreground"
+                        className="px-2.5 py-1 min-h-[28px] rounded-lg bg-card hover:bg-card-hover border border-border text-[12px] font-medium flex items-center gap-1.5 text-foreground transition-colors"
                         title="SMS Message"
                       >
                         SMS
@@ -6361,47 +6510,47 @@ export default function TouchpointApp() {
                     </div>
                   </div>
                 ) : (
-                  <div className="p-2.5 rounded-lg bg-background/50 border border-border/60 text-muted flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      <Phone className="w-3.5 h-3.5 opacity-50" /> No phone number recorded
+                  <div className="p-3 rounded-xl bg-background/60 border border-border text-muted flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-[12px]">
+                      <Phone className="w-3.5 h-3.5 opacity-60" /> No phone number recorded
                     </span>
                     <button
                       type="button"
                       onClick={() => handleOpenEditContact(activeContactDrawer)}
-                      className="text-[11px] text-primary hover:underline"
+                      className="text-[12px] font-semibold text-primary hover:underline"
                     >
-                      + Add Phone
+                      Add Phone…
                     </button>
                   </div>
                 )}
 
                 {activeContactDrawer.email ? (
-                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-background border border-border">
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-background border border-border">
                     <div className="flex items-center gap-2 truncate">
                       <Mail className="w-3.5 h-3.5 text-primary shrink-0" />
-                      <span className="text-foreground truncate font-mono">
+                      <span className="text-foreground truncate font-mono font-medium">
                         {activeContactDrawer.email}
                       </span>
                     </div>
                     <a
                       href={`mailto:${activeContactDrawer.email}`}
-                      className="px-2.5 py-1 rounded bg-card hover:bg-card-hover border border-border text-[11px] font-medium flex items-center gap-1 text-foreground shrink-0"
+                      className="px-2.5 py-1 min-h-[28px] rounded-lg bg-card hover:bg-card-hover border border-border text-[12px] font-medium flex items-center gap-1.5 text-foreground shrink-0 transition-colors"
                       title="Send Email"
                     >
-                      <Send className="w-3 h-3 text-primary" /> Email
+                      <Send className="w-3.5 h-3.5 text-primary" /> Email
                     </a>
                   </div>
                 ) : (
-                  <div className="p-2.5 rounded-lg bg-background/50 border border-border/60 text-muted flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      <Mail className="w-3.5 h-3.5 opacity-50" /> No email address recorded
+                  <div className="p-3 rounded-xl bg-background/60 border border-border text-muted flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-[12px]">
+                      <Mail className="w-3.5 h-3.5 opacity-60" /> No email address recorded
                     </span>
                     <button
                       type="button"
                       onClick={() => handleOpenEditContact(activeContactDrawer)}
-                      className="text-[11px] text-primary hover:underline"
+                      className="text-[12px] font-semibold text-primary hover:underline"
                     >
-                      + Add Email
+                      Add Email…
                     </button>
                   </div>
                 )}
@@ -6409,28 +6558,28 @@ export default function TouchpointApp() {
             </div>
 
             {/* Cadence & Follow-Up Tracking Card */}
-            <div className="p-3.5 rounded-xl bg-background border border-border space-y-3">
+            <div className="p-4 rounded-xl bg-background border border-border space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-primary" />
-                  <span className="font-semibold text-foreground text-xs">
-                    Cadence &amp; Follow-up Status
+                  <span className="text-[12px] font-semibold text-foreground">
+                    Cadence &amp; Follow-Up Status
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
+                    className={`px-2 py-0.5 rounded-md text-[11px] font-mono font-semibold capitalize ${
                       activeContactDrawer.cadence.status === 'overdue'
-                        ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                        ? 'sbb-baton-overdue'
                         : activeContactDrawer.cadence.status === 'due_today'
-                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                        ? 'sbb-baton-due'
                         : activeContactDrawer.cadence.status === 'due_soon'
-                        ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                        ? 'sbb-baton-warning'
                         : activeContactDrawer.cadence.status === 'paused'
-                        ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                        ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/35'
                         : activeContactDrawer.cadence.status === 'untracked'
-                        ? 'bg-muted/20 text-muted border border-border'
-                        : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                        ? 'bg-muted/15 text-muted border border-border'
+                        : 'sbb-baton-ok'
                     }`}
                   >
                     {activeContactDrawer.cadence.status.replace('_', ' ')}
@@ -6440,9 +6589,9 @@ export default function TouchpointApp() {
                     onClick={() =>
                       handleDrawerPatch({ keepInTouch: !activeContactDrawer.keepInTouch })
                     }
-                    className={`px-2 py-0.5 rounded text-[10px] font-medium border transition ${
+                    className={`px-2.5 py-1 min-h-[28px] rounded-lg text-[11px] font-semibold border transition ${
                       activeContactDrawer.keepInTouch
-                        ? 'bg-primary/20 text-primary border-primary/40'
+                        ? 'bg-primary text-primary-fg border-primary'
                         : 'bg-card text-muted border-border hover:text-foreground'
                     }`}
                   >
@@ -6451,19 +6600,19 @@ export default function TouchpointApp() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-[11px]">
-                <div className="p-2 rounded bg-card border border-border">
-                  <div className="text-muted">Effective Interval</div>
-                  <div className="font-semibold text-foreground mt-0.5">
+              <div className="grid grid-cols-2 gap-2.5 text-[12px]">
+                <div className="p-2.5 rounded-lg bg-card border border-border">
+                  <div className="text-[11px] font-medium text-muted">Effective Interval</div>
+                  <div className="font-mono font-semibold text-foreground mt-0.5">
                     Every {activeContactDrawer.cadence.effectiveIntervalDays} days
                     {activeContactDrawer.customIntervalDays
                       ? ' (Custom)'
                       : ' (Group)'}
                   </div>
                 </div>
-                <div className="p-2 rounded bg-card border border-border">
-                  <div className="text-muted">Next Due Date</div>
-                  <div className="font-semibold text-foreground mt-0.5">
+                <div className="p-2.5 rounded-lg bg-card border border-border">
+                  <div className="text-[11px] font-medium text-muted">Next Due Date</div>
+                  <div className="font-mono font-semibold text-foreground mt-0.5">
                     {activeContactDrawer.cadence.nextDueDate
                       ? formatDateByPattern(
                           activeContactDrawer.cadence.nextDueDate,
@@ -6472,27 +6621,27 @@ export default function TouchpointApp() {
                       : '—'}
                     {activeContactDrawer.cadence.daysUntilDue !== undefined && (
                       <span
-                        className={`ml-1 text-[10px] ${
+                        className={`ml-1 text-[11px] ${
                           activeContactDrawer.cadence.daysUntilDue < 0
-                            ? 'text-rose-400'
+                            ? 'text-overdue font-bold'
                             : activeContactDrawer.cadence.daysUntilDue === 0
-                            ? 'text-amber-400'
+                            ? 'text-due-soon font-bold'
                             : 'text-muted'
                         }`}
                       >
                         {activeContactDrawer.cadence.daysUntilDue < 0
                           ? `(${Math.abs(activeContactDrawer.cadence.daysUntilDue)}d overdue)`
                           : activeContactDrawer.cadence.daysUntilDue === 0
-                          ? '(Due today!)'
+                          ? '(Due today)'
                           : `(in ${activeContactDrawer.cadence.daysUntilDue}d)`}
                       </span>
                     )}
                   </div>
                 </div>
-                <div className="col-span-2 p-2 rounded bg-card border border-border flex items-center justify-between">
+                <div className="col-span-2 p-2.5 rounded-lg bg-card border border-border flex items-center justify-between">
                   <div>
-                    <div className="text-muted">Last Contacted</div>
-                    <div className="font-medium text-foreground mt-0.5">
+                    <div className="text-[11px] font-medium text-muted">Last Contacted</div>
+                    <div className="font-mono font-semibold text-foreground mt-0.5">
                       {activeContactDrawer.lastContactedAt
                         ? `${formatDateByPattern(
                             activeContactDrawer.lastContactedAt,
@@ -6502,7 +6651,7 @@ export default function TouchpointApp() {
                     </div>
                   </div>
                   {activeContactDrawer.lastTouchpoint && (
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-background border border-border text-muted">
+                    <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-background border border-border text-muted">
                       via {activeContactDrawer.lastTouchpoint.method}
                     </span>
                   )}
@@ -6510,59 +6659,59 @@ export default function TouchpointApp() {
               </div>
 
               {/* Quick Log Touchpoint buttons */}
-              <div className="pt-1 border-t border-border flex items-center justify-between gap-2">
-                <span className="text-[11px] text-muted">Quick Log Touchpoint:</span>
+              <div className="pt-2.5 border-t border-border flex items-center justify-between gap-2">
+                <span className="text-[12px] font-medium text-muted">Quick Log Touchpoint</span>
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => handleDrawerLogTouchpoint('call')}
-                    className="px-2 py-1 rounded bg-card hover:bg-card-hover border border-border text-[11px] font-medium flex items-center gap-1 text-foreground"
+                    className="px-2.5 py-1 min-h-[28px] rounded-lg bg-card hover:bg-card-hover border border-border text-[12px] font-medium flex items-center gap-1.5 text-foreground transition-colors"
                   >
-                    <Phone className="w-3 h-3 text-emerald-500" /> Call
+                    <Phone className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Call
                   </button>
                   <button
                     type="button"
                     onClick={() => handleDrawerLogTouchpoint('message')}
-                    className="px-2 py-1 rounded bg-card hover:bg-card-hover border border-border text-[11px] font-medium flex items-center gap-1 text-foreground"
+                    className="px-2.5 py-1 min-h-[28px] rounded-lg bg-card hover:bg-card-hover border border-border text-[12px] font-medium flex items-center gap-1.5 text-foreground transition-colors"
                   >
-                    <MessageSquare className="w-3 h-3 text-emerald-500" /> WhatsApp
+                    <MessageSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> WhatsApp
                   </button>
                   <button
                     type="button"
                     onClick={() => handleDrawerLogTouchpoint('in_person')}
-                    className="px-2 py-1 rounded bg-card hover:bg-card-hover border border-border text-[11px] font-medium flex items-center gap-1 text-foreground"
+                    className="px-2.5 py-1 min-h-[28px] rounded-lg bg-card hover:bg-card-hover border border-border text-[12px] font-medium flex items-center gap-1.5 text-foreground transition-colors"
                   >
-                    <Users className="w-3 h-3 text-primary" /> Met
+                    <Users className="w-3.5 h-3.5 text-primary" /> Met
                   </button>
                 </div>
               </div>
             </div>
 
             {/* Important Dates: Birthday & Significant Dates / Events */}
-            <div className="p-3.5 rounded-xl bg-background border border-border space-y-3">
+            <div className="p-4 rounded-xl bg-background border border-border space-y-3">
               <div className="flex items-center justify-between">
-                <div className="font-semibold text-foreground text-xs flex items-center gap-1.5">
+                <div className="text-[12px] font-semibold text-foreground flex items-center gap-1.5">
                   <CalendarIcon className="w-4 h-4 text-primary" />
                   <span>Important Dates &amp; Milestones</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowAddMilestone((prev) => !prev)}
-                  className="text-[11px] text-primary hover:underline font-medium flex items-center gap-1"
+                  className="text-[12px] font-semibold text-primary hover:underline flex items-center gap-1"
                 >
-                  <Plus className="w-3 h-3" />
-                  <span>{showAddMilestone ? 'Cancel' : 'Add Date / Event'}</span>
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{showAddMilestone ? 'Cancel' : 'Add Date or Event…'}</span>
                 </button>
               </div>
 
               {/* Birthday Row */}
-              <div className="p-2.5 rounded-lg bg-card border border-border space-y-1.5">
+              <div className="p-3 rounded-lg bg-card border border-border space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-muted font-medium flex items-center gap-1.5">
+                  <label className="text-foreground font-medium text-[12px] flex items-center gap-1.5">
                     <Cake className="w-3.5 h-3.5 text-primary" />
                     <span>Birthday</span>
                   </label>
-                  <span className="text-[10px] text-muted font-mono">
+                  <span className="text-[11px] text-muted font-mono">
                     {settingsState.dateFormat || 'YYYY-MM-DD'}
                   </span>
                 </div>
@@ -6577,13 +6726,13 @@ export default function TouchpointApp() {
               </div>
 
               {/* Significant Dates & Events (Multiple) */}
-              <div className="p-2.5 rounded-lg bg-card border border-border space-y-2.5">
+              <div className="p-3 rounded-lg bg-card border border-border space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-muted font-medium flex items-center gap-1.5">
+                  <label className="text-foreground font-medium text-[12px] flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                     <span>Significant Dates &amp; Events</span>
                   </label>
-                  <span className="text-[10px] text-muted">Anniversaries, milestones, etc.</span>
+                  <span className="text-[11px] text-muted">Anniversaries, milestones, etc.</span>
                 </div>
 
                 {/* List of all Significant Dates & Events */}
@@ -6611,8 +6760,8 @@ export default function TouchpointApp() {
 
                   if (uniqueSigDates.length === 0 && !showAddMilestone) {
                     return (
-                      <p className="text-[11px] text-muted italic">
-                        No significant dates added yet. Click &ldquo;Add Date / Event&rdquo; to add anniversaries, weddings, etc.
+                      <p className="text-[12px] text-muted">
+                        No significant dates added yet. Click &ldquo;Add Date or Event…&rdquo; to add anniversaries, weddings, etc.
                       </p>
                     );
                   }
@@ -6622,7 +6771,7 @@ export default function TouchpointApp() {
                       {uniqueSigDates.map((d, idx) => (
                         <div
                           key={d.id ?? `sig-${idx}`}
-                          className="px-2.5 py-1.5 rounded-lg bg-background border border-border flex items-center gap-2 text-xs shadow-xs"
+                          className="px-2.5 py-1.5 rounded-lg bg-background border border-border flex items-center gap-2 text-[12px]"
                         >
                           <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                           <span className="font-semibold text-foreground">{d.label}:</span>
@@ -6641,10 +6790,11 @@ export default function TouchpointApp() {
                                 });
                               }
                             }}
-                            className="text-muted hover:text-overdue ml-1 p-0.5 rounded transition"
-                            title="Remove date"
+                            aria-label={`Remove ${d.label}`}
+                            className="text-muted hover:text-overdue ml-1 p-0.5 rounded-md transition"
+                            title="Remove Date"
                           >
-                            <X className="w-3 h-3" />
+                            <X className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       ))}
@@ -6654,21 +6804,21 @@ export default function TouchpointApp() {
 
                 {/* Add Milestone Inline Mini-Form */}
                 {showAddMilestone && (
-                  <div className="p-3 rounded-lg bg-background border border-primary/40 space-y-2 mt-2">
-                    <div className="font-medium text-foreground text-xs flex items-center justify-between">
-                      <span>Add New Date or Event:</span>
-                      <span className="text-[10px] text-muted font-mono">{settingsState.dateFormat || 'YYYY-MM-DD'}</span>
+                  <div className="p-3 rounded-lg bg-background border border-primary/40 space-y-2.5 mt-2">
+                    <div className="font-semibold text-foreground text-[12px] flex items-center justify-between">
+                      <span>Add New Date or Event</span>
+                      <span className="text-[11px] text-muted font-mono">{settingsState.dateFormat || 'YYYY-MM-DD'}</span>
                     </div>
 
                     {/* Quick suggestion pills */}
-                    <div className="flex flex-wrap gap-1">
+                    <div className="flex flex-wrap gap-1.5">
                       {['Anniversary', 'Wedding', 'Spouse Birthday', 'Child Birthday', 'Met Date', 'Graduation', 'Promotion'].map(
                         (sug) => (
                           <button
                             key={sug}
                             type="button"
                             onClick={() => setNewMilestoneLabel(sug)}
-                            className="px-2 py-0.5 rounded-full text-[10px] bg-secondary border border-border text-foreground hover:border-primary transition"
+                            className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-secondary border border-border text-foreground hover:border-primary transition"
                           >
                             {sug}
                           </button>
@@ -6680,8 +6830,8 @@ export default function TouchpointApp() {
                       <input
                         value={newMilestoneLabel}
                         onChange={(e) => setNewMilestoneLabel(e.target.value)}
-                        placeholder="Label (e.g. Anniversary)"
-                        className="px-2.5 py-1.5 rounded-lg bg-card border border-border text-xs text-foreground"
+                        placeholder="Label (e.g., Anniversary)"
+                        className="px-2.5 py-1.5 rounded-lg bg-card border border-border text-[12px] text-foreground"
                       />
                       <BirthdayDatePicker
                         value={newMilestoneDate}
@@ -6698,7 +6848,7 @@ export default function TouchpointApp() {
                           setNewMilestoneLabel('');
                           setNewMilestoneDate('');
                         }}
-                        className="px-2.5 py-1 rounded-lg bg-card border border-border text-muted hover:text-foreground text-xs"
+                        className="px-3 py-1.5 min-h-[28px] rounded-lg bg-card border border-border text-muted hover:text-foreground text-[12px] font-medium"
                       >
                         Cancel
                       </button>
@@ -6706,7 +6856,7 @@ export default function TouchpointApp() {
                         type="button"
                         disabled={!newMilestoneLabel.trim() || !newMilestoneDate}
                         onClick={handleDrawerAddMilestone}
-                        className="px-3 py-1 rounded-lg bg-primary text-primary-fg font-medium text-xs disabled:opacity-50"
+                        className="px-3 py-1.5 min-h-[28px] rounded-lg bg-primary text-primary-fg font-semibold text-[12px] disabled:opacity-50"
                       >
                         Save Date
                       </button>
@@ -6717,8 +6867,8 @@ export default function TouchpointApp() {
             </div>
 
             {/* Group Memberships */}
-            <div className="p-3 rounded-lg bg-background border border-border space-y-1.5">
-              <div className="text-muted font-medium flex items-center gap-1.5">
+            <div className="p-3.5 rounded-xl bg-background border border-border space-y-1.5">
+              <div className="text-[12px] font-semibold text-foreground flex items-center gap-1.5">
                 <Tag className="w-3.5 h-3.5 text-primary" /> Group Memberships
               </div>
               {activeContactDrawer.groups && activeContactDrawer.groups.length > 0 ? (
@@ -6726,10 +6876,10 @@ export default function TouchpointApp() {
                   {activeContactDrawer.groups.map((g) => (
                     <span
                       key={g.id}
-                      className="px-2 py-0.5 rounded-full text-[11px] font-medium border flex items-center gap-1.5"
+                      className="px-2.5 py-0.5 rounded-md text-[11px] font-semibold border flex items-center gap-1.5"
                       style={{
-                        backgroundColor: `${g.color}15`,
-                        borderColor: `${g.color}40`,
+                        backgroundColor: `${g.color}18`,
+                        borderColor: `${g.color}55`,
                         color: g.color,
                       }}
                     >
@@ -6738,27 +6888,27 @@ export default function TouchpointApp() {
                         style={{ backgroundColor: g.color }}
                       />
                       {g.name}
-                      <span className="opacity-70 text-[10px]">({g.intervalDays}d)</span>
+                      <span className="opacity-75 font-mono text-[11px]">({g.intervalDays}d)</span>
                     </span>
                   ))}
                 </div>
               ) : (
-                <div className="text-muted text-xs italic">
+                <div className="text-muted text-[12px]">
                   Not assigned to any groups yet.{' '}
                   <button
                     type="button"
                     onClick={() => handleOpenEditContact(activeContactDrawer)}
-                    className="text-primary not-italic hover:underline"
+                    className="text-primary font-semibold hover:underline"
                   >
-                    Assign Group
+                    Assign Group…
                   </button>
                 </div>
               )}
             </div>
 
             {/* Notes */}
-            <div className="p-3 rounded-lg bg-background border border-border space-y-1">
-              <div className="text-muted font-medium flex items-center gap-1.5">
+            <div className="p-3.5 rounded-xl bg-background border border-border space-y-1">
+              <div className="text-[12px] font-semibold text-foreground flex items-center gap-1.5">
                 <FileText className="w-3.5 h-3.5 text-primary" /> Notes
               </div>
               {activeContactDrawer.notes ? (
@@ -6766,22 +6916,22 @@ export default function TouchpointApp() {
                   {activeContactDrawer.notes}
                 </p>
               ) : (
-                <div className="text-muted text-xs italic">
+                <div className="text-muted text-[12px]">
                   No notes recorded yet.{' '}
                   <button
                     type="button"
                     onClick={() => handleOpenEditContact(activeContactDrawer)}
-                    className="text-primary not-italic hover:underline"
+                    className="text-primary font-semibold hover:underline"
                   >
-                    Add note
+                    Add Note…
                   </button>
                 </div>
               )}
             </div>
 
             {/* Pets */}
-            <div className="p-3 rounded-lg bg-background border border-border space-y-1">
-              <div className="text-muted font-medium flex items-center gap-1.5">
+            <div className="p-3.5 rounded-xl bg-background border border-border space-y-1">
+              <div className="text-[12px] font-semibold text-foreground flex items-center gap-1.5">
                 <span>🐾 Pets</span>
               </div>
               {activeContactDrawer.pets && activeContactDrawer.pets.length > 0 ? (
@@ -6789,28 +6939,28 @@ export default function TouchpointApp() {
                   {activeContactDrawer.pets.map((pet, idx) => (
                     <span
                       key={idx}
-                      className="px-2 py-0.5 rounded-md bg-card border border-border text-foreground font-medium text-xs flex items-center gap-1"
+                      className="px-2.5 py-0.5 rounded-md bg-card border border-border text-foreground font-medium text-[12px] flex items-center gap-1"
                     >
                       <span>🐾</span> {pet}
                     </span>
                   ))}
                 </div>
               ) : (
-                <div className="text-muted text-xs italic">No pets recorded.</div>
+                <div className="text-muted text-[12px]">No pets recorded.</div>
               )}
             </div>
 
             {/* Custom Fields */}
             {activeContactDrawer.customFields &&
               Object.keys(activeContactDrawer.customFields).length > 0 && (
-                <div className="p-3 rounded-lg bg-background border border-border space-y-1.5">
-                  <div className="text-muted font-medium flex items-center gap-1.5">
+                <div className="p-3.5 rounded-xl bg-background border border-border space-y-1.5">
+                  <div className="text-[12px] font-semibold text-foreground flex items-center gap-1.5">
                     <SlidersHorizontal className="w-3.5 h-3.5 text-primary" /> Custom Fields
                   </div>
                   <div className="grid grid-cols-2 gap-2 pt-0.5">
                     {Object.entries(activeContactDrawer.customFields).map(([key, val]) => (
-                      <div key={key} className="p-1.5 rounded bg-card border border-border">
-                        <div className="text-[10px] text-muted">Field #{key}</div>
+                      <div key={key} className="p-2 rounded-lg bg-card border border-border">
+                        <div className="text-[11px] text-muted">Field #{key}</div>
                         <div className="font-medium text-foreground truncate">{val}</div>
                       </div>
                     ))}
@@ -6819,12 +6969,12 @@ export default function TouchpointApp() {
               )}
 
             {/* Relationships on Network Map */}
-            <div className="p-3 rounded-lg bg-background border border-border space-y-2">
+            <div className="p-3.5 rounded-xl bg-background border border-border space-y-2">
               <div className="flex items-center justify-between">
-                <div className="text-muted font-medium flex items-center gap-1.5">
+                <div className="text-[12px] font-semibold text-foreground flex items-center gap-1.5">
                   <Network className="w-3.5 h-3.5 text-primary" /> Relationships &amp; Family Links
                 </div>
-                <span className="text-[10px] text-muted">
+                <span className="text-[11px] font-mono text-muted">
                   {drawerRelationships.length} linked
                 </span>
               </div>
@@ -6833,10 +6983,10 @@ export default function TouchpointApp() {
                   {drawerRelationships.map((rel) => (
                     <div
                       key={rel.id}
-                      className="p-2 rounded bg-card border border-border flex items-center justify-between gap-2"
+                      className="p-2.5 rounded-lg bg-card border border-border flex items-center justify-between gap-2"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium text-[10px] capitalize">
+                        <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary font-semibold capitalize text-[11px]">
                           {rel.type.replace('_', ' ')}
                         </span>
                         <span className="font-semibold text-foreground">{rel.otherName}</span>
@@ -6845,8 +6995,8 @@ export default function TouchpointApp() {
                         <button
                           type="button"
                           onClick={() => setActiveContactDrawer(rel.otherContact!)}
-                          className="px-2 py-0.5 rounded bg-background border border-border text-[10px] text-muted hover:text-foreground hover:bg-card-hover"
-                          title="View this contact"
+                          className="px-2.5 py-1 min-h-[28px] rounded-md bg-background border border-border text-[11px] font-medium text-muted hover:text-foreground hover:bg-card-hover"
+                          title="View Contact"
                         >
                           Open &rarr;
                         </button>
@@ -6855,27 +7005,27 @@ export default function TouchpointApp() {
                   ))}
                 </div>
               ) : (
-                <div className="text-muted text-xs italic">
+                <div className="text-muted text-[12px]">
                   No relationships linked on map yet.{' '}
                   <button
                     type="button"
                     onClick={() => setActiveTab('map')}
-                    className="text-primary not-italic hover:underline"
+                    className="text-primary font-semibold hover:underline"
                   >
-                    Open Relationship Map
+                    Open Relationship Map…
                   </button>
                 </div>
               )}
             </div>
 
             {/* Recent Touchpoints History */}
-            <div className="space-y-2 border-t border-border pt-4">
+            <div className="space-y-2.5 border-t border-border pt-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-sm text-foreground flex items-center gap-1.5">
+                <h3 className="text-[12px] font-semibold text-foreground flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-primary" />
                   <span>Recent Touchpoints Log</span>
                 </h3>
-                <span className="text-[11px] text-muted">
+                <span className="text-[11px] font-mono text-muted">
                   {drawerTouchpoints.length} recorded
                 </span>
               </div>
@@ -6885,13 +7035,13 @@ export default function TouchpointApp() {
                     editingTouchpointId === tp.id ? (
                       <div
                         key={tp.id}
-                        className="p-3 rounded-lg bg-card border border-primary/50 space-y-2 text-xs shadow-xs"
+                        className="p-3 rounded-xl bg-card border border-primary/50 space-y-2 text-[12px]"
                       >
                         <div className="flex items-center gap-2">
                           <select
                             value={editTpMethod}
                             onChange={(e) => setEditTpMethod(e.target.value)}
-                            className="px-2 py-1 text-xs rounded bg-background border border-border"
+                            className="px-2.5 py-1.5 text-[12px] rounded-lg bg-background border border-border"
                           >
                             <option value="call">Call</option>
                             <option value="message">Message</option>
@@ -6902,7 +7052,7 @@ export default function TouchpointApp() {
                             type="date"
                             value={editTpDate}
                             onChange={(e) => setEditTpDate(e.target.value)}
-                            className="px-2 py-1 text-xs rounded bg-background border border-border"
+                            className="px-2.5 py-1.5 text-[12px] rounded-lg bg-background border border-border font-mono"
                           />
                         </div>
                         <input
@@ -6910,20 +7060,20 @@ export default function TouchpointApp() {
                           value={editTpNote}
                           onChange={(e) => setEditTpNote(e.target.value)}
                           placeholder="Note (optional)"
-                          className="w-full px-2 py-1 text-xs rounded bg-background border border-border"
+                          className="w-full px-2.5 py-1.5 text-[12px] rounded-lg bg-background border border-border"
                         />
-                        <div className="flex items-center justify-end gap-1.5 pt-1">
+                        <div className="flex items-center justify-end gap-2 pt-1">
                           <button
                             type="button"
                             onClick={() => setEditingTouchpointId(null)}
-                            className="px-2.5 py-1 text-[11px] rounded bg-muted/20 hover:bg-muted/30 text-muted hover:text-foreground transition"
+                            className="px-3 py-1 min-h-[28px] text-[12px] font-medium rounded-lg bg-muted/15 hover:bg-muted/25 text-muted hover:text-foreground transition"
                           >
                             Cancel
                           </button>
                           <button
                             type="button"
                             onClick={() => handleSaveEditTouchpoint(tp.id)}
-                            className="px-2.5 py-1 text-[11px] rounded bg-primary text-primary-fg font-semibold hover:opacity-95 transition"
+                            className="px-3 py-1 min-h-[28px] text-[12px] font-semibold rounded-lg bg-primary text-primary-fg hover:opacity-95 transition"
                           >
                             Save Changes
                           </button>
@@ -6932,45 +7082,47 @@ export default function TouchpointApp() {
                     ) : (
                       <div
                         key={tp.id}
-                        className="p-2.5 rounded-lg bg-background border border-border flex items-start justify-between gap-2 group hover:border-border/80 transition"
+                        className="p-3 rounded-xl bg-background border border-border flex items-start justify-between gap-2 group hover:border-foreground/30 transition"
                       >
                         <div className="space-y-0.5 flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {tp.method === 'call' ? (
-                              <Phone className="w-3 h-3 text-emerald-500" />
+                              <Phone className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                             ) : tp.method === 'message' ? (
-                              <MessageSquare className="w-3 h-3 text-emerald-500" />
+                              <MessageSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                             ) : (
-                              <Users className="w-3 h-3 text-primary" />
+                              <Users className="w-3.5 h-3.5 text-primary" />
                             )}
-                            <span className="font-semibold text-foreground capitalize">
+                            <span className="font-semibold capitalize text-[12px] text-foreground">
                               {tp.method.replace('_', ' ')}
                             </span>
-                            <span className="text-[10px] text-muted font-mono">
+                            <span className="text-[11px] text-muted font-mono">
                               {formatDateByPattern(tp.contactedAt, settingsState.dateFormat)}
                             </span>
                           </div>
                           {tp.note && (
-                            <div className="text-[11px] text-muted pl-4 truncate">{tp.note}</div>
+                            <div className="text-[12px] text-muted pl-5 truncate">{tp.note}</div>
                           )}
                         </div>
 
-                        <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition">
+                        <div className="flex items-center gap-1 opacity-75 group-hover:opacity-100 transition">
                           <button
                             type="button"
                             onClick={() => handleStartEditTouchpoint(tp)}
-                            className="p-1 rounded hover:bg-card-hover text-muted hover:text-foreground transition"
-                            title="Edit touchpoint record"
+                            aria-label="Edit touchpoint record"
+                            className="p-1.5 min-h-[28px] min-w-[28px] rounded-md hover:bg-card-hover text-muted hover:text-foreground transition flex items-center justify-center"
+                            title="Edit Touchpoint"
                           >
-                            <Pencil className="w-3 h-3" />
+                            <Pencil className="w-3.5 h-3.5" />
                           </button>
                           <button
                             type="button"
                             onClick={() => handleDeleteTouchpoint(tp.id)}
-                            className="p-1 rounded hover:bg-rose-500/10 text-muted hover:text-rose-400 transition"
-                            title="Delete touchpoint record"
+                            aria-label="Delete touchpoint record"
+                            className="p-1.5 min-h-[28px] min-w-[28px] rounded-md hover:bg-rose-500/10 text-muted hover:text-rose-500 transition flex items-center justify-center"
+                            title="Delete Touchpoint"
                           >
-                            <Trash2 className="w-3 h-3" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </div>
@@ -6978,8 +7130,8 @@ export default function TouchpointApp() {
                   ))}
                 </div>
               ) : (
-                <div className="p-3 rounded-lg bg-background/50 border border-border/60 text-muted text-xs italic text-center">
-                  No touchpoints logged yet. Use the quick buttons above to log one!
+                <div className="p-3 rounded-xl bg-background/60 border border-border text-muted text-[12px] text-center">
+                  No touchpoints logged yet. Use the quick buttons above to log one.
                 </div>
               )}
             </div>
@@ -6989,17 +7141,21 @@ export default function TouchpointApp() {
 
       {/* Modal: Create Local Contact */}
       {showNewContactModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <form
             onSubmit={handleCreateLocalContact}
-            className="bg-card border border-border rounded-xl max-w-lg w-full p-5 space-y-3.5 text-xs"
+            className="bg-card border border-border rounded-2xl max-w-lg w-full p-6 space-y-4 text-[13px] shadow-2xl"
           >
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold">New Local Contact</h3>
+            <div className="flex items-center justify-between pb-3 border-b border-border">
+              <div>
+                <h3 className="text-[16px] font-bold tracking-tight text-foreground">New Local Contact</h3>
+                <p className="text-[12px] text-muted">Add a person to your relationship cadence directory</p>
+              </div>
               <button
                 type="button"
                 onClick={() => setShowNewContactModal(false)}
-                className="text-muted"
+                aria-label="Close new contact modal"
+                className="text-muted hover:text-foreground px-2.5 py-1.5 min-h-[30px] min-w-[30px] rounded-lg border border-border hover:bg-card-hover font-semibold transition-colors"
               >
                 ✕
               </button>
@@ -7007,7 +7163,7 @@ export default function TouchpointApp() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-muted mb-1">First Name *</label>
+                <label className="block text-[12px] font-medium text-foreground mb-1">First Name *</label>
                 <input
                   required
                   value={newContactForm.firstName}
@@ -7015,75 +7171,75 @@ export default function TouchpointApp() {
                     setNewContactForm({ ...newContactForm, firstName: e.target.value })
                   }
                   placeholder="Dan"
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-border"
+                  className="w-full px-3 py-2 rounded-lg bg-background border border-border text-[13px]"
                 />
               </div>
               <div>
-                <label className="block text-muted mb-1">Last Name</label>
+                <label className="block text-[12px] font-medium text-foreground mb-1">Last Name</label>
                 <input
                   value={newContactForm.lastName}
                   onChange={(e) =>
                     setNewContactForm({ ...newContactForm, lastName: e.target.value })
                   }
                   placeholder="Cohen"
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-border"
+                  className="w-full px-3 py-2 rounded-lg bg-background border border-border text-[13px]"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-muted mb-1">Phone</label>
+                <label className="block text-[12px] font-medium text-foreground mb-1">Phone</label>
                 <input
                   value={newContactForm.phone}
                   onChange={(e) =>
                     setNewContactForm({ ...newContactForm, phone: e.target.value })
                   }
                   placeholder="+972-54-1234567"
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-border"
+                  className="w-full px-3 py-2 rounded-lg bg-background border border-border font-mono text-[13px]"
                 />
               </div>
               <div>
-                <label className="block text-muted mb-1">Email</label>
+                <label className="block text-[12px] font-medium text-foreground mb-1">Email</label>
                 <input
                   value={newContactForm.email}
                   onChange={(e) =>
                     setNewContactForm({ ...newContactForm, email: e.target.value })
                   }
                   placeholder="dan@example.com"
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-border"
+                  className="w-full px-3 py-2 rounded-lg bg-background border border-border font-mono text-[13px]"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-muted mb-1">Company (Optional)</label>
+                <label className="block text-[12px] font-medium text-foreground mb-1">Company (Optional)</label>
                 <input
                   value={newContactForm.company}
                   onChange={(e) =>
                     setNewContactForm({ ...newContactForm, company: e.target.value })
                   }
                   placeholder="Acme Corp"
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-border"
+                  className="w-full px-3 py-2 rounded-lg bg-background border border-border text-[13px]"
                 />
               </div>
               <div>
-                <label className="block text-muted mb-1">Job Title (Optional)</label>
+                <label className="block text-[12px] font-medium text-foreground mb-1">Job Title (Optional)</label>
                 <input
                   value={newContactForm.jobTitle}
                   onChange={(e) =>
                     setNewContactForm({ ...newContactForm, jobTitle: e.target.value })
                   }
                   placeholder="Product Manager"
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-border"
+                  className="w-full px-3 py-2 rounded-lg bg-background border border-border text-[13px]"
                 />
               </div>
             </div>
 
             <div className="space-y-3">
               <div>
-                <label className="block text-muted mb-1 flex items-center justify-between font-medium">
+                <label className="block text-foreground mb-1 flex items-center justify-between font-medium text-[12px]">
                   <span className="flex items-center gap-1.5">
                     <Cake className="w-3.5 h-3.5 text-primary" />
                     <span>Birthday (Optional)</span>
@@ -7098,9 +7254,9 @@ export default function TouchpointApp() {
                 />
               </div>
 
-              <div className="p-2.5 rounded-lg bg-background border border-border space-y-2">
+              <div className="p-3 rounded-xl bg-background border border-border space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-muted font-medium flex items-center gap-1.5">
+                  <label className="text-[12px] font-medium text-foreground flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                     <span>Significant Dates &amp; Events (Optional)</span>
                   </label>
@@ -7115,9 +7271,9 @@ export default function TouchpointApp() {
                         ],
                       })
                     }
-                    className="text-[11px] text-primary hover:underline font-medium flex items-center gap-1"
+                    className="text-[12px] font-semibold text-primary hover:underline flex items-center gap-1"
                   >
-                    <Plus className="w-3 h-3" /> Add Another Date
+                    <Plus className="w-3.5 h-3.5" /> Add Another Date
                   </button>
                 </div>
 
@@ -7131,8 +7287,8 @@ export default function TouchpointApp() {
                           updated[idx].label = e.target.value;
                           setNewContactForm({ ...newContactForm, significantDates: updated });
                         }}
-                        placeholder="Label (e.g. Anniversary)"
-                        className="w-1/2 px-2.5 py-1.5 rounded-lg bg-card border border-border text-xs text-foreground"
+                        placeholder="Label (e.g., Anniversary)"
+                        className="w-1/2 px-2.5 py-1.5 rounded-lg bg-card border border-border text-[12px] text-foreground"
                       />
                       <div className="flex-1">
                         <BirthdayDatePicker
@@ -7153,6 +7309,7 @@ export default function TouchpointApp() {
                             const updated = newContactForm.significantDates.filter((_, i) => i !== idx);
                             setNewContactForm({ ...newContactForm, significantDates: updated });
                           }}
+                          aria-label="Remove significant date"
                           className="text-muted hover:text-overdue p-1"
                           title="Remove"
                         >
@@ -7167,7 +7324,7 @@ export default function TouchpointApp() {
 
             {/* Interactive Cadence Interval Selector */}
             <div className="space-y-1.5">
-              <label className="block text-muted">Stay in Touch Cadence</label>
+              <label className="block text-[12px] font-medium text-foreground">Stay-in-Touch Cadence</label>
               <div className="flex flex-wrap gap-1.5">
                 {INTERVAL_PRESETS.map((preset) => {
                   const active =
@@ -7184,9 +7341,9 @@ export default function TouchpointApp() {
                           selectedPresetDays: preset.value,
                         })
                       }
-                      className={`px-2.5 py-1.5 rounded-lg border text-xs transition ${
+                      className={`px-2.5 py-1.5 min-h-[28px] rounded-lg border text-[12px] font-medium transition ${
                         active
-                          ? 'bg-primary text-primary-fg border-primary font-semibold'
+                          ? 'bg-primary text-primary-fg border-primary'
                           : 'bg-background border-border text-muted hover:text-foreground'
                       }`}
                     >
@@ -7202,13 +7359,13 @@ export default function TouchpointApp() {
                       intervalMode: 'custom',
                     })
                   }
-                  className={`px-2.5 py-1.5 rounded-lg border text-xs transition ${
+                  className={`px-2.5 py-1.5 min-h-[28px] rounded-lg border text-[12px] font-medium transition ${
                     newContactForm.intervalMode === 'custom'
-                      ? 'bg-primary text-primary-fg border-primary font-semibold'
+                      ? 'bg-primary text-primary-fg border-primary'
                       : 'bg-background border-border text-muted hover:text-foreground'
                   }`}
                 >
-                  Custom Days...
+                  Custom Days…
                 </button>
               </div>
 
@@ -7225,9 +7382,9 @@ export default function TouchpointApp() {
                         customDaysValue: Number(e.target.value),
                       })
                     }
-                    className="flex-1 accent-primary h-2.5 bg-muted/20 border border-border/80 rounded-lg cursor-pointer"
+                    className="flex-1 accent-primary h-2 bg-muted/20 border border-border rounded-lg cursor-pointer"
                   />
-                  <span className="font-semibold w-28 text-right">
+                  <span className="font-mono font-semibold w-28 text-right text-[12px]">
                     Every {newContactForm.customDaysValue} days
                   </span>
                 </div>
@@ -7235,39 +7392,39 @@ export default function TouchpointApp() {
             </div>
 
             <div>
-              <label className="block text-muted mb-1">Notes</label>
+              <label className="block text-[12px] font-medium text-foreground mb-1">Notes</label>
               <textarea
                 rows={2}
                 value={newContactForm.notes}
                 onChange={(e) =>
                   setNewContactForm({ ...newContactForm, notes: e.target.value })
                 }
-                placeholder="Context, how you met, family details, or topics to remember..."
-                className="w-full px-3 py-2 rounded-lg bg-background border border-border"
+                placeholder="Context, how you met, family details, or topics to remember…"
+                className="w-full px-3 py-2 rounded-lg bg-background border border-border text-[13px]"
               />
             </div>
 
-            <div className="flex items-center justify-between pt-2">
-              <label className="flex items-center gap-1.5 cursor-pointer text-muted hover:text-foreground select-none">
+            <div className="flex items-center justify-between pt-3 border-t border-border">
+              <label className="flex items-center gap-2 cursor-pointer text-muted hover:text-foreground select-none text-[12px]">
                 <input
                   type="checkbox"
                   checked={addMoreContact}
                   onChange={(e) => setAddMoreContact(e.target.checked)}
-                  className="rounded border-border text-primary focus:ring-0"
+                  className="rounded-sm border-border text-primary focus:ring-0"
                 />
-                <span>Add more</span>
+                <span>Create Another After Saving</span>
               </label>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setShowNewContactModal(false)}
-                  className="px-3 py-1.5 rounded-lg border border-border"
+                  className="px-3.5 py-1.5 min-h-[32px] rounded-lg border border-border font-medium text-[12px] text-foreground hover:bg-card-hover"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded-lg bg-primary text-primary-fg font-semibold"
+                  className="px-4 py-1.5 min-h-[32px] rounded-lg bg-primary text-primary-fg font-semibold text-[12px] hover:opacity-95"
                 >
                   Save Contact
                 </button>
@@ -7282,12 +7439,12 @@ export default function TouchpointApp() {
         const currentPair = duplicates[currentDuplicateIndex] || duplicates[0];
         if (!currentPair) return null;
         return (
-          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-            <div className="bg-card border border-border rounded-xl max-w-lg w-full p-5 space-y-4 text-xs shadow-2xl">
-              <div className="flex items-center justify-between">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div className="bg-card border border-border rounded-2xl max-w-lg w-full p-6 space-y-4 text-[13px] shadow-2xl">
+              <div className="flex items-center justify-between pb-3 border-b border-border">
                 <div>
-                  <h3 className="text-base font-bold text-foreground">Merge Duplicate Contacts</h3>
-                  <div className="text-muted text-xs mt-0.5">
+                  <h3 className="text-[16px] font-bold tracking-tight text-foreground">Merge Duplicate Contacts</h3>
+                  <div className="text-muted font-mono text-[12px] mt-0.5">
                     Duplicate {Math.min(currentDuplicateIndex + 1, duplicates.length)} of {duplicates.length}
                   </div>
                 </div>
@@ -7297,67 +7454,68 @@ export default function TouchpointApp() {
                     setShowMergeModal(false);
                     setCurrentDuplicateIndex(0);
                   }}
-                  className="text-muted hover:text-foreground text-sm"
+                  aria-label="Close duplicate merger modal"
+                  className="text-muted hover:text-foreground text-[13px] px-2.5 py-1.5 min-h-[30px] min-w-[30px] rounded-lg border border-border hover:bg-card-hover font-semibold"
                 >
                   ✕
                 </button>
               </div>
 
-              <div className="p-2.5 rounded-lg bg-background border border-border text-muted">
-                <span className="font-semibold text-foreground">Flagged reason: </span>
+              <div className="p-3 rounded-xl bg-background border border-border text-muted text-[12px]">
+                <span className="font-semibold text-foreground">Flagged Reason: </span>
                 {currentPair.reasons.join(', ')}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="p-3.5 rounded-lg bg-background border border-border space-y-1.5 flex flex-col justify-between">
+                <div className="p-3.5 rounded-xl bg-background border border-border space-y-2 flex flex-col justify-between">
                   <div className="space-y-1">
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-card border border-border uppercase text-muted font-medium">
+                    <span className="text-[11px] px-2 py-0.5 rounded-md bg-card border border-border text-muted font-mono font-semibold inline-block">
                       Contact A ({currentPair.contactA.source})
                     </span>
-                    <div className="font-bold text-foreground text-sm">{currentPair.contactA.fullName}</div>
-                    <div className="text-muted">{currentPair.contactA.phone || 'No phone'}</div>
-                    <div className="text-muted">{currentPair.contactA.email || 'No email'}</div>
+                    <div className="font-bold text-foreground text-[14px] pt-0.5">{currentPair.contactA.fullName}</div>
+                    <div className="text-muted font-mono text-[12px]">{currentPair.contactA.phone || 'No phone'}</div>
+                    <div className="text-muted font-mono text-[12px] truncate">{currentPair.contactA.email || 'No email'}</div>
                   </div>
                   <button
                     type="button"
                     onClick={() =>
                       handleMergeDuplicate(currentPair.contactA.id, currentPair.contactB.id)
                     }
-                    className="w-full mt-2 px-3 py-1.5 rounded-lg bg-primary text-primary-fg font-semibold hover:opacity-90"
+                    className="w-full mt-2 px-3 py-1.5 min-h-[32px] rounded-lg bg-primary text-primary-fg font-semibold text-[12px] hover:opacity-95"
                   >
                     Keep A (Merge B into A)
                   </button>
                 </div>
 
-                <div className="p-3.5 rounded-lg bg-background border border-border space-y-1.5 flex flex-col justify-between">
+                <div className="p-3.5 rounded-xl bg-background border border-border space-y-2 flex flex-col justify-between">
                   <div className="space-y-1">
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-card border border-border uppercase text-muted font-medium">
+                    <span className="text-[11px] px-2 py-0.5 rounded-md bg-card border border-border text-muted font-mono font-semibold inline-block">
                       Contact B ({currentPair.contactB.source})
                     </span>
-                    <div className="font-bold text-foreground text-sm">{currentPair.contactB.fullName}</div>
-                    <div className="text-muted">{currentPair.contactB.phone || 'No phone'}</div>
-                    <div className="text-muted">{currentPair.contactB.email || 'No email'}</div>
+                    <div className="font-bold text-foreground text-[14px] pt-0.5">{currentPair.contactB.fullName}</div>
+                    <div className="text-muted font-mono text-[12px]">{currentPair.contactB.phone || 'No phone'}</div>
+                    <div className="text-muted font-mono text-[12px] truncate">{currentPair.contactB.email || 'No email'}</div>
                   </div>
                   <button
                     type="button"
                     onClick={() =>
                       handleMergeDuplicate(currentPair.contactB.id, currentPair.contactA.id)
                     }
-                    className="w-full mt-2 px-3 py-1.5 rounded-lg bg-card border border-primary text-primary font-semibold hover:bg-card-hover"
+                    className="w-full mt-2 px-3 py-1.5 min-h-[32px] rounded-lg bg-card border border-primary text-primary font-semibold text-[12px] hover:bg-card-hover"
                   >
                     Keep B (Merge A into B)
                   </button>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-2 border-t border-border">
+              <div className="flex items-center justify-between pt-3 border-t border-border">
                 {duplicates.length > 1 ? (
                   <button
                     type="button"
                     onClick={() =>
                       setCurrentDuplicateIndex((idx) => (idx + 1) % duplicates.length)
                     }
-                    className="text-primary hover:underline font-medium text-xs"
+                    className="text-primary hover:underline font-semibold text-[12px]"
                   >
                     Skip to Next Duplicate →
                   </button>
@@ -7368,9 +7526,9 @@ export default function TouchpointApp() {
                     setShowMergeModal(false);
                     setCurrentDuplicateIndex(0);
                   }}
-                  className="px-3.5 py-1.5 rounded-lg border border-border text-muted hover:text-foreground"
+                  className="px-3.5 py-1.5 min-h-[32px] rounded-lg border border-border text-muted hover:text-foreground font-medium text-[12px]"
                 >
-                  Cancel / Close
+                  Close
                 </button>
               </div>
             </div>
@@ -7380,22 +7538,26 @@ export default function TouchpointApp() {
 
       {/* Modal: Full Contact Editor */}
       {editingContact && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <form
             onSubmit={handleSaveEditContact}
-            className="bg-card border border-border rounded-xl max-w-lg w-full p-5 space-y-4 text-xs shadow-2xl max-h-[90vh] overflow-y-auto"
+            className="bg-card border border-border rounded-2xl max-w-lg w-full p-6 space-y-4 text-[13px] shadow-2xl max-h-[90vh] overflow-y-auto"
           >
-            <div className="flex items-center justify-between pb-2 border-b border-border">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between pb-3 border-b border-border">
+              <div className="flex items-center gap-2.5">
                 <Pencil className="w-4 h-4 text-primary" />
-                <h3 className="text-base font-bold text-foreground">
-                  Edit Contact: {editingContact.fullName}
-                </h3>
+                <div>
+                  <h3 className="text-[16px] font-bold tracking-tight text-foreground">
+                    Edit Contact: {editingContact.fullName}
+                  </h3>
+                  <p className="text-[12px] text-muted">Update identity, cadence rules, and group memberships</p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setEditingContact(null)}
-                className="text-muted hover:text-foreground text-sm"
+                aria-label="Close contact editor"
+                className="text-muted hover:text-foreground text-[13px] px-2.5 py-1.5 min-h-[30px] min-w-[30px] rounded-lg border border-border hover:bg-card-hover font-semibold"
               >
                 ✕
               </button>
@@ -7403,7 +7565,7 @@ export default function TouchpointApp() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="block text-muted mb-1 font-medium">First Name</label>
+                <label className="block text-[12px] font-medium text-foreground mb-1">First Name</label>
                 <input
                   value={editContactForm.firstName}
                   onChange={(e) => {
@@ -7416,11 +7578,11 @@ export default function TouchpointApp() {
                     });
                   }}
                   placeholder="First name"
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-border"
+                  className="w-full px-3 py-2 rounded-lg bg-background border border-border text-[13px]"
                 />
               </div>
               <div>
-                <label className="block text-muted mb-1 font-medium">Last Name</label>
+                <label className="block text-[12px] font-medium text-foreground mb-1">Last Name</label>
                 <input
                   value={editContactForm.lastName}
                   onChange={(e) => {
@@ -7433,14 +7595,14 @@ export default function TouchpointApp() {
                     });
                   }}
                   placeholder="Last name"
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-border"
+                  className="w-full px-3 py-2 rounded-lg bg-background border border-border text-[13px]"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="block text-muted mb-1 font-medium">Full Name (Combined) *</label>
+                <label className="block text-[12px] font-medium text-foreground mb-1">Full Name (Combined) *</label>
                 <input
                   required
                   value={editContactForm.fullName}
@@ -7456,24 +7618,24 @@ export default function TouchpointApp() {
                       lastName: ln,
                     });
                   }}
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-border"
+                  className="w-full px-3 py-2 rounded-lg bg-background border border-border text-[13px]"
                 />
               </div>
               <div>
-                <label className="block text-muted mb-1 font-medium">Phone Number</label>
+                <label className="block text-[12px] font-medium text-foreground mb-1">Phone Number</label>
                 <input
                   value={editContactForm.phone}
                   onChange={(e) =>
                     setEditContactForm({ ...editContactForm, phone: e.target.value })
                   }
                   placeholder="+1..."
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-border font-mono"
+                  className="w-full px-3 py-2 rounded-lg bg-background border border-border font-mono text-[13px]"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-muted mb-1 font-medium">Email Address</label>
+              <label className="block text-[12px] font-medium text-foreground mb-1">Email Address</label>
               <input
                 type="email"
                 value={editContactForm.email}
@@ -7481,12 +7643,12 @@ export default function TouchpointApp() {
                   setEditContactForm({ ...editContactForm, email: e.target.value })
                 }
                 placeholder="name@example.com"
-                className="w-full px-3 py-2 rounded-lg bg-background border border-border"
+                className="w-full px-3 py-2 rounded-lg bg-background border border-border font-mono text-[13px]"
               />
             </div>
             <div className="space-y-3">
               <div>
-                <label className="block text-muted mb-1 font-medium flex items-center justify-between">
+                <label className="block text-foreground mb-1 font-medium text-[12px] flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
                     <Cake className="w-3.5 h-3.5 text-primary" /> Birthday
                   </span>
@@ -7500,9 +7662,9 @@ export default function TouchpointApp() {
                 />
               </div>
 
-              <div className="p-2.5 rounded-lg bg-background border border-border space-y-2">
+              <div className="p-3 rounded-xl bg-background border border-border space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-muted font-medium flex items-center gap-1.5">
+                  <label className="text-[12px] font-medium text-foreground flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                     <span>Significant Dates &amp; Events</span>
                   </label>
@@ -7517,9 +7679,9 @@ export default function TouchpointApp() {
                         ],
                       })
                     }
-                    className="text-[11px] text-primary hover:underline font-medium flex items-center gap-1"
+                    className="text-[12px] font-semibold text-primary hover:underline flex items-center gap-1"
                   >
-                    <Plus className="w-3 h-3" /> Add Another Date
+                    <Plus className="w-3.5 h-3.5" /> Add Another Date
                   </button>
                 </div>
 
@@ -7533,8 +7695,8 @@ export default function TouchpointApp() {
                           updated[idx].label = e.target.value;
                           setEditContactForm({ ...editContactForm, importantDates: updated });
                         }}
-                        placeholder="Label (e.g. Anniversary)"
-                        className="w-1/2 px-2.5 py-1.5 rounded-lg bg-card border border-border text-xs text-foreground"
+                        placeholder="Label (e.g., Anniversary)"
+                        className="w-1/2 px-2.5 py-1.5 rounded-lg bg-card border border-border text-[12px] text-foreground"
                       />
                       <div className="flex-1">
                         <BirthdayDatePicker
@@ -7555,6 +7717,7 @@ export default function TouchpointApp() {
                             const updated = editContactForm.importantDates.filter((_, i) => i !== idx);
                             setEditContactForm({ ...editContactForm, importantDates: updated });
                           }}
+                          aria-label="Remove significant date"
                           className="text-muted hover:text-overdue p-1"
                           title="Remove"
                         >
@@ -7569,33 +7732,33 @@ export default function TouchpointApp() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="block text-muted mb-1 font-medium">Company</label>
+                <label className="block text-[12px] font-medium text-foreground mb-1">Company</label>
                 <input
                   value={editContactForm.company}
                   onChange={(e) =>
                     setEditContactForm({ ...editContactForm, company: e.target.value })
                   }
                   placeholder="Acme Corp"
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-border"
+                  className="w-full px-3 py-2 rounded-lg bg-background border border-border text-[13px]"
                 />
               </div>
               <div>
-                <label className="block text-muted mb-1 font-medium">Job Title</label>
+                <label className="block text-[12px] font-medium text-foreground mb-1">Job Title</label>
                 <input
                   value={editContactForm.jobTitle}
                   onChange={(e) =>
                     setEditContactForm({ ...editContactForm, jobTitle: e.target.value })
                   }
                   placeholder="Software Engineer"
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-border"
+                  className="w-full px-3 py-2 rounded-lg bg-background border border-border text-[13px]"
                 />
               </div>
             </div>
 
-            <div className="p-3 rounded-lg bg-background border border-border space-y-3">
+            <div className="p-3.5 rounded-xl bg-background border border-border space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="font-semibold text-foreground">Keep in Touch (Cadence Tracking)</div>
+                  <div className="text-[12px] font-semibold text-foreground">Keep in Touch (Cadence Tracking)</div>
                   <div className="text-muted text-[11px]">Track regular touchpoints with this person</div>
                 </div>
                 <button
@@ -7606,7 +7769,7 @@ export default function TouchpointApp() {
                       keepInTouch: !editContactForm.keepInTouch,
                     })
                   }
-                  className={`px-3 py-1 rounded-full font-semibold border ${
+                  className={`px-3 py-1 min-h-[28px] rounded-lg font-semibold text-[11px] border ${
                     editContactForm.keepInTouch
                       ? 'bg-primary text-primary-fg border-primary'
                       : 'bg-card border-border text-muted'
@@ -7617,8 +7780,8 @@ export default function TouchpointApp() {
               </div>
 
               {editContactForm.keepInTouch && (
-                <div className="space-y-2 pt-2 border-t border-border">
-                  <div className="flex items-center gap-3">
+                <div className="space-y-2.5 pt-2.5 border-t border-border">
+                  <div className="flex items-center gap-4 text-[12px]">
                     <label className="flex items-center gap-1.5 cursor-pointer">
                       <input
                         type="radio"
@@ -7644,11 +7807,11 @@ export default function TouchpointApp() {
                   </div>
 
                   {editContactForm.intervalMode === 'custom' && (
-                    <div className="space-y-2 pt-2 bg-card/60 border border-border p-3 rounded-xl">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted font-medium">Custom Cadence Slider</span>
+                    <div className="space-y-2.5 pt-2 bg-card border border-border p-3 rounded-lg">
+                      <div className="flex items-center justify-between text-[12px]">
+                        <span className="font-medium text-muted">Custom Cadence Interval</span>
                         <div className="flex items-center gap-1.5 font-mono">
-                          <span className="font-bold text-primary text-sm">
+                          <span className="font-bold text-primary text-[13px]">
                             Every {editContactForm.customIntervalDays} days
                           </span>
                           <span className="text-muted text-[11px]">
@@ -7672,9 +7835,9 @@ export default function TouchpointApp() {
                               customIntervalDays: Number(e.target.value),
                             })
                           }
-                          className="w-full accent-primary h-2.5 bg-muted/20 border border-border/80 rounded-lg cursor-pointer"
+                          className="w-full accent-primary h-2 bg-muted/20 border border-border rounded-lg cursor-pointer"
                         />
-                        <div className="flex justify-between text-[10px] text-muted pt-1">
+                        <div className="flex justify-between text-[11px] font-mono text-muted pt-1">
                           <span>1d (Daily)</span>
                           <span>30d (Monthly)</span>
                           <span>90d (Quarterly)</span>
@@ -7703,9 +7866,9 @@ export default function TouchpointApp() {
                                 customIntervalDays: preset.days,
                               })
                             }
-                            className={`px-2 py-0.5 rounded text-[11px] border transition ${
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-mono font-medium border transition ${
                               editContactForm.customIntervalDays === preset.days
-                                ? 'bg-primary text-primary-fg border-primary font-semibold'
+                                ? 'bg-primary text-primary-fg border-primary'
                                 : 'bg-background border-border text-muted hover:text-foreground'
                             }`}
                           >
@@ -7721,14 +7884,14 @@ export default function TouchpointApp() {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="block text-muted font-medium">Group Memberships</label>
+                <label className="block text-[12px] font-medium text-foreground">Group Memberships</label>
                 {!showInlineNewGroup && (
                   <button
                     type="button"
                     onClick={() => setShowInlineNewGroup(true)}
-                    className="text-xs text-primary hover:underline flex items-center gap-1 font-medium"
+                    className="text-[12px] font-semibold text-primary hover:underline flex items-center gap-1"
                   >
-                    <Plus className="w-3 h-3" /> Create New Group
+                    <Plus className="w-3.5 h-3.5" /> Create New Group…
                   </button>
                 )}
               </div>
@@ -7749,9 +7912,9 @@ export default function TouchpointApp() {
                             : [...editContactForm.groupIds, g.id],
                         })
                       }
-                      className={`px-2.5 py-1 rounded-lg border text-xs transition ${
+                      className={`px-2.5 py-1 min-h-[28px] rounded-lg border text-[12px] font-medium transition ${
                         isSelected
-                          ? 'bg-primary/15 border-primary text-primary font-medium'
+                          ? 'bg-primary/15 border-primary text-primary font-semibold'
                           : 'bg-background border-border text-muted hover:text-foreground'
                       }`}
                     >
@@ -7760,42 +7923,43 @@ export default function TouchpointApp() {
                   );
                 })}
                 {groups.length === 0 && !showInlineNewGroup && (
-                  <span className="text-xs text-muted">
-                    No groups yet. Click "+ Create New Group" to make one.
+                  <span className="text-[12px] text-muted">
+                    No groups yet. Click &ldquo;Create New Group…&rdquo; to make one.
                   </span>
                 )}
               </div>
 
               {/* Inline Create Group Form */}
               {showInlineNewGroup && (
-                <div className="p-3 rounded-xl bg-card border border-primary/40 space-y-2 text-xs animate-in fade-in">
+                <div className="p-3.5 rounded-xl bg-card border border-primary/40 space-y-2.5 text-[12px] animate-in fade-in">
                   <div className="font-semibold text-foreground flex items-center justify-between">
                     <span>Create &amp; Assign New Group</span>
                     <button
                       type="button"
                       onClick={() => setShowInlineNewGroup(false)}
-                      className="text-muted hover:text-foreground text-xs"
+                      aria-label="Cancel inline group creation"
+                      className="text-muted hover:text-foreground text-[12px] px-1.5 py-0.5 rounded-md"
                     >
                       ✕
                     </button>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     <div>
-                      <label className="text-muted block mb-1">Group Name</label>
+                      <label className="text-[11px] font-medium text-muted block mb-1">Group Name</label>
                       <input
                         type="text"
-                        placeholder="e.g. VIP Clients, Tennis Club"
+                        placeholder="e.g., VIP Clients, Tennis Club"
                         value={inlineGroupName}
                         onChange={(e) => setInlineGroupName(e.target.value)}
-                        className="w-full px-2.5 py-1.5 rounded bg-background border border-border text-foreground text-xs"
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-background border border-border text-foreground text-[12px]"
                       />
                     </div>
                     <div>
-                      <label className="text-muted block mb-1">Cadence Interval</label>
+                      <label className="text-[11px] font-medium text-muted block mb-1">Cadence Interval</label>
                       <select
                         value={inlineGroupInterval}
                         onChange={(e) => setInlineGroupInterval(Number(e.target.value))}
-                        className="w-full px-2.5 py-1.5 rounded bg-background border border-border text-foreground text-xs"
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-background border border-border text-foreground text-[12px] font-mono"
                       >
                         <option value={7}>Every 7 days (Weekly)</option>
                         <option value={14}>Every 14 days (2 Weeks)</option>
@@ -7811,7 +7975,7 @@ export default function TouchpointApp() {
                     <button
                       type="button"
                       onClick={() => setShowInlineNewGroup(false)}
-                      className="px-2.5 py-1 rounded bg-background border border-border text-muted hover:text-foreground"
+                      className="px-3 py-1 min-h-[28px] rounded-lg bg-background border border-border text-muted hover:text-foreground font-medium text-[12px]"
                     >
                       Cancel
                     </button>
@@ -7819,9 +7983,9 @@ export default function TouchpointApp() {
                       type="button"
                       disabled={!inlineGroupName.trim() || inlineGroupLoading}
                       onClick={handleCreateInlineGroupForContact}
-                      className="px-3 py-1 rounded bg-primary text-primary-fg font-medium disabled:opacity-50 flex items-center gap-1"
+                      className="px-3 py-1 min-h-[28px] rounded-lg bg-primary text-primary-fg font-semibold text-[12px] disabled:opacity-50 flex items-center gap-1"
                     >
-                      {inlineGroupLoading ? 'Creating...' : '+ Create & Assign'}
+                      {inlineGroupLoading ? 'Creating…' : 'Create & Assign'}
                     </button>
                   </div>
                 </div>
@@ -7829,29 +7993,29 @@ export default function TouchpointApp() {
             </div>
 
             <div>
-              <label className="block text-muted mb-1 font-medium">Notes &amp; Talking Points</label>
+              <label className="block text-[12px] font-medium text-foreground mb-1">Notes &amp; Talking Points</label>
               <textarea
                 rows={3}
                 value={editContactForm.notes}
                 onChange={(e) =>
                   setEditContactForm({ ...editContactForm, notes: e.target.value })
                 }
-                placeholder="Background notes, family info, mutual hobbies..."
-                className="w-full px-3 py-2 rounded-lg bg-background border border-border resize-none"
+                placeholder="Background notes, family info, mutual hobbies…"
+                className="w-full px-3 py-2 rounded-lg bg-background border border-border resize-none text-[13px]"
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-border">
+            <div className="flex justify-end gap-2 pt-3 border-t border-border">
               <button
                 type="button"
                 onClick={() => setEditingContact(null)}
-                className="px-3.5 py-2 rounded-lg border border-border text-muted hover:text-foreground"
+                className="px-3.5 py-2 min-h-[32px] rounded-lg border border-border text-foreground hover:bg-card-hover font-medium text-[12px]"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 rounded-lg bg-primary text-primary-fg font-semibold shadow-xs hover:opacity-90"
+                className="px-4 py-2 min-h-[32px] rounded-lg bg-primary text-primary-fg font-semibold text-[12px] hover:opacity-95"
               >
                 Save Changes
               </button>

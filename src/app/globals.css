@@ -2,11 +2,48 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 0. Obsidian & Electric Cobalt (Default Signature) */
+/* 0A. SBB Chronometer Dispatch (Apple HIG + Studio Craft Refined) */
+[data-theme="sbb"][data-mode="light"],
+:root[data-mode="light"]:not([data-theme]),
+:root[data-theme="sbb"]:not([data-mode="dark"]) {
+  --tp-bg: #f6f6f3;
+  --tp-sidebar: #141619;
+  --tp-card: #ffffff;
+  --tp-card-hover: #efefe9;
+  --tp-border: #d4d7dc;
+  --tp-text: #141619;
+  --tp-muted: #525866;
+  --tp-primary: #c92121;
+  --tp-primary-fg: #ffffff;
+  --tp-overdue: #c92121;
+  --tp-warning: #b45309;
+  --tp-success: #15803d;
+  --tp-font-heading: -apple-system, BlinkMacSystemFont, var(--font-geist-sans), 'Inter', sans-serif;
+  --tp-font-body: -apple-system, BlinkMacSystemFont, var(--font-geist-sans), 'Inter', sans-serif;
+}
+
+[data-theme="sbb"][data-mode="dark"],
+:root[data-mode="dark"]:not([data-theme]),
+:root:not([data-mode="light"]):not([data-theme]) {
+  --tp-bg: #0c0e12;
+  --tp-sidebar: #08090c;
+  --tp-card: #14171d;
+  --tp-card-hover: #1c2029;
+  --tp-border: #262b36;
+  --tp-text: #f6f6f3;
+  --tp-muted: #9ca3b5;
+  --tp-primary: #c92121;
+  --tp-primary-fg: #ffffff;
+  --tp-overdue: #ef4444;
+  --tp-warning: #f59e0b;
+  --tp-success: #10b981;
+  --tp-font-heading: -apple-system, BlinkMacSystemFont, var(--font-geist-sans), 'Inter', sans-serif;
+  --tp-font-body: -apple-system, BlinkMacSystemFont, var(--font-geist-sans), 'Inter', sans-serif;
+}
+
+/* 0B. Obsidian & Electric Cobalt (LeadFlow) */
 [data-theme="leadflow"][data-mode="dark"],
-[data-theme="cobalt"][data-mode="dark"],
-:root[data-mode="dark"],
-:root:not([data-mode="light"]) {
+[data-theme="cobalt"][data-mode="dark"] {
   --tp-bg: #09090b;
   --tp-sidebar: #0c0d0f;
   --tp-card: #121316;
@@ -24,8 +61,7 @@
 }
 
 [data-theme="leadflow"][data-mode="light"],
-[data-theme="cobalt"][data-mode="light"],
-:root[data-mode="light"] {
+[data-theme="cobalt"][data-mode="light"] {
   --tp-bg: #fbfbfc;
   --tp-sidebar: #f4f4f6;
   --tp-card: #ffffff;
@@ -361,3 +397,84 @@ input[type="range"]::-moz-range-thumb {
   cursor: pointer;
 }
 
+/* SBB Chronometer Dispatch System Primitives — Refined per Apple HIG & Studio Craft */
+.sbb-baton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 5px;
+  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+}
+
+.sbb-baton-overdue {
+  background-color: #c92121; /* 5.94:1 with #ffffff */
+  color: #ffffff;
+}
+
+.sbb-baton-due {
+  background-color: #0050d8; /* 6.45:1 with #ffffff */
+  color: #ffffff;
+}
+
+.sbb-baton-warning {
+  background-color: #b45309; /* 5.02:1 with #ffffff */
+  color: #ffffff;
+}
+
+.sbb-baton-ok {
+  background-color: #141619; /* 16.7:1 with #f6f6f3 */
+  color: #f6f6f3;
+}
+
+:root[data-mode="dark"] .sbb-baton-ok {
+  background-color: #262b36;
+  color: #f6f6f3;
+}
+
+.sbb-mono-label {
+  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Apple HIG Functional Layer Material (liquid-glass.md › Cross-platform translation) */
+.apple-glass-bar {
+  background-color: color-mix(in srgb, var(--tp-card) 82%, transparent);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .apple-glass-bar {
+    background-color: var(--tp-card) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--tp-primary);
+  outline-offset: 2px;
+}
