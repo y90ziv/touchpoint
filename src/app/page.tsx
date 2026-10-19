@@ -28,6 +28,7 @@ import {
   Palmtree,
   PlayCircle,
   X,
+  Menu,
   Filter,
   Pencil,
   SlidersHorizontal,
@@ -556,6 +557,9 @@ export default function TouchpointApp() {
   const [showPauseModal, setShowPauseModal] = useState(false);
   const [pauseCustomDate, setPauseCustomDate] = useState('');
 
+  // Mobile Drawer State
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   // Setup Wizard Form
   const [setupForm, setSetupForm] = useState({
     username: '',
@@ -814,6 +818,7 @@ export default function TouchpointApp() {
         setShowNewContactModal(false);
         setShowMergeModal(false);
         setEditingContact(null);
+        setMobileMenuOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -2277,34 +2282,34 @@ export default function TouchpointApp() {
   const endIndex = Math.min(startIndex + contactsPageSize, totalContacts);
   const paginatedContacts = filteredContacts.slice(startIndex, endIndex);
 
-  return (
-    <div className="h-screen w-screen overflow-hidden flex bg-background text-foreground">
-      {/* Left Sidebar Navigation (SBB Anodised Graphite Rail — Refined per Apple HIG sidebars.md) */}
-      <aside className="w-64 h-full overflow-y-auto bg-[#141619] text-[#f6f6f3] border-r border-[#262b36] flex flex-col justify-between p-4 shrink-0 select-none">
-        <div className="space-y-5">
-          {/* Brand Header (branding.md: concise identity, defers to content) */}
-          <div className="flex items-center justify-between px-2 pb-3.5 border-b border-[#262b36]">
-            <div className="flex items-center gap-2.5">
-              <div className="relative w-8 h-8 rounded-lg bg-[#1f2329] border border-[#323844] flex items-center justify-center shrink-0">
-                <img
-                  src="/logo.png"
-                  alt="Touchpoint Logo"
-                  className="w-5 h-5 object-contain"
-                />
-                <span
-                  className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#c92121] ring-2 ring-[#141619]"
-                  title="Cadence Engine Active"
-                />
+  // Render sidebar contents for both desktop rail and mobile drawer
+  const renderSidebarContent = (isMobile = false) => (
+    <>
+      <div className="space-y-5">
+        {/* Brand Header (branding.md: concise identity, defers to content) */}
+        <div className="flex items-center justify-between px-2 pb-3.5 border-b border-[#262b36]">
+          <div className="flex items-center gap-2.5">
+            <div className="relative w-8 h-8 rounded-lg bg-[#1f2329] border border-[#323844] flex items-center justify-center shrink-0">
+              <img
+                src="/logo.png"
+                alt="Touchpoint Logo"
+                className="w-5 h-5 object-contain"
+              />
+              <span
+                className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#c92121] ring-2 ring-[#141619]"
+                title="Cadence Engine Active"
+              />
+            </div>
+            <div>
+              <div className="font-bold text-[15px] tracking-tight text-[#f6f6f3] leading-tight">
+                Touchpoint
               </div>
-              <div>
-                <div className="font-bold text-[15px] tracking-tight text-[#f6f6f3] leading-tight">
-                  Touchpoint
-                </div>
-                <div className="font-mono text-[11px] font-medium text-[#a3aab8] leading-tight">
-                  Cadence PRM
-                </div>
+              <div className="font-mono text-[11px] font-medium text-[#a3aab8] leading-tight">
+                Cadence PRM
               </div>
             </div>
+          </div>
+          <div className="flex items-center gap-1.5">
             <button
               onClick={() =>
                 handleSwitchTheme(themePreset, themeMode === 'dark' ? 'light' : 'dark')
@@ -2319,139 +2324,181 @@ export default function TouchpointApp() {
                 <Moon className="w-4 h-4 text-[#f6f6f3]" />
               )}
             </button>
-          </div>
-
-          {/* Primary Navigation (sidebars.md: succinct Title-Style labels, <=2 levels, no fake 01-07 sequence) */}
-          <div className="space-y-1">
-            <div className="px-2.5 pb-1 text-[11px] font-semibold text-[#a3aab8]">
-              Workspace
-            </div>
-            <nav className="space-y-0.5 text-[13px]" aria-label="Workspace Navigation">
-              {[
-                {
-                  id: 'dashboard',
-                  label: 'Dashboard',
-                  icon: LayoutDashboard,
-                  badge: attentionContacts.length,
-                  urgent: attentionContacts.length > 0,
-                },
-                {
-                  id: 'contacts',
-                  label: 'Contacts',
-                  icon: Users,
-                  badge: contacts.length,
-                },
-                {
-                  id: 'groups',
-                  label: 'Groups',
-                  icon: FolderKanban,
-                  badge: groups.length,
-                },
-                { id: 'map', label: 'Relationships', icon: Network },
-                {
-                  id: 'calendar',
-                  label: 'Calendar & Schedule',
-                  icon: CalendarIcon,
-                },
-              ].map((item) => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => setActiveTab(item.id as typeof activeTab)}
-                    className={`w-full min-h-[34px] flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left transition-colors ${
-                      isActive
-                        ? 'bg-[#252a34] text-[#ffffff] font-semibold border-l-[3px] border-[#c92121]'
-                        : 'text-[#d6dae2] hover:text-[#ffffff] hover:bg-[#1d2129] font-medium'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2.5 min-w-0">
-                      <Icon
-                        className={`w-4 h-4 shrink-0 ${
-                          isActive ? 'text-[#ff5c5c]' : 'text-[#a3aab8]'
-                        }`}
-                      />
-                      <span className="truncate">{item.label}</span>
-                    </span>
-                    {item.badge !== undefined && item.badge > 0 && (
-                      <span
-                        className={`font-mono text-[11px] px-1.5 py-0.5 rounded-md font-semibold tabular-nums ${
-                          item.urgent
-                            ? 'bg-[#c92121] text-white'
-                            : isActive
-                            ? 'bg-[#323846] text-[#f6f6f3]'
-                            : 'bg-[#1c2026] text-[#b8bfcc]'
-                        }`}
-                      >
-                        {item.badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
-
-          {/* Secondary Navigation */}
-          <div className="space-y-1 pt-3 border-t border-[#262b36]">
-            <div className="px-2.5 pb-1 text-[11px] font-semibold text-[#a3aab8]">
-              System
-            </div>
-            <nav className="space-y-0.5 text-[13px]" aria-label="System Navigation">
-              {[
-                { id: 'settings', label: 'Settings', icon: SettingsIcon },
-                { id: 'help', label: 'Help & Guide', icon: BookOpen },
-              ].map((item) => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => setActiveTab(item.id as typeof activeTab)}
-                    className={`w-full min-h-[34px] flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left transition-colors ${
-                      isActive
-                        ? 'bg-[#252a34] text-[#ffffff] font-semibold border-l-[3px] border-[#c92121]'
-                        : 'text-[#d6dae2] hover:text-[#ffffff] hover:bg-[#1d2129] font-medium'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <Icon
-                        className={`w-4 h-4 ${
-                          isActive ? 'text-[#ff5c5c]' : 'text-[#a3aab8]'
-                        }`}
-                      />
-                      <span>{item.label}</span>
-                    </span>
-                  </button>
-                );
-              })}
-            </nav>
+            {isMobile && (
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(false)}
+                aria-label="Close navigation drawer"
+                className="min-h-[28px] min-w-[28px] p-1.5 rounded-lg border border-[#2d323d] bg-[#1c2026] hover:bg-[#282d36] text-[#d6dae2] hover:text-[#f6f6f3] flex items-center justify-center transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Bottom Network Cadence Status Readout (sidebars.md: passive telemetry only; primary actions live in toolbar) */}
-        <div className="space-y-2.5 pt-3 border-t border-[#262b36]">
-          <div className="rounded-lg bg-[#1b1f27] border border-[#2d323e] p-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[12px] font-semibold text-[#d6dae2] flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400" /> Network Health
-              </span>
-              <span className="text-[12px] font-bold font-mono text-[#ffffff] tabular-nums">
-                {health.scorePercent}%
-              </span>
-            </div>
-            <div className="w-full h-1.5 rounded-full bg-[#0f1115] overflow-hidden">
-              <div
-                className="h-full bg-[#c92121] rounded-full transition-all duration-300"
-                style={{ width: `${Math.max(4, Math.min(100, health.scorePercent))}%` }}
-              />
-            </div>
-            <p className="font-mono text-[11px] text-[#b8bfcc] leading-snug tabular-nums">
-              {health.onTrackCount} of {health.totalTrackedCount} on schedule
-            </p>
+        {/* Primary Navigation (sidebars.md: succinct Title-Style labels, <=2 levels, no fake 01-07 sequence) */}
+        <div className="space-y-1">
+          <div className="px-2.5 pb-1 text-[11px] font-semibold text-[#a3aab8]">
+            Workspace
           </div>
+          <nav className="space-y-0.5 text-[13px]" aria-label="Workspace Navigation">
+            {[
+              {
+                id: 'dashboard',
+                label: 'Dashboard',
+                icon: LayoutDashboard,
+                badge: attentionContacts.length,
+                urgent: attentionContacts.length > 0,
+              },
+              {
+                id: 'contacts',
+                label: 'Contacts',
+                icon: Users,
+                badge: contacts.length,
+              },
+              {
+                id: 'groups',
+                label: 'Groups',
+                icon: FolderKanban,
+                badge: groups.length,
+              },
+              { id: 'map', label: 'Relationships', icon: Network },
+              {
+                id: 'calendar',
+                label: 'Calendar & Schedule',
+                icon: CalendarIcon,
+              },
+            ].map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setActiveTab(item.id as typeof activeTab);
+                    if (isMobile) setMobileMenuOpen(false);
+                  }}
+                  className={`w-full min-h-[34px] flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left transition-colors ${
+                    isActive
+                      ? 'bg-[#252a34] text-[#ffffff] font-semibold border-l-[3px] border-[#c92121]'
+                      : 'text-[#d6dae2] hover:text-[#ffffff] hover:bg-[#1d2129] font-medium'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5 min-w-0">
+                    <Icon
+                      className={`w-4 h-4 shrink-0 ${
+                        isActive ? 'text-[#ff5c5c]' : 'text-[#a3aab8]'
+                      }`}
+                    />
+                    <span className="truncate">{item.label}</span>
+                  </span>
+                  {item.badge !== undefined && item.badge > 0 && (
+                    <span
+                      className={`font-mono text-[11px] px-1.5 py-0.5 rounded-md font-semibold tabular-nums ${
+                        item.urgent
+                          ? 'bg-[#c92121] text-white'
+                          : isActive
+                          ? 'bg-[#323846] text-[#f6f6f3]'
+                          : 'bg-[#1c2026] text-[#b8bfcc]'
+                      }`}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
         </div>
+
+        {/* Secondary Navigation */}
+        <div className="space-y-1 pt-3 border-t border-[#262b36]">
+          <div className="px-2.5 pb-1 text-[11px] font-semibold text-[#a3aab8]">
+            System
+          </div>
+          <nav className="space-y-0.5 text-[13px]" aria-label="System Navigation">
+            {[
+              { id: 'settings', label: 'Settings', icon: SettingsIcon },
+              { id: 'help', label: 'Help & Guide', icon: BookOpen },
+            ].map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setActiveTab(item.id as typeof activeTab);
+                    if (isMobile) setMobileMenuOpen(false);
+                  }}
+                  className={`w-full min-h-[34px] flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left transition-colors ${
+                    isActive
+                      ? 'bg-[#252a34] text-[#ffffff] font-semibold border-l-[3px] border-[#c92121]'
+                      : 'text-[#d6dae2] hover:text-[#ffffff] hover:bg-[#1d2129] font-medium'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Icon
+                      className={`w-4 h-4 ${
+                        isActive ? 'text-[#ff5c5c]' : 'text-[#a3aab8]'
+                      }`}
+                    />
+                    <span>{item.label}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+      </div>
+
+      {/* Bottom Network Cadence Status Readout (sidebars.md: passive telemetry only; primary actions live in toolbar) */}
+      <div className="space-y-2.5 pt-3 border-t border-[#262b36]">
+        <div className="rounded-lg bg-[#1b1f27] border border-[#2d323e] p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[12px] font-semibold text-[#d6dae2] flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400" /> Network Health
+            </span>
+            <span className="text-[12px] font-bold font-mono text-[#ffffff] tabular-nums">
+              {health.scorePercent}%
+            </span>
+          </div>
+          <div className="w-full h-1.5 rounded-full bg-[#0f1115] overflow-hidden">
+            <div
+              className="h-full bg-[#c92121] rounded-full transition-all duration-300"
+              style={{ width: `${Math.max(4, Math.min(100, health.scorePercent))}%` }}
+            />
+          </div>
+          <p className="font-mono text-[11px] text-[#b8bfcc] leading-snug tabular-nums">
+            {health.onTrackCount} of {health.totalTrackedCount} on schedule
+          </p>
+        </div>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="h-screen w-screen overflow-hidden flex bg-background text-foreground">
+      {/* Desktop Sidebar Navigation (Hidden on mobile) */}
+      <aside className="hidden md:flex w-64 h-full overflow-y-auto bg-[#141619] text-[#f6f6f3] border-r border-[#262b36] flex-col justify-between p-4 shrink-0 select-none">
+        {renderSidebarContent(false)}
+      </aside>
+
+      {/* Mobile Off-canvas Slide-over Drawer & Backdrop */}
+      {mobileMenuOpen && (
+        <div
+          onClick={() => setMobileMenuOpen(false)}
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs md:hidden animate-in fade-in duration-200"
+          aria-hidden="true"
+        />
+      )}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] h-full overflow-y-auto bg-[#141619] text-[#f6f6f3] border-r border-[#262b36] flex flex-col justify-between p-4 select-none shadow-2xl transition-transform duration-200 ease-in-out md:hidden ${
+          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+        aria-label="Mobile Navigation Drawer"
+      >
+        {renderSidebarContent(true)}
       </aside>
 
       {/* Main Content Shell */}
@@ -2460,7 +2507,7 @@ export default function TouchpointApp() {
           <div
             role="status"
             aria-live="polite"
-            className="fixed bottom-5 right-5 z-50 bg-[#141619] border border-[#323846] text-[#f6f6f3] px-4 py-2.5 rounded-xl shadow-xl text-[13px] font-medium flex items-center gap-2.5"
+            className="fixed bottom-20 md:bottom-5 right-5 z-50 bg-[#141619] border border-[#323846] text-[#f6f6f3] px-4 py-2.5 rounded-xl shadow-xl text-[13px] font-medium flex items-center gap-2.5"
           >
             <span className="w-2 h-2 rounded-full bg-emerald-400" />
             {statusToast}
@@ -2468,70 +2515,114 @@ export default function TouchpointApp() {
         )}
 
         {/* Sticky Top Toolbar (liquid-glass.md: Functional Layer translucent bar) */}
-        <header className="h-14 px-6 border-b border-border apple-glass-bar flex items-center justify-between gap-4 shrink-0 z-20">
-          {/* Left: Global Search Field Trigger (searching.md: primary position, clear scope) */}
-          <button
-            type="button"
-            onClick={() => setShowQuickSearchModal(true)}
-            className="flex-1 max-w-md min-h-[34px] bg-background/90 hover:bg-card border border-border px-3 py-1.5 rounded-lg flex items-center justify-between text-[13px] text-muted cursor-pointer transition"
-          >
-            <span className="flex items-center gap-2 min-w-0">
-              <Search className="w-4 h-4 text-muted shrink-0" />
-              <span className="truncate">
-                {searchQuery
-                  ? `Filtered by "${searchQuery}"`
-                  : 'Search Contacts, Companies, or Notes…'}
-              </span>
-            </span>
-            <kbd className="px-1.5 py-0.5 rounded bg-card border border-border text-[11px] font-mono font-medium text-muted shrink-0 ml-2">
-              ⌘K
-            </kbd>
-          </button>
+        <header className="h-14 px-3 sm:px-6 border-b border-border apple-glass-bar flex items-center justify-between gap-2 sm:gap-4 shrink-0 z-20">
+          {/* Left: Mobile Menu Trigger + Global Search */}
+          <div className="flex items-center gap-2 min-w-0 flex-1 sm:max-w-md">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Open Navigation Menu"
+              className="min-h-[34px] min-w-[34px] p-2 rounded-lg border border-border bg-card hover:bg-card-hover text-foreground flex items-center justify-center md:hidden shrink-0 transition"
+            >
+              <Menu className="w-4 h-4" />
+            </button>
 
-          {/* Right: Toolbar Actions & Operator Profile (buttons.md: one prominent primary button, comfortable >=28pt hit targets) */}
-          <div className="flex items-center gap-2 text-[13px]">
+            {/* Desktop Global Search Field Trigger (searching.md: primary position, clear scope) */}
+            <button
+              type="button"
+              onClick={() => setShowQuickSearchModal(true)}
+              className="hidden sm:flex flex-1 min-h-[34px] bg-background/90 hover:bg-card border border-border px-3 py-1.5 rounded-lg items-center justify-between text-[13px] text-muted cursor-pointer transition min-w-0"
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <Search className="w-4 h-4 text-muted shrink-0" />
+                <span className="truncate">
+                  {searchQuery
+                    ? `Filtered by "${searchQuery}"`
+                    : 'Search Contacts, Companies, or Notes…'}
+                </span>
+              </span>
+              <kbd className="px-1.5 py-0.5 rounded bg-card border border-border text-[11px] font-mono font-medium text-muted shrink-0 ml-2">
+                ⌘K
+              </kbd>
+            </button>
+
+            {/* Mobile Search Button */}
+            <button
+              type="button"
+              onClick={() => setShowQuickSearchModal(true)}
+              aria-label="Search contacts"
+              className="sm:hidden min-h-[34px] min-w-[34px] p-2 rounded-lg border border-border bg-card hover:bg-card-hover text-muted hover:text-foreground flex items-center justify-center shrink-0 transition"
+            >
+              <Search className="w-4 h-4" />
+            </button>
+
+            {/* Mobile Filter Query Indicator */}
+            {searchQuery && (
+              <span className="sm:hidden text-xs font-semibold text-primary truncate max-w-[120px]">
+                &quot;{searchQuery}&quot;
+              </span>
+            )}
+          </div>
+
+          {/* Right: Toolbar Actions & Operator Profile (buttons.md: comfortable >=28pt hit targets) */}
+          <div className="flex items-center gap-1.5 sm:gap-2 text-[13px] shrink-0">
+            {/* Vacation Mode: Full on sm+, compact on mobile */}
             <button
               type="button"
               onClick={() => setShowPauseModal(true)}
-              className={`min-h-[32px] px-3 py-1.5 rounded-lg border font-medium flex items-center gap-1.5 transition ${
+              className={`min-h-[32px] px-2.5 sm:px-3 py-1.5 rounded-lg border font-medium flex items-center gap-1.5 transition ${
                 isGlobalPaused
                   ? 'bg-amber-500/15 border-amber-500/40 text-amber-700 dark:text-amber-300'
                   : 'bg-background border-border text-foreground hover:bg-card-hover'
               }`}
+              title={isGlobalPaused ? `Paused (${remainingPauseDays}d remaining)` : 'Vacation Mode'}
             >
               <Palmtree className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-              <span>
+              <span className="hidden sm:inline">
                 {isGlobalPaused ? `Paused (${remainingPauseDays}d)` : 'Vacation Mode…'}
               </span>
+              {isGlobalPaused && (
+                <span className="sm:hidden font-mono text-[11px] font-bold">
+                  {remainingPauseDays}d
+                </span>
+              )}
             </button>
 
+            {/* Duplicate Merger: Full on sm+, compact on mobile */}
             {duplicates.length > 0 && (
               <button
                 type="button"
                 onClick={() => setShowMergeModal(true)}
-                className="min-h-[32px] px-3 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-800 dark:text-amber-300 font-medium flex items-center gap-1.5 hover:bg-amber-500/25 transition"
-                title="Review potential duplicate contacts"
+                className="min-h-[32px] px-2.5 sm:px-3.5 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-800 dark:text-amber-300 font-medium flex items-center gap-1.5 hover:bg-amber-500/25 transition"
+                title={`Review potential duplicate contacts (${duplicates.length})`}
               >
-                <GitMerge className="w-3.5 h-3.5" />
-                <span>Merge Duplicates ({duplicates.length})…</span>
+                <GitMerge className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden sm:inline">
+                  Merge Duplicates ({duplicates.length})…
+                </span>
+                <span className="sm:hidden font-mono text-[11px] font-bold">
+                  {duplicates.length}
+                </span>
               </button>
             )}
 
+            {/* New Contact: Full on sm+, compact on mobile */}
             <button
               type="button"
               onClick={() => setShowNewContactModal(true)}
-              className="min-h-[32px] px-3.5 py-1.5 rounded-lg bg-primary hover:opacity-95 text-primary-fg font-semibold flex items-center gap-1.5 shadow-xs transition"
+              className="min-h-[32px] px-2.5 sm:px-3.5 py-1.5 rounded-lg bg-primary hover:opacity-95 text-primary-fg font-semibold flex items-center gap-1.5 shadow-xs transition"
+              title="New Contact"
             >
-              <Plus className="w-4 h-4" />
-              <span>New Contact…</span>
+              <Plus className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">New Contact…</span>
             </button>
 
             {/* Operator Profile */}
-            <div className="flex items-center gap-2 pl-2.5 border-l border-border">
+            <div className="flex items-center gap-1.5 sm:gap-2 pl-1.5 sm:pl-2.5 border-l border-border">
               <div className="w-7 h-7 rounded-full bg-[#141619] text-[#f6f6f3] flex items-center justify-center font-mono font-semibold text-[11px] shrink-0">
                 {(currentUser?.username || 'OP').slice(0, 2).toUpperCase()}
               </div>
-              <div className="hidden md:block leading-tight">
+              <div className="hidden lg:block leading-tight">
                 <div className="font-semibold text-foreground text-[12px]">
                   {currentUser?.username || 'Workspace Owner'}
                 </div>
@@ -2552,7 +2643,7 @@ export default function TouchpointApp() {
         </header>
 
         {/* Scrollable Workspace Content Area */}
-        <div className="flex-1 overflow-y-auto p-8 space-y-6">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-5 md:p-8 space-y-4 sm:space-y-6 pb-24 md:pb-8 touch-scroll">
           {/* Global Vacation / Pause Mode Banner */}
           {isGlobalPaused && (
             <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border border-amber-500/35 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 text-xs shadow-sm animate-in fade-in duration-200">
@@ -3046,8 +3137,8 @@ export default function TouchpointApp() {
                             </div>
                           )}
 
-                          <div className="flex items-center justify-between pt-2 border-t border-border text-xs">
-                            <div className="flex items-center gap-1.5">
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border text-xs">
+                            <div className="flex flex-wrap items-center gap-1.5">
                               <button
                                 onClick={() => handleLogTouchpoint(c.id, 'call')}
                                 className="px-3 py-1.5 rounded-lg bg-primary text-primary-fg font-semibold flex items-center gap-1 shadow-sm hover:opacity-95 transition"
@@ -3401,12 +3492,12 @@ export default function TouchpointApp() {
 
             {/* Scope & Filter Bar (searching.md › Scope bars and tokens) */}
             <div className="bg-card border border-border rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-[13px]">
-              <div className="flex-1 min-w-[240px] min-h-[34px] flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-background border border-border focus-within:border-primary transition">
+              <div className="flex-1 min-w-[200px] sm:min-w-[240px] min-h-[34px] flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-background border border-border focus-within:border-primary transition">
                 <Search className="w-4 h-4 text-muted shrink-0" />
                 <input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Filter contacts by name, phone, company, or notes… (⌘K)"
+                  placeholder="Filter contacts… (⌘K)"
                   aria-label="Filter contacts"
                   className="w-full bg-transparent border-none text-[13px] text-foreground placeholder:text-muted focus:outline-none"
                 />
@@ -3422,7 +3513,7 @@ export default function TouchpointApp() {
                 )}
               </div>
 
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar max-w-full py-0.5">
                 {[
                   { id: 'all', label: `All (${contacts.length})` },
                   { id: 'due', label: `Due Today (${attentionContacts.length})` },
@@ -3682,7 +3773,7 @@ export default function TouchpointApp() {
             )}
 
             {/* Multicolumn Contacts Table (lists-and-tables.md: Title-Style column headings, resizable columns, alternating row backgrounds, SBB Chronometer Cadence Baton signature) */}
-            <div className="bg-card border border-border rounded-xl overflow-x-auto w-full scrollbar-thin">
+            <div className="bg-card border border-border rounded-xl overflow-x-auto w-full scrollbar-thin touch-scroll">
               <table className="w-full text-left border-collapse text-[13px] whitespace-nowrap min-w-max table-fixed">
                 <thead>
                   <tr className="border-b border-border bg-background/80 text-muted text-[12px] font-semibold">
@@ -4180,8 +4271,8 @@ export default function TouchpointApp() {
             </div>
 
             {/* Pagination Bar */}
-            <div className="bg-card border border-border rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-[13px]">
-              <div className="flex items-center gap-3 text-muted">
+            <div className="bg-card border border-border rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-[13px]">
+              <div className="flex flex-wrap items-center gap-3 text-muted">
                 <span className="tabular-nums">
                   Showing{' '}
                   <span className="font-semibold text-foreground">
@@ -6375,15 +6466,86 @@ export default function TouchpointApp() {
         </div>
       </main>
 
-      {/* Centered Contact Detail Modal (All Fields, Actions, Significant Dates, History & Relationships) */}
+      {/* iOS Floating Bottom Tab Bar (Apple HIG tab-bars.md › Mobile persistent navigation) */}
+      <nav
+        aria-label="Mobile Navigation"
+        className="fixed bottom-0 inset-x-0 z-30 apple-glass-bar border-t border-border flex items-center justify-around px-2 py-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden"
+      >
+        {[
+          {
+            id: 'dashboard',
+            label: 'Dashboard',
+            icon: LayoutDashboard,
+            badge: attentionContacts.length,
+            urgent: attentionContacts.length > 0,
+          },
+          {
+            id: 'contacts',
+            label: 'Contacts',
+            icon: Users,
+            badge: contacts.length,
+          },
+          {
+            id: 'groups',
+            label: 'Groups',
+            icon: FolderKanban,
+            badge: groups.length,
+          },
+          {
+            id: 'calendar',
+            label: 'Calendar',
+            icon: CalendarIcon,
+          },
+        ].map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => {
+                setActiveTab(item.id as typeof activeTab);
+                setMobileMenuOpen(false);
+              }}
+              className={`relative flex flex-col items-center justify-center min-w-[54px] py-1 px-1 rounded-lg transition-colors ${
+                isActive ? 'text-primary font-semibold' : 'text-muted hover:text-foreground'
+              }`}
+            >
+              <div className="relative">
+                <Icon className={`w-5 h-5 ${isActive ? 'text-primary' : 'text-muted'}`} />
+                {item.badge !== undefined && item.badge > 0 && (
+                  <span
+                    className={`absolute -top-1 -right-2.5 font-mono text-[9px] px-1 py-0.2 rounded-full font-bold tabular-nums ${
+                      item.urgent ? 'bg-primary text-white' : 'bg-muted/40 text-foreground'
+                    }`}
+                  >
+                    {item.badge > 99 ? '99+' : item.badge}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] mt-0.5 tracking-tight">{item.label}</span>
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          onClick={() => setMobileMenuOpen(true)}
+          className="flex flex-col items-center justify-center min-w-[54px] py-1 px-1 rounded-lg text-muted hover:text-foreground transition-colors"
+        >
+          <Menu className="w-5 h-5 text-muted" />
+          <span className="text-[10px] mt-0.5 tracking-tight">More</span>
+        </button>
+      </nav>
+
+      {/* Centered Contact Detail Modal / iOS Mobile Bottom Sheet (All Fields, Actions, Significant Dates, History & Relationships) */}
       {activeContactDrawer && (
         <div
           onClick={() => setActiveContactDrawer(null)}
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-150"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-2xl max-h-[88vh] bg-card border border-border rounded-2xl p-6 overflow-y-auto space-y-5 text-[13px] shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+            className="w-full max-w-2xl max-h-[92vh] sm:max-h-[88vh] bg-card border-t sm:border border-border rounded-t-2xl sm:rounded-2xl p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-6 overflow-y-auto space-y-4 sm:space-y-5 text-[13px] shadow-2xl animate-in slide-in-from-bottom sm:zoom-in-95 duration-150 touch-scroll"
           >
             {/* Header: Avatar, Name, Job/Company & Actions */}
             <div className="flex items-start justify-between gap-3 pb-4 border-b border-border">
@@ -7141,10 +7303,10 @@ export default function TouchpointApp() {
 
       {/* Modal: Create Local Contact */}
       {showNewContactModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-150">
           <form
             onSubmit={handleCreateLocalContact}
-            className="bg-card border border-border rounded-2xl max-w-lg w-full p-6 space-y-4 text-[13px] shadow-2xl"
+            className="bg-card border-t sm:border border-border rounded-t-2xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-6 space-y-4 text-[13px] shadow-2xl max-h-[92vh] sm:max-h-[90vh] overflow-y-auto touch-scroll animate-in slide-in-from-bottom sm:zoom-in-95 duration-150"
           >
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <div>
@@ -7439,8 +7601,8 @@ export default function TouchpointApp() {
         const currentPair = duplicates[currentDuplicateIndex] || duplicates[0];
         if (!currentPair) return null;
         return (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-            <div className="bg-card border border-border rounded-2xl max-w-lg w-full p-6 space-y-4 text-[13px] shadow-2xl">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-150">
+            <div className="bg-card border-t sm:border border-border rounded-t-2xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-6 space-y-4 text-[13px] shadow-2xl max-h-[92vh] sm:max-h-[90vh] overflow-y-auto touch-scroll animate-in slide-in-from-bottom sm:zoom-in-95 duration-150">
               <div className="flex items-center justify-between pb-3 border-b border-border">
                 <div>
                   <h3 className="text-[16px] font-bold tracking-tight text-foreground">Merge Duplicate Contacts</h3>
@@ -7466,7 +7628,7 @@ export default function TouchpointApp() {
                 {currentPair.reasons.join(', ')}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="p-3.5 rounded-xl bg-background border border-border space-y-2 flex flex-col justify-between">
                   <div className="space-y-1">
                     <span className="text-[11px] px-2 py-0.5 rounded-md bg-card border border-border text-muted font-mono font-semibold inline-block">
@@ -7538,10 +7700,10 @@ export default function TouchpointApp() {
 
       {/* Modal: Full Contact Editor */}
       {editingContact && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-150">
           <form
             onSubmit={handleSaveEditContact}
-            className="bg-card border border-border rounded-2xl max-w-lg w-full p-6 space-y-4 text-[13px] shadow-2xl max-h-[90vh] overflow-y-auto"
+            className="bg-card border-t sm:border border-border rounded-t-2xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-6 space-y-4 text-[13px] shadow-2xl max-h-[92vh] sm:max-h-[90vh] overflow-y-auto touch-scroll animate-in slide-in-from-bottom sm:zoom-in-95 duration-150"
           >
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <div className="flex items-center gap-2.5">
@@ -8028,11 +8190,11 @@ export default function TouchpointApp() {
       {showQuickSearchModal && (
         <div
           onClick={() => setShowQuickSearchModal(false)}
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-start justify-center pt-14 p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-start justify-center pt-6 sm:pt-14 p-2 sm:p-4 animate-in fade-in duration-150"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-card border border-border rounded-2xl max-w-2xl w-full p-4 space-y-3.5 shadow-2xl text-xs overflow-hidden"
+            className="bg-card border border-border rounded-2xl max-w-2xl w-full p-3.5 sm:p-4 space-y-3.5 shadow-2xl text-xs overflow-hidden max-h-[88vh] flex flex-col"
           >
             <div className="flex items-center justify-between gap-3 pb-2 border-b border-border">
               <div className="flex items-center gap-2.5 flex-1">
@@ -8266,11 +8428,11 @@ export default function TouchpointApp() {
       {showPauseModal && (
         <div
           onClick={() => setShowPauseModal(false)}
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-150"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-card border border-border rounded-2xl max-w-md w-full p-5 space-y-4 shadow-xl text-xs"
+            className="bg-card border-t sm:border border-border rounded-t-2xl sm:rounded-2xl max-w-md w-full p-4 sm:p-5 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-5 space-y-4 shadow-xl text-xs max-h-[92vh] overflow-y-auto touch-scroll animate-in slide-in-from-bottom sm:zoom-in-95 duration-150"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-2.5">
