@@ -52,6 +52,9 @@ import {
 } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import { ProgressRingAvatar } from '@/components/ProgressRingAvatar';
+import { CountryCodeSelect } from '@/components/CountryCodeSelect';
+import { TimezoneSelect } from '@/components/TimezoneSelect';
+import { guessCountryDialCode } from '@/lib/geo-data';
 import {
   applySmartSpreading,
   calculateRelationshipHealthScore,
@@ -823,6 +826,30 @@ export default function TouchpointApp() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Auto-detect browser timezone and matching country dial code for First-Run Setup / Signup
+  useEffect(() => {
+    try {
+      if (typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
+        const detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (detectedTz) {
+          const detectedCountry = guessCountryDialCode(detectedTz);
+          setSetupForm((prev) => {
+            if (prev.timezone === 'UTC' || !prev.timezone) {
+              return {
+                ...prev,
+                timezone: detectedTz,
+                defaultCountryCode: detectedCountry || prev.defaultCountryCode,
+              };
+            }
+            return prev;
+          });
+        }
+      }
+    } catch {
+      // Ignore in unsupported environments
+    }
   }, []);
 
   useEffect(() => {
@@ -1951,25 +1978,21 @@ export default function TouchpointApp() {
                   className="w-full px-3 py-2 rounded-lg bg-background border border-border text-sm"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-muted mb-1">Timezone</label>
-                  <input
-                    value={setupForm.timezone}
-                    onChange={(e) => setSetupForm({ ...setupForm, timezone: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg bg-background border border-border text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-muted mb-1">Default Country Code</label>
-                  <input
-                    value={setupForm.defaultCountryCode}
-                    onChange={(e) =>
-                      setSetupForm({ ...setupForm, defaultCountryCode: e.target.value })
-                    }
-                    className="w-full px-3 py-2 rounded-lg bg-background border border-border text-sm"
-                  />
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <TimezoneSelect
+                  id="signup-timezone"
+                  label="Timezone"
+                  value={setupForm.timezone}
+                  onChange={(tz) => setSetupForm({ ...setupForm, timezone: tz })}
+                />
+                <CountryCodeSelect
+                  id="signup-country-code"
+                  label="Default Country Code"
+                  value={setupForm.defaultCountryCode}
+                  onChange={(code) =>
+                    setSetupForm({ ...setupForm, defaultCountryCode: code })
+                  }
+                />
               </div>
               <button
                 type="submit"
@@ -4982,6 +5005,23 @@ export default function TouchpointApp() {
                     ))}
                   </div>
 
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-border">
+                    <TimezoneSelect
+                      id="settings-timezone"
+                      label="Timezone"
+                      value={settingsState.timezone || 'UTC'}
+                      onChange={(tz) => setSettingsState({ ...settingsState, timezone: tz })}
+                    />
+                    <CountryCodeSelect
+                      id="settings-country-code"
+                      label="Default Country Code"
+                      value={settingsState.defaultCountryCode || '+1'}
+                      onChange={(code) =>
+                        setSettingsState({ ...settingsState, defaultCountryCode: code })
+                      }
+                    />
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 pt-2 border-t border-border">
                     <div>
                       <label className="block text-muted mb-1 font-medium">
@@ -5131,6 +5171,8 @@ export default function TouchpointApp() {
                           method: 'PATCH',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({
+                            timezone: settingsState.timezone || 'UTC',
+                            defaultCountryCode: settingsState.defaultCountryCode || '+1',
                             dateFormat: settingsState.dateFormat || 'YYYY-MM-DD',
                             firstDayOfWeek: Number(settingsState.firstDayOfWeek ?? 0),
                             birthdayDaysAdvance: Number(settingsState.birthdayDaysAdvance || 7),
