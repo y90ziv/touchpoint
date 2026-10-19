@@ -98,18 +98,37 @@ export function logTouchpoint(input: {
   };
 }
 
-export function snoozeContact(contactId: number, days: number, referenceDate: Date = new Date()) {
+export function snoozeContact(
+  contactId: number,
+  daysOrDate: number | string,
+  referenceDate: Date = new Date()
+) {
   const db = getDb();
-  const snoozeDate = new Date(referenceDate.getTime() + days * 24 * 60 * 60 * 1000);
-  const snoozedUntil = snoozeDate.toISOString();
+  let snoozedUntil: string;
+  if (typeof daysOrDate === 'string' && daysOrDate.includes('-')) {
+    const d = new Date(daysOrDate);
+    snoozedUntil = d.toISOString();
+  } else {
+    const days = Number(daysOrDate) || 3;
+    const snoozeDate = new Date(referenceDate.getTime() + days * 24 * 60 * 60 * 1000);
+    snoozedUntil = snoozeDate.toISOString();
+  }
 
   db.update(contacts)
     .set({ snoozedUntil })
     .where(eq(contacts.id, contactId))
     .run();
 
-  logger.crud('UPDATE', 'contact_snooze', { contactId, days, snoozedUntil });
-  return getContactById(contactId, referenceDate)!;
+  const updatedContact = getContactById(contactId, referenceDate)!;
+  if (updatedContact) {
+    db.update(contacts)
+      .set({ nextDueAt: updatedContact.cadence.nextDueDate })
+      .where(eq(contacts.id, contactId))
+      .run();
+  }
+
+  logger.crud('UPDATE', 'contact_snooze', { contactId, daysOrDate, snoozedUntil });
+  return updatedContact;
 }
 
 export function listTouchpointsForContact(contactId: number) {

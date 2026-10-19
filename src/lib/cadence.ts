@@ -123,9 +123,7 @@ export function evaluateContactCadence(
 
   if (contact.snoozedUntil) {
     const snoozeDay = toStartOfDayUTC(contact.snoozedUntil);
-    if (snoozeDay > rawNextDue) {
-      rawNextDue = snoozeDay;
-    }
+    rawNextDue = snoozeDay;
   }
 
   const daysUntilDue = Math.floor((rawNextDue.getTime() - refDay.getTime()) / MS_PER_DAY);

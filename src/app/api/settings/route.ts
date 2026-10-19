@@ -5,6 +5,7 @@ import { settings } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { logger, setLogLevel, LogLevel, extractRequestId } from '@/lib/logger';
 import { getRequestUserId } from '@/lib/auth';
+import { startTelegramLongPolling } from '@/lib/telegram-service';
 
 const ALLOWED_SETTING_KEYS = [
   'themeMode',
@@ -125,6 +126,19 @@ export async function PATCH(request: Request) {
 
         if (Object.keys(updatePayload).length > 0) {
           db.update(settings).set(updatePayload).where(eq(settings.id, existing.id)).run();
+
+          if (
+            typeof updatePayload.telegramBotToken === 'string' &&
+            updatePayload.telegramBotToken.trim().length > 0
+          ) {
+            try {
+              await startTelegramLongPolling(updatePayload.telegramBotToken.trim());
+            } catch (tgErr) {
+              logger.warn('api.settings.patch', 'Failed to start Telegram long polling with updated token', {
+                error: tgErr instanceof Error ? tgErr.message : String(tgErr),
+              });
+            }
+          }
         }
 
         const updated = db.select().from(settings).where(eq(settings.id, existing.id)).get();

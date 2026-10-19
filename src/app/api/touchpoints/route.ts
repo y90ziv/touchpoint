@@ -40,7 +40,8 @@ export async function POST(request: Request) {
 
     return runWithUser(userId, () => {
       if (body.action === 'snooze') {
-        const updated = snoozeContact(Number(body.contactId), Number(body.days || 3));
+        const target = body.date || body.days || 3;
+        const updated = snoozeContact(Number(body.contactId), target);
         logger.http('POST', '/api/touchpoints (snooze)', 200, Date.now() - start, { userId });
         return NextResponse.json({ contact: updated });
       }

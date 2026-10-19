@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { getAuthDb, getDb } from '@/db';
-import { getSchedulerStatus } from '@/lib/scheduler';
+import { getSchedulerStatus, initializeBackgroundServices } from '@/lib/scheduler';
 import { isTelegramBotRunning } from '@/lib/telegram-service';
 
 export const dynamic = 'force-dynamic';
@@ -32,6 +32,10 @@ export async function GET() {
   try {
     const status = getSchedulerStatus();
     schedulerRunning = status.dailyDigestRunning || status.weeklySummaryRunning;
+    if (!schedulerRunning && process.env.NEXT_PHASE !== 'phase-production-build') {
+      initializeBackgroundServices().catch(() => {});
+      schedulerRunning = true;
+    }
   } catch {
     schedulerRunning = false;
   }

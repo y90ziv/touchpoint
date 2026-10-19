@@ -1381,15 +1381,35 @@ export default function TouchpointApp() {
     }
   };
 
-  const handleSnooze = async (contactId: number, days: number) => {
+  const handleSnooze = async (contactId: number, daysOrDate: number | string) => {
+    const isDateStr = typeof daysOrDate === 'string' && daysOrDate.includes('-');
+    const payload = isDateStr
+      ? { action: 'snooze', contactId, date: daysOrDate }
+      : { action: 'snooze', contactId, days: Number(daysOrDate) || 3 };
+
     const res = await fetch('/api/touchpoints', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'snooze', contactId, days }),
+      body: JSON.stringify(payload),
     });
     if (res.ok) {
       await loadAllData();
-      notify(`Snoozed reminder for ${days} days.`);
+      if (activeContactDrawer && activeContactDrawer.id === contactId) {
+        try {
+          const contactRes = await fetch(`/api/contacts/${contactId}`);
+          const cData = await contactRes.json();
+          if (cData.contact) setActiveContactDrawer(cData.contact);
+        } catch {
+          // ignore
+        }
+      }
+      if (isDateStr) {
+        notify(`Follow-up scheduled for ${daysOrDate}.`);
+      } else if (Number(daysOrDate) === 1) {
+        notify('Follow-up scheduled for tomorrow.');
+      } else {
+        notify(`Snoozed reminder for ${daysOrDate} days.`);
+      }
     }
   };
 
@@ -6887,6 +6907,52 @@ export default function TouchpointApp() {
                   >
                     <Users className="w-3.5 h-3.5 text-primary" /> Met
                   </button>
+                </div>
+              </div>
+
+              {/* Schedule Follow-up / Snooze */}
+              <div className="pt-2.5 border-t border-border flex items-center justify-between gap-2 flex-wrap">
+                <span className="text-[12px] font-medium text-muted flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-primary" />
+                  Schedule Follow-up
+                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => handleSnooze(activeContactDrawer.id, 1)}
+                    className="px-2.5 py-1 min-h-[28px] rounded-lg bg-card hover:bg-card-hover border border-border text-[12px] font-medium text-foreground transition-colors"
+                    title="Remind me tomorrow"
+                  >
+                    Tomorrow
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSnooze(activeContactDrawer.id, 3)}
+                    className="px-2.5 py-1 min-h-[28px] rounded-lg bg-card hover:bg-card-hover border border-border text-[12px] font-medium text-foreground transition-colors"
+                    title="Remind me in 3 days"
+                  >
+                    In 3d
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSnooze(activeContactDrawer.id, 7)}
+                    className="px-2.5 py-1 min-h-[28px] rounded-lg bg-card hover:bg-card-hover border border-border text-[12px] font-medium text-foreground transition-colors"
+                    title="Remind me in 1 week"
+                  >
+                    Next Week
+                  </button>
+                  <input
+                    type="date"
+                    min={new Date().toISOString().slice(0, 10)}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        handleSnooze(activeContactDrawer.id, e.target.value);
+                        e.target.value = '';
+                      }
+                    }}
+                    className="px-2 py-0.5 rounded-lg bg-card border border-border text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                    title="Pick specific follow-up date"
+                  />
                 </div>
               </div>
             </div>
