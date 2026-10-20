@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   const userId = getRequestUserId(request);
 
   return runWithUser(userId, () => {
-    const snapshots = listDatabaseSnapshots();
+    const snapshots = listDatabaseSnapshots(userId);
     logger.http('GET', '/api/backup/snapshots', 200, Date.now() - start, { userId, count: snapshots.length });
     return NextResponse.json({ snapshots });
   });

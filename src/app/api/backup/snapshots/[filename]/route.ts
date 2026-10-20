@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { getRequestUserId } from '@/lib/auth';
+import { isSnapshotOwnedByUser } from '@/lib/backup-rotator';
 import { logger } from '@/lib/logger';
 
 export async function GET(
@@ -15,6 +16,12 @@ export async function GET(
   // Path traversal & extension validation
   if (!filename || !filename.endsWith('.db') || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
     return NextResponse.json({ error: 'Invalid filename' }, { status: 400 });
+  }
+
+  // Authorization check: Ensure user owns this snapshot
+  if (!isSnapshotOwnedByUser(filename, userId)) {
+    logger.warn('api.backup.snapshots.download', `User ${userId} attempted unauthorized download of ${filename}`);
+    return NextResponse.json({ error: 'Access denied: You do not own this snapshot' }, { status: 403 });
   }
 
   const dbPath = process.env.DATABASE_PATH || path.join(process.cwd(), 'data', 'touchpoint.db');

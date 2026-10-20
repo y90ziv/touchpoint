@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { getSqlite } from '@/db';
+import { getSqlite, getAuthDb } from '@/db';
+import { users } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 import { logger } from '@/lib/logger';
 
 const BACKUP_DIR_NAME = 'backups';
@@ -10,6 +12,37 @@ export interface SnapshotMetadata {
   sizeBytes: number;
   createdAt: string;
   type: 'daily' | 'weekly' | 'monthly' | 'manual';
+  userId?: number;
+  username?: string;
+}
+
+export function getSafeUsernameForUser(userId: number): string {
+  try {
+    const authDb = getAuthDb();
+    const userRow = authDb.select().from(users).where(eq(users.id, userId)).get();
+    if (userRow?.username) {
+      const clean = userRow.username.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+      if (clean) return clean;
+    }
+  } catch {
+    // ignore
+  }
+  return `user${userId}`;
+}
+
+export function isSnapshotOwnedByUser(filename: string, userId: number): boolean {
+  if (filename.startsWith(`u${userId}_`) || filename.startsWith(`user${userId}-`)) {
+    return true;
+  }
+  const userTag = getSafeUsernameForUser(userId);
+  if (filename.startsWith(`${userTag}-`)) {
+    return true;
+  }
+  // If legacy file has no user prefix and userId is 1 (the initial primary user), treat as owned by user 1
+  if (userId === 1 && !filename.match(/^(?:u\d+_|user\d+-)/)) {
+    return true;
+  }
+  return false;
 }
 
 function getBackupsDirectory(): string {
@@ -37,6 +70,7 @@ function getFormattedDate(d = new Date()): { dateStr: string; weekStr: string; m
 
 /**
  * Creates an atomic point-in-time snapshot using SQLite's native VACUUM INTO.
+ * Filename format includes userId and clean username: u{userId}_{username}-{type}-{dateStr}.db
  */
 export function createDatabaseSnapshot(
   type: 'daily' | 'weekly' | 'monthly' | 'manual' = 'daily',
@@ -45,12 +79,13 @@ export function createDatabaseSnapshot(
   const backupDir = getBackupsDirectory();
   const now = new Date();
   const { dateStr, weekStr, monthStr } = getFormattedDate(now);
+  const userTag = getSafeUsernameForUser(userId);
 
-  let prefix = `user${userId}-snapshot`;
-  if (type === 'daily') prefix = `user${userId}-daily-${dateStr}`;
-  else if (type === 'weekly') prefix = `user${userId}-weekly-${weekStr}`;
-  else if (type === 'monthly') prefix = `user${userId}-monthly-${monthStr}`;
-  else prefix = `user${userId}-manual-${dateStr}-${Date.now().toString().slice(-6)}`;
+  let prefix = `u${userId}_${userTag}-snapshot`;
+  if (type === 'daily') prefix = `u${userId}_${userTag}-daily-${dateStr}`;
+  else if (type === 'weekly') prefix = `u${userId}_${userTag}-weekly-${weekStr}`;
+  else if (type === 'monthly') prefix = `u${userId}_${userTag}-monthly-${monthStr}`;
+  else prefix = `u${userId}_${userTag}-manual-${dateStr}-${Date.now().toString().slice(-6)}`;
 
   const filename = `${prefix}.db`;
   const destPath = path.join(backupDir, filename);
@@ -73,6 +108,8 @@ export function createDatabaseSnapshot(
     sizeBytes: stat.size,
     createdAt: stat.birthtime.toISOString(),
     type,
+    userId,
+    username: userTag,
   };
 
   logger.info('backup.snapshot', `Created database snapshot: ${filename} (${stat.size} bytes)`, {
@@ -86,8 +123,9 @@ export function createDatabaseSnapshot(
 
 /**
  * Lists all available backup snapshots in the backups directory.
+ * If userId is provided, filters to snapshots owned by that user.
  */
-export function listDatabaseSnapshots(): SnapshotMetadata[] {
+export function listDatabaseSnapshots(userId?: number): SnapshotMetadata[] {
   const backupDir = getBackupsDirectory();
   if (!fs.existsSync(backupDir)) return [];
 
@@ -95,6 +133,10 @@ export function listDatabaseSnapshots(): SnapshotMetadata[] {
   const snapshots: SnapshotMetadata[] = [];
 
   for (const f of files) {
+    if (userId !== undefined && !isSnapshotOwnedByUser(f, userId)) {
+      continue;
+    }
+
     try {
       const fullPath = path.join(backupDir, f);
       const stat = fs.statSync(fullPath);
@@ -103,11 +145,28 @@ export function listDatabaseSnapshots(): SnapshotMetadata[] {
       else if (f.includes('-weekly-')) type = 'weekly';
       else if (f.includes('-monthly-')) type = 'monthly';
 
+      let fileUserId: number | undefined = userId;
+      let fileUsername: string | undefined;
+
+      const uMatch = f.match(/^u(\d+)_([a-zA-Z0-9_-]+?)-(?:daily|weekly|monthly|manual|snapshot)/);
+      if (uMatch) {
+        fileUserId = parseInt(uMatch[1], 10);
+        fileUsername = uMatch[2];
+      } else {
+        const legacyMatch = f.match(/^user(\d+)-(?:daily|weekly|monthly|manual|snapshot)/);
+        if (legacyMatch) {
+          fileUserId = parseInt(legacyMatch[1], 10);
+          fileUsername = `user${fileUserId}`;
+        }
+      }
+
       snapshots.push({
         filename: f,
         sizeBytes: stat.size,
         createdAt: stat.mtime.toISOString(),
         type,
+        userId: fileUserId,
+        username: fileUsername,
       });
     } catch {
       // ignore unreadable files
@@ -128,7 +187,7 @@ export function listDatabaseSnapshots(): SnapshotMetadata[] {
  */
 export function enforceBackupRetention(userId: number = 1): { removedCount: number } {
   const backupDir = getBackupsDirectory();
-  const allSnapshots = listDatabaseSnapshots().filter((s) => s.filename.startsWith(`user${userId}-`));
+  const allSnapshots = listDatabaseSnapshots(userId);
 
   const dailies = allSnapshots.filter((s) => s.type === 'daily');
   const weeklies = allSnapshots.filter((s) => s.type === 'weekly');

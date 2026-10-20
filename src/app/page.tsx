@@ -550,7 +550,7 @@ export default function TouchpointApp() {
   const [showDashboardCustomizer, setShowDashboardCustomizer] = useState(false);
 
   // Settings Accordion (Single-Expand, similar to Help)
-  const [openSettingsSection, setOpenSettingsSection] = useState<number | null>(1);
+  const [openSettingsSection, setOpenSettingsSection] = useState<number | null>(null);
 
   // Danger Zone / Delete Everything State
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -2941,189 +2941,78 @@ export default function TouchpointApp() {
                 </div>
               )}
 
-              {/* Row 2: LeadFlow Asymmetric Split — Cadence Pipeline Breakdown (Left) + Serendipity & Quick Actions (Right) */}
+              {/* Row 2: Cadence Pipeline Breakdown */}
               {dashboardWidgets.healthStrip !== false && (
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                  {/* Left (7 cols): Cadence Pipeline Breakdown (LeadFlow Horizontal Progress Bars) */}
-                  <div className="lg:col-span-7 bg-card border border-border rounded-2xl p-6 flex flex-col justify-between gap-5 shadow-sm">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h2 className="text-base font-bold text-foreground">
-                          Relationship Cadence Pipeline
-                        </h2>
-                        <p className="text-xs text-muted mt-0.5">
-                          Distribution of your contacts across cadence stages
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab('contacts')}
-                        className="text-xs text-primary hover:underline font-medium"
-                      >
-                        View directory →
-                      </button>
+                <div className="bg-card border border-border rounded-2xl p-6 flex flex-col justify-between gap-5 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-base font-bold text-foreground">
+                        Relationship Cadence Pipeline
+                      </h2>
+                      <p className="text-xs text-muted mt-0.5">
+                        Distribution of your contacts across cadence stages
+                      </p>
                     </div>
-
-                    <div className="space-y-3.5">
-                      {[
-                        {
-                          label: 'On Track',
-                          count: onTrackContacts.length,
-                          total: Math.max(1, contacts.filter((c) => c.keepInTouch).length),
-                          barColor: 'bg-primary',
-                        },
-                        {
-                          label: 'Upcoming (7d)',
-                          count: upcomingWeekContacts.length,
-                          total: Math.max(1, contacts.filter((c) => c.keepInTouch).length),
-                          barColor: 'bg-sky-400',
-                        },
-                        {
-                          label: 'Due & Overdue',
-                          count: attentionContacts.length,
-                          total: Math.max(1, contacts.filter((c) => c.keepInTouch).length),
-                          barColor: 'bg-rose-500',
-                        },
-                        {
-                          label: 'Talked (30d)',
-                          count: recent30DaysContacts.length,
-                          total: Math.max(1, contacts.length),
-                          barColor: 'bg-emerald-500',
-                        },
-                        {
-                          label: 'Birthdays',
-                          count: upcomingBirthdays.length,
-                          total: Math.max(1, contacts.length),
-                          barColor: 'bg-amber-400',
-                        },
-                      ].map((stage) => {
-                        const pct = Math.min(100, Math.round((stage.count / stage.total) * 100));
-                        return (
-                          <div key={stage.label} className="grid grid-cols-12 items-center gap-3 text-xs">
-                            <span className="col-span-3 text-muted font-medium truncate">
-                              {stage.label}
-                            </span>
-                            <div className="col-span-7 h-3 rounded-full bg-background border border-border/60 overflow-hidden p-0.5">
-                              <div
-                                className={`h-full rounded-full ${stage.barColor} transition-all duration-500`}
-                                style={{ width: `${stage.count > 0 ? Math.max(6, pct) : 0}%` }}
-                              />
-                            </div>
-                            <span className="col-span-2 text-right font-mono font-semibold text-foreground">
-                              {stage.count}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('contacts')}
+                      className="text-xs text-primary hover:underline font-medium"
+                    >
+                      View directory →
+                    </button>
                   </div>
 
-                  {/* Right (5 cols): Serendipity Spotlight & Quick Actions Card */}
-                  <div className="lg:col-span-5 bg-card border border-border rounded-2xl p-6 flex flex-col justify-between gap-4 shadow-sm">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h2 className="text-base font-bold text-foreground">
-                          Serendipity &amp; Quick Actions
-                        </h2>
-                        <p className="text-xs text-muted mt-0.5">
-                          Rekindle dormant ties or manage your directory
-                        </p>
-                      </div>
-                      {serendipitySuggestion && (
-                        <button
-                          type="button"
-                          onClick={handleShuffleSerendipity}
-                          className="px-2.5 py-1 rounded-lg bg-background hover:bg-card-hover border border-border text-[11px] font-medium text-muted hover:text-foreground transition"
-                        >
-                          🔀 Shuffle
-                        </button>
-                      )}
-                    </div>
-
-                    {serendipitySuggestion ? (
-                      <div className="p-4 rounded-xl bg-gradient-to-br from-primary/12 via-background to-background border border-primary/30 space-y-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-primary/20 text-primary border border-primary/30">
-                            ✨ Serendipity Pick
+                  <div className="space-y-3.5">
+                    {[
+                      {
+                        label: 'On Track',
+                        count: onTrackContacts.length,
+                        total: Math.max(1, contacts.filter((c) => c.keepInTouch).length),
+                        barColor: 'bg-primary',
+                      },
+                      {
+                        label: 'Upcoming (7d)',
+                        count: upcomingWeekContacts.length,
+                        total: Math.max(1, contacts.filter((c) => c.keepInTouch).length),
+                        barColor: 'bg-sky-400',
+                      },
+                      {
+                        label: 'Due & Overdue',
+                        count: attentionContacts.length,
+                        total: Math.max(1, contacts.filter((c) => c.keepInTouch).length),
+                        barColor: 'bg-rose-500',
+                      },
+                      {
+                        label: 'Talked (30d)',
+                        count: recent30DaysContacts.length,
+                        total: Math.max(1, contacts.length),
+                        barColor: 'bg-emerald-500',
+                      },
+                      {
+                        label: 'Birthdays',
+                        count: upcomingBirthdays.length,
+                        total: Math.max(1, contacts.length),
+                        barColor: 'bg-amber-400',
+                      },
+                    ].map((stage) => {
+                      const pct = Math.min(100, Math.round((stage.count / stage.total) * 100));
+                      return (
+                        <div key={stage.label} className="grid grid-cols-12 items-center gap-3 text-xs">
+                          <span className="col-span-3 sm:col-span-2 text-muted font-medium truncate">
+                            {stage.label}
                           </span>
-                          <span className="text-[11px] italic text-muted truncate">
-                            &ldquo;{serendipitySuggestion.reason}&rdquo;
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs shrink-0 border border-primary/30">
-                              {serendipitySuggestion.fullName.slice(0, 2).toUpperCase()}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="text-sm font-bold text-foreground truncate">
-                                {serendipitySuggestion.fullName}
-                              </div>
-                              <div className="text-xs text-muted truncate">
-                                {[serendipitySuggestion.jobTitle, serendipitySuggestion.company]
-                                  .filter(Boolean)
-                                  .join(' at ') || 'Reconnect today'}
-                              </div>
-                            </div>
+                          <div className="col-span-7 sm:col-span-9 h-3 rounded-full bg-background border border-border/60 overflow-hidden p-0.5">
+                            <div
+                              className={`h-full rounded-full ${stage.barColor} transition-all duration-500`}
+                              style={{ width: `${stage.count > 0 ? Math.max(6, pct) : 0}%` }}
+                            />
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const c = contacts.find(
-                                (item) => item.id === serendipitySuggestion.contactId
-                              );
-                              if (c) setActiveContactDrawer(c);
-                            }}
-                            className="px-3 py-1.5 rounded-xl bg-primary text-primary-fg font-semibold text-xs shrink-0 hover:opacity-95 transition shadow-sm"
-                          >
-                            Open Profile
-                          </button>
+                          <span className="col-span-2 sm:col-span-1 text-right font-mono font-semibold text-foreground">
+                            {stage.count}
+                          </span>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="p-4 rounded-xl bg-background border border-border text-xs text-muted text-center">
-                        Add more contacts to unlock Serendipity reconnection suggestions.
-                      </div>
-                    )}
-
-                    {/* LeadFlow Quick Actions Stack */}
-                    <div className="grid grid-cols-2 gap-2.5 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => setShowNewContactModal(true)}
-                        className="py-2.5 px-3 rounded-xl bg-primary hover:opacity-95 text-primary-fg font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm transition"
-                      >
-                        <Plus className="w-3.5 h-3.5" /> Add Contact
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab('groups')}
-                        className="py-2.5 px-3 rounded-xl bg-background hover:bg-card-hover border border-border text-foreground font-medium text-xs flex items-center justify-center gap-1.5 transition"
-                      >
-                        <FolderKanban className="w-3.5 h-3.5 text-primary" /> Manage Groups
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab('map')}
-                        className="py-2.5 px-3 rounded-xl bg-background hover:bg-card-hover border border-border text-foreground font-medium text-xs flex items-center justify-center gap-1.5 transition"
-                      >
-                        <Network className="w-3.5 h-3.5 text-primary" /> Network Graph
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          duplicates.length > 0
-                            ? setShowMergeModal(true)
-                            : setActiveTab('settings')
-                        }
-                        className="py-2.5 px-3 rounded-xl bg-background hover:bg-card-hover border border-border text-foreground font-medium text-xs flex items-center justify-center gap-1.5 transition"
-                      >
-                        <GitMerge className="w-3.5 h-3.5 text-primary" />{' '}
-                        {duplicates.length > 0
-                          ? `Duplicates (${duplicates.length})`
-                          : 'Sync & Settings'}
-                      </button>
-                    </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
