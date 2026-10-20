@@ -7,6 +7,8 @@ import {
   startTelegramLongPolling,
 } from '@/lib/telegram-service';
 import { dispatchOutgoingWebhook } from '@/lib/webhook-service';
+import { pushScheduleToGoogleCalendar } from '@/lib/google-sync';
+import { runScheduledBackupRotation } from '@/lib/backup-rotator';
 import { logger } from '@/lib/logger';
 import { registerGracefulShutdown } from '@/lib/lifecycle';
 import {
@@ -16,7 +18,7 @@ import {
 
 let schedulerStarted = false;
 let digestJob: Cron | null = null;
-const lastDispatchedMinuteByUser = new Map<number, string>();
+const lastDispatchedMinuteByUser = new Map<string, string>();
 
 /**
  * Returns current HH:MM string formatted according to the given IANA timezone.
@@ -56,6 +58,25 @@ export function getLocalDateInTimezone(tz: string = 'UTC', date: Date = new Date
     return new Date(Date.UTC(year, month - 1, day));
   } catch {
     return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  }
+}
+
+/**
+ * Returns the local day of the week (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
+ * for the given IANA timezone.
+ */
+export function getLocalDayOfWeekInTimezone(tz: string = 'UTC', date: Date = new Date()): number {
+  const normalized = normalizeTimezone(tz);
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: normalized,
+      weekday: 'short',
+    });
+    const weekdayStr = formatter.format(date); // 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'
+    const days: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    return days[weekdayStr] ?? date.getUTCDay();
+  } catch {
+    return date.getUTCDay();
   }
 }
 
@@ -133,6 +154,27 @@ export async function runDailyDigestForUser(userId: number, now: Date = new Date
   });
 }
 
+/**
+ * Executes outbound Google Calendar auto-push for a user within their database context.
+ */
+export async function runGoogleCalendarAutoPushForUser(userId: number) {
+  return runWithUser(userId, async () => {
+    const uDb = getUserDb(userId).db;
+    const currentCfg = uDb.select().from(settings).get();
+    if (!currentCfg || !currentCfg.googleCalendarPushEnabled || !currentCfg.googleRefreshToken) return;
+
+    try {
+      const result = await pushScheduleToGoogleCalendar();
+      logger.info('scheduler.google.push', `Google Calendar auto-push completed for user ${userId}`, {
+        userId,
+        ...result,
+      });
+    } catch (pushErr) {
+      logger.error('scheduler.google.push', `Google Calendar auto-push failed for user ${userId}`, pushErr);
+    }
+  });
+}
+
 export async function initializeBackgroundServices() {
   if (schedulerStarted) return;
   schedulerStarted = true;
@@ -154,7 +196,7 @@ export async function initializeBackgroundServices() {
       }
     }
 
-    // Run every minute to check if current HH:MM matches configured dailyDigestTime for each user
+    // Run every minute to check if current HH:MM matches configured schedule for each user
     digestJob = new Cron('* * * * *', async () => {
       try {
         const activeIds = getAllActiveUserIds();
@@ -163,29 +205,74 @@ export async function initializeBackgroundServices() {
         for (const uid of activeIds) {
           const uDb = getUserDb(uid).db;
           const currentCfg = uDb.select().from(settings).get();
-          if (!currentCfg || !currentCfg.dailyDigestEnabled) continue;
+          if (!currentCfg) continue;
 
           const tz = resolveEffectiveTimezone(currentCfg.timezone, currentCfg.defaultCountryCode);
           const currentTime = getCurrentTimeInTimezone(tz, now);
-          const targetTime = (currentCfg.dailyDigestTime || '09:00').trim().padStart(5, '0');
+          const localDateStr = getLocalDateInTimezone(tz, now).toISOString().slice(0, 10);
 
-          if (currentTime === targetTime) {
-            const localDateStr = getLocalDateInTimezone(tz, now).toISOString().slice(0, 10);
-            const dispatchKey = `${localDateStr}_${currentTime}`;
-            if (lastDispatchedMinuteByUser.get(uid) === dispatchKey) {
-              continue; // Prevent duplicate execution within the exact same minute
+          // 1. Daily Notification Digest
+          if (currentCfg.dailyDigestEnabled) {
+            const targetTime = (currentCfg.dailyDigestTime || '09:00').trim().padStart(5, '0');
+            if (currentTime === targetTime) {
+              const dispatchKey = `digest_${uid}_${localDateStr}_${currentTime}`;
+              if (!lastDispatchedMinuteByUser.has(dispatchKey)) {
+                lastDispatchedMinuteByUser.set(dispatchKey, localDateStr);
+                logger.info(
+                  'scheduler.digest',
+                  `Running scheduled Daily Digest for user ${uid} at ${currentTime} (${tz})`
+                );
+                await runDailyDigestForUser(uid, now);
+              }
             }
-            lastDispatchedMinuteByUser.set(uid, dispatchKey);
+          }
 
-            logger.info(
-              'scheduler.digest',
-              `Running scheduled Daily Digest for user ${uid} at ${currentTime} (${tz})`
-            );
-            await runDailyDigestForUser(uid, now);
+          // 2. Outbound Google Calendar Auto-Push
+          if (
+            currentCfg.googleCalendarPushEnabled &&
+            currentCfg.googleRefreshToken &&
+            currentCfg.googleCalendarAutoPush &&
+            currentCfg.googleCalendarAutoPush !== 'manual'
+          ) {
+            const targetPushTime = (currentCfg.googleCalendarPushTime || '08:00').trim().padStart(5, '0');
+            if (currentTime === targetPushTime) {
+              let shouldPush = false;
+              if (currentCfg.googleCalendarAutoPush === 'daily') {
+                shouldPush = true;
+              } else if (currentCfg.googleCalendarAutoPush === 'weekly') {
+                const localDayOfWeek = getLocalDayOfWeekInTimezone(tz, now);
+                const targetDay = currentCfg.googleCalendarPushDay ?? 0;
+                if (localDayOfWeek === targetDay) {
+                  shouldPush = true;
+                }
+              }
+
+              if (shouldPush) {
+                const pushKey = `cal_${uid}_${localDateStr}_${targetPushTime}`;
+                if (!lastDispatchedMinuteByUser.has(pushKey)) {
+                  lastDispatchedMinuteByUser.set(pushKey, localDateStr);
+                  logger.info(
+                    'scheduler.google.push',
+                    `Running scheduled Google Calendar auto-push for user ${uid} (${currentCfg.googleCalendarAutoPush}) at ${currentTime} (${tz})`
+                  );
+                  await runGoogleCalendarAutoPushForUser(uid);
+                }
+              }
+            }
+          }
+
+          // 3. Automated Database Snapshot Rotation (at 03:00 local time)
+          if (currentTime === '03:00') {
+            const backupKey = `backup_${uid}_${localDateStr}`;
+            if (!lastDispatchedMinuteByUser.has(backupKey)) {
+              lastDispatchedMinuteByUser.set(backupKey, localDateStr);
+              logger.info('scheduler.backup', `Running scheduled backup rotation for user ${uid} at 03:00 (${tz})`);
+              runScheduledBackupRotation(uid);
+            }
           }
         }
       } catch (err) {
-        logger.error('scheduler.digest', 'Scheduled digest tick failed', err);
+        logger.error('scheduler.tick', 'Scheduled background tick failed', err);
       }
     });
 

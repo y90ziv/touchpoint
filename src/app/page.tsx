@@ -473,6 +473,12 @@ export default function TouchpointApp() {
     maxDailyDue: 3,
     birthdayDaysAdvance: 7,
     googleSyncInterval: 'manual',
+    googleCalendarPushEnabled: false,
+    googleCalendarId: 'primary',
+    googleCalendarAutoPush: 'manual',
+    googleCalendarPushDay: 0,
+    googleCalendarPushTime: '08:00',
+    googleCalendarPushAdvanceDays: 7,
     logLevel: 'info',
     icalSecretToken: '',
   });
@@ -1643,6 +1649,10 @@ export default function TouchpointApp() {
         skipGoogleEmailOnly: Boolean(settingsState.skipGoogleEmailOnly),
         googleCalendarPushEnabled: Boolean(settingsState.googleCalendarPushEnabled),
         googleCalendarId: settingsState.googleCalendarId || 'primary',
+        googleCalendarAutoPush: settingsState.googleCalendarAutoPush || 'manual',
+        googleCalendarPushDay: Number(settingsState.googleCalendarPushDay ?? 0),
+        googleCalendarPushTime: settingsState.googleCalendarPushTime || '08:00',
+        googleCalendarPushAdvanceDays: Number(settingsState.googleCalendarPushAdvanceDays ?? 7),
       }),
     });
     if (res.ok) {
@@ -4757,78 +4767,300 @@ export default function TouchpointApp() {
               </div>
 
               {settingsState.googleCalendarPushEnabled && (
-                <div className="flex flex-wrap items-end gap-3 pt-1">
-                  <div className="flex-1 min-w-[200px]">
-                    <label className="block text-muted mb-1">
-                      Target Google Calendar ID (default: primary)
-                    </label>
-                    <input
-                      value={settingsState.googleCalendarId || 'primary'}
-                      onChange={(e) =>
-                        setSettingsState({ ...settingsState, googleCalendarId: e.target.value })
-                      }
-                      placeholder="primary"
-                      className="w-full px-3 py-2 rounded-lg bg-background border border-border font-mono"
-                    />
+                <div className="space-y-4 pt-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-foreground mb-1">
+                        Target Google Calendar ID
+                      </label>
+                      <input
+                        value={settingsState.googleCalendarId || 'primary'}
+                        onChange={(e) =>
+                          setSettingsState({ ...settingsState, googleCalendarId: e.target.value })
+                        }
+                        placeholder="primary"
+                        className="w-full px-3 py-2 rounded-lg bg-background border border-border font-mono text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      />
+                      <p className="text-[11px] text-muted mt-1">
+                        Use <code className="font-mono">primary</code> for your default calendar, or paste a secondary Google Calendar ID.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-foreground mb-1">
+                        Push Horizon / In Advance
+                      </label>
+                      <select
+                        value={settingsState.googleCalendarPushAdvanceDays ?? 7}
+                        onChange={(e) =>
+                          setSettingsState({
+                            ...settingsState,
+                            googleCalendarPushAdvanceDays: Number(e.target.value),
+                          })
+                        }
+                        className="w-full px-3 py-2 rounded-lg bg-background border border-border text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value={1}>1 day in advance (Today &amp; Tomorrow)</option>
+                        <option value={3}>3 days in advance</option>
+                        <option value={7}>7 days in advance (Upcoming 1 week)</option>
+                        <option value={14}>14 days in advance (Upcoming 2 weeks)</option>
+                        <option value={30}>30 days in advance (Upcoming 1 month)</option>
+                        <option value={0}>All upcoming scheduled touchpoints</option>
+                      </select>
+                      <p className="text-[11px] text-muted mt-1">
+                        Controls how far in advance touchpoints are pushed to your Google Calendar.
+                      </p>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await fetch('/api/settings', {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          googleCalendarPushEnabled: true,
-                          googleCalendarId: settingsState.googleCalendarId || 'primary',
-                        }),
-                      });
-                      const currentRedirect = `${window.location.origin}/api/google`.replace(
-                        '0.0.0.0',
-                        'localhost'
-                      );
-                      const res = await fetch(
-                        `/api/google?redirect_uri=${encodeURIComponent(currentRedirect)}`
-                      );
-                      const data = await res.json();
-                      if (res.ok && data.authUrl) {
-                        window.location.href = data.authUrl;
-                      } else {
-                        notify(
-                          data.error ||
-                            'Configure Google Client ID & Secret in Settings → 3. Google Contacts Integration first'
+
+                  {/* Automatic Scheduling Options */}
+                  <div className="p-4 rounded-xl bg-background border border-border/80 space-y-3.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CalendarIcon className="w-4 h-4 text-primary" />
+                        <span className="text-xs font-bold text-foreground">
+                          Automatic Push Schedule
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                        {settingsState.googleCalendarAutoPush === 'daily'
+                          ? 'Daily Auto-Push'
+                          : settingsState.googleCalendarAutoPush === 'weekly'
+                          ? 'Weekly Auto-Push'
+                          : 'Manual Only'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-muted mb-1">
+                          Push Frequency
+                        </label>
+                        <select
+                          value={settingsState.googleCalendarAutoPush || 'manual'}
+                          onChange={(e) =>
+                            setSettingsState({
+                              ...settingsState,
+                              googleCalendarAutoPush: e.target.value,
+                            })
+                          }
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-card border border-border text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        >
+                          <option value="manual">Manual Only (Disabled)</option>
+                          <option value="weekly">Weekly (Start of Week)</option>
+                          <option value="daily">Daily</option>
+                        </select>
+                      </div>
+
+                      {settingsState.googleCalendarAutoPush === 'weekly' && (
+                        <div>
+                          <label className="block text-xs font-medium text-muted mb-1">
+                            Push Day (Start of Week)
+                          </label>
+                          <select
+                            value={settingsState.googleCalendarPushDay ?? 0}
+                            onChange={(e) =>
+                              setSettingsState({
+                                ...settingsState,
+                                googleCalendarPushDay: Number(e.target.value),
+                              })
+                            }
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-card border border-border text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          >
+                            <option value={0}>Sunday (IL / US Week Start)</option>
+                            <option value={6}>Saturday (Sat → Sun Planning)</option>
+                            <option value={1}>Monday (International Week)</option>
+                            <option value={5}>Friday (Weekend Preview)</option>
+                            <option value={2}>Tuesday</option>
+                            <option value={3}>Wednesday</option>
+                            <option value={4}>Thursday</option>
+                          </select>
+                        </div>
+                      )}
+
+                      {settingsState.googleCalendarAutoPush &&
+                        settingsState.googleCalendarAutoPush !== 'manual' && (
+                          <div>
+                            <label className="block text-xs font-medium text-muted mb-1">
+                              Push Time ({settingsState.timezone || 'Local'})
+                            </label>
+                            <input
+                              type="time"
+                              value={settingsState.googleCalendarPushTime || '08:00'}
+                              onChange={(e) =>
+                                setSettingsState({
+                                  ...settingsState,
+                                  googleCalendarPushTime: e.target.value,
+                                })
+                              }
+                              className="w-full px-2.5 py-1.5 rounded-lg bg-card border border-border text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            />
+                          </div>
+                        )}
+                    </div>
+
+                    {/* Schedule status & last push info */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/50 text-[11px] text-muted">
+                      <div>
+                        {settingsState.googleCalendarAutoPush === 'weekly' && (
+                          <span>
+                            🗓️ Auto-push runs every{' '}
+                            <strong className="text-foreground">
+                              {
+                                [
+                                  'Sunday',
+                                  'Monday',
+                                  'Tuesday',
+                                  'Wednesday',
+                                  'Thursday',
+                                  'Friday',
+                                  'Saturday',
+                                ][Number(settingsState.googleCalendarPushDay ?? 0)]
+                              }
+                            </strong>{' '}
+                            at{' '}
+                            <strong className="text-foreground font-mono">
+                              {settingsState.googleCalendarPushTime || '08:00'}
+                            </strong>{' '}
+                            ({settingsState.timezone || 'UTC'}), pushing contacts due within{' '}
+                            <strong className="text-foreground">
+                              {settingsState.googleCalendarPushAdvanceDays === 0
+                                ? 'all future dates'
+                                : `${settingsState.googleCalendarPushAdvanceDays ?? 7} days`}
+                            </strong>
+                            . Deduplication active.
+                          </span>
+                        )}
+                        {settingsState.googleCalendarAutoPush === 'daily' && (
+                          <span>
+                            🗓️ Auto-push runs{' '}
+                            <strong className="text-foreground">daily</strong> at{' '}
+                            <strong className="text-foreground font-mono">
+                              {settingsState.googleCalendarPushTime || '08:00'}
+                            </strong>{' '}
+                            ({settingsState.timezone || 'UTC'}), pushing contacts due within{' '}
+                            <strong className="text-foreground">
+                              {settingsState.googleCalendarPushAdvanceDays === 0
+                                ? 'all future dates'
+                                : `${settingsState.googleCalendarPushAdvanceDays ?? 7} days`}
+                            </strong>
+                            . Deduplication active.
+                          </span>
+                        )}
+                        {(!settingsState.googleCalendarAutoPush ||
+                          settingsState.googleCalendarAutoPush === 'manual') && (
+                          <span>
+                            🗓️ Auto-push is disabled. Use the manual push button below to sync events on demand.
+                          </span>
+                        )}
+                      </div>
+
+                      {settingsState.lastGoogleCalendarPushAt && (
+                        <div className="shrink-0 font-mono text-[10px] text-muted/80">
+                          Last pushed:{' '}
+                          {new Date(settingsState.lastGoogleCalendarPushAt).toLocaleString()}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex justify-end pt-1">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await fetch('/api/settings', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              googleCalendarPushEnabled: true,
+                              googleCalendarId: settingsState.googleCalendarId || 'primary',
+                              googleCalendarAutoPush: settingsState.googleCalendarAutoPush || 'manual',
+                              googleCalendarPushDay: Number(settingsState.googleCalendarPushDay ?? 0),
+                              googleCalendarPushTime: settingsState.googleCalendarPushTime || '08:00',
+                              googleCalendarPushAdvanceDays: Number(
+                                settingsState.googleCalendarPushAdvanceDays ?? 7
+                              ),
+                            }),
+                          });
+                          await loadAllData();
+                          notify('Saved Google Calendar schedule preferences.');
+                        }}
+                        className="px-3.5 py-1.5 rounded-lg bg-primary text-primary-fg font-semibold text-xs transition hover:opacity-90 shadow-xs"
+                      >
+                        Save Calendar Schedule
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex flex-wrap items-center gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await fetch('/api/settings', {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            googleCalendarPushEnabled: true,
+                            googleCalendarId: settingsState.googleCalendarId || 'primary',
+                          }),
+                        });
+                        const currentRedirect = `${window.location.origin}/api/google`.replace(
+                          '0.0.0.0',
+                          'localhost'
                         );
-                      }
-                    }}
-                    className="px-3.5 py-2 rounded-lg bg-background hover:bg-card-hover border border-primary/50 text-primary font-semibold flex items-center gap-1.5 transition"
-                  >
-                    <ShieldCheck className="w-3.5 h-3.5" /> Re-Authorize Google (Grant Calendar Scope)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await fetch('/api/settings', {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          googleCalendarId: settingsState.googleCalendarId || 'primary',
-                        }),
-                      });
-                      const res = await fetch('/api/google', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'push_calendar' }),
-                      });
-                      const data = await res.json();
-                      if (res.ok) {
-                        notify(`Pushed ${data.pushed} touchpoint events to Google Calendar.`);
-                      } else {
-                        notify(data.error || 'Calendar push failed');
-                      }
-                    }}
-                    className="px-4 py-2 rounded-lg bg-primary text-primary-fg font-semibold flex items-center gap-1.5"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" /> Push Upcoming Dates to Google Calendar
-                  </button>
+                        const res = await fetch(
+                          `/api/google?redirect_uri=${encodeURIComponent(currentRedirect)}`
+                        );
+                        const data = await res.json();
+                        if (res.ok && data.authUrl) {
+                          window.location.href = data.authUrl;
+                        } else {
+                          notify(
+                            data.error ||
+                              'Configure Google Client ID & Secret in Settings → 3. Google Contacts Integration first'
+                          );
+                        }
+                      }}
+                      className="px-3.5 py-2 rounded-lg bg-background hover:bg-card-hover border border-primary/50 text-primary font-semibold flex items-center gap-1.5 transition text-xs"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" /> Re-Authorize Google (Grant Calendar Scope)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await fetch('/api/settings', {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            googleCalendarId: settingsState.googleCalendarId || 'primary',
+                            googleCalendarPushAdvanceDays: Number(
+                              settingsState.googleCalendarPushAdvanceDays ?? 7
+                            ),
+                          }),
+                        });
+                        const res = await fetch('/api/google', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            action: 'push_calendar',
+                            advanceDays: Number(settingsState.googleCalendarPushAdvanceDays ?? 7),
+                          }),
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                          await loadAllData();
+                          notify(
+                            `Pushed ${data.pushed} touchpoint events to Google Calendar (${data.skippedExisting || 0} already up-to-date).`
+                          );
+                        } else {
+                          notify(data.error || 'Calendar push failed');
+                        }
+                      }}
+                      className="px-4 py-2 rounded-lg bg-primary text-primary-fg font-semibold flex items-center gap-1.5 text-xs shadow-xs hover:opacity-95 transition"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" /> Push Schedule to Google Calendar Now
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

@@ -123,15 +123,8 @@ export async function POST(request: Request) {
         }
 
         if (action === 'push_calendar') {
-          const tracked = listContactsWithDetails()
-            .filter((c) => c.keepInTouch && c.cadence.status !== 'paused')
-            .map((c) => ({
-              contactId: c.id,
-              fullName: c.fullName,
-              nextDueDate: c.cadence.nextDueDate,
-              intervalDays: c.cadence.effectiveIntervalDays,
-            }));
-          const result = await pushScheduleToGoogleCalendar(redirectUri, tracked);
+          const advanceDays = typeof body.advanceDays === 'number' ? body.advanceDays : undefined;
+          const result = await pushScheduleToGoogleCalendar(redirectUri, undefined, advanceDays);
           logger.http('POST', '/api/google (push_calendar)', 200, Date.now() - start, {
             ...result,
             userId,

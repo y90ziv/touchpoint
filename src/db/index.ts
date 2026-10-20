@@ -48,6 +48,11 @@ CREATE TABLE IF NOT EXISTS settings (
   last_google_sync_at TEXT,
   google_calendar_push_enabled INTEGER NOT NULL DEFAULT 0,
   google_calendar_id TEXT NOT NULL DEFAULT 'primary',
+  google_calendar_auto_push TEXT NOT NULL DEFAULT 'manual',
+  google_calendar_push_day INTEGER NOT NULL DEFAULT 0,
+  google_calendar_push_time TEXT NOT NULL DEFAULT '08:00',
+  google_calendar_push_advance_days INTEGER NOT NULL DEFAULT 7,
+  last_google_calendar_push_at TEXT,
   webhook_enabled INTEGER NOT NULL DEFAULT 0,
   webhook_url TEXT,
   webhook_secret TEXT,
@@ -210,6 +215,11 @@ export function createDatabase(dbPath?: string): {
     ['telegram_binding_token', 'TEXT'],
     ['cadence_fuzziness_enabled', 'INTEGER NOT NULL DEFAULT 0'],
     ['cadence_fuzziness_percent', 'INTEGER NOT NULL DEFAULT 15'],
+    ['google_calendar_auto_push', "TEXT NOT NULL DEFAULT 'manual'"],
+    ['google_calendar_push_day', 'INTEGER NOT NULL DEFAULT 0'],
+    ['google_calendar_push_time', "TEXT NOT NULL DEFAULT '08:00'"],
+    ['google_calendar_push_advance_days', 'INTEGER NOT NULL DEFAULT 7'],
+    ['last_google_calendar_push_at', 'TEXT'],
   ];
   for (const [col, def] of migrations) {
     if (!existingCols.includes(col)) {

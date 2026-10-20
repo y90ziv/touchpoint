@@ -44,6 +44,11 @@ export const settings = sqliteTable('settings', {
     .notNull()
     .default(false),
   googleCalendarId: text('google_calendar_id').notNull().default('primary'),
+  googleCalendarAutoPush: text('google_calendar_auto_push').notNull().default('manual'), // 'manual' | 'daily' | 'weekly'
+  googleCalendarPushDay: integer('google_calendar_push_day').notNull().default(0), // 0 = Sunday, 1 = Monday, 6 = Saturday
+  googleCalendarPushTime: text('google_calendar_push_time').notNull().default('08:00'),
+  googleCalendarPushAdvanceDays: integer('google_calendar_push_advance_days').notNull().default(7), // 0 = all, 1 = 1d, 3 = 3d, 7 = 7d, 14 = 14d, 30 = 30d
+  lastGoogleCalendarPushAt: text('last_google_calendar_push_at'),
   webhookEnabled: integer('webhook_enabled', { mode: 'boolean' }).notNull().default(false),
   webhookUrl: text('webhook_url'),
   webhookSecret: text('webhook_secret'),

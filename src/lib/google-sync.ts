@@ -3,7 +3,7 @@ import { eq, isNotNull } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { contacts, settings, googleSyncTombstones } from '@/db/schema';
 import { logger } from '@/lib/logger';
-import { splitFullName } from '@/lib/contacts-service';
+import { splitFullName, listContactsWithDetails } from '@/lib/contacts-service';
 
 export interface GooglePersonCandidate {
   resourceName: string;
@@ -260,14 +260,16 @@ export async function runLiveGooglePeopleSync(redirectUri: string) {
 }
 
 /**
- * Outbound Google Calendar Push (Option 3):
+ * Outbound Google Calendar Push:
  * Disabled by default for strict privacy. When explicitly enabled by the user,
  * pushes upcoming touchpoint due dates outward from the container to Google Calendar API.
+ * Deduplicates against existing events in the calendar so running repeatedly never spams.
  */
 export async function pushScheduleToGoogleCalendar(
-  redirectUri: string,
-  events: Array<{ contactId: number; fullName: string; nextDueDate: string; intervalDays: number }>
-): Promise<{ pushed: number }> {
+  redirectUri: string = 'http://localhost:3000/api/google',
+  events?: Array<{ contactId: number; fullName: string; nextDueDate: string; intervalDays: number }>,
+  advanceDaysOverride?: number
+): Promise<{ pushed: number; skippedExisting: number }> {
   const db = getDb();
   const cfg = db.select().from(settings).get();
 
@@ -281,6 +283,41 @@ export async function pushScheduleToGoogleCalendar(
     throw new Error('Google account is not connected yet.');
   }
 
+  const effectiveAdvanceDays =
+    advanceDaysOverride !== undefined
+      ? advanceDaysOverride
+      : (cfg.googleCalendarPushAdvanceDays ?? 7);
+
+  // If explicit events not provided, compute from tracked contacts filtered by advanceDays
+  let targetEvents = events;
+  if (!targetEvents) {
+    const allDetailed = listContactsWithDetails();
+    targetEvents = allDetailed
+      .filter((c) => {
+        if (!c.keepInTouch || c.cadence.status === 'paused') return false;
+        if (!effectiveAdvanceDays || effectiveAdvanceDays <= 0) return true; // all upcoming
+        return c.cadence.daysUntilDue <= effectiveAdvanceDays;
+      })
+      .map((c) => ({
+        contactId: c.id,
+        fullName: c.fullName,
+        nextDueDate: c.cadence.nextDueDate,
+        intervalDays: c.cadence.effectiveIntervalDays,
+      }));
+  }
+
+  if (targetEvents.length === 0) {
+    try {
+      db.update(settings)
+        .set({ lastGoogleCalendarPushAt: new Date().toISOString() })
+        .where(eq(settings.id, cfg.id))
+        .run();
+    } catch {
+      // ignore
+    }
+    return { pushed: 0, skippedExisting: 0 };
+  }
+
   const oauth2Client = getGoogleOAuthClient(redirectUri);
   oauth2Client.setCredentials({ refresh_token: cfg.googleRefreshToken });
 
@@ -289,25 +326,77 @@ export async function pushScheduleToGoogleCalendar(
 
   logger.info(
     'google.calendar.push',
-    `Pushing ${events.length} touchpoint reminders outward to Google Calendar (${calendarId})`
+    `Processing ${targetEvents.length} touchpoint reminders outward to Google Calendar (${calendarId}), advanceDays=${effectiveAdvanceDays}`
   );
 
+  // Query existing calendar events in the range to prevent duplicates
+  const dueDates = targetEvents.map((e) => e.nextDueDate).filter(Boolean).sort();
+  const existingEventKeys = new Set<string>();
+
+  if (dueDates.length > 0) {
+    try {
+      const minDate = dueDates[0];
+      const maxDate = dueDates[dueDates.length - 1];
+      const timeMin = new Date(`${minDate}T00:00:00Z`).toISOString();
+      const maxDateObj = new Date(`${maxDate}T23:59:59Z`);
+      const timeMax = maxDateObj.toISOString();
+
+      const listRes = await calendar.events.list({
+        calendarId,
+        timeMin,
+        timeMax,
+        singleEvents: true,
+        maxResults: 250,
+        q: 'Touchpoint: Reach out to',
+      });
+
+      for (const item of listRes.data.items || []) {
+        const summary = item.summary || '';
+        const date = item.start?.date || (item.start?.dateTime ? item.start.dateTime.slice(0, 10) : '');
+        if (summary && date) {
+          existingEventKeys.add(`${summary}__${date}`);
+        }
+      }
+    } catch (listErr) {
+      logger.warn('google.calendar.push', 'Could not query existing calendar events for dedup, proceeding with insert', listErr);
+    }
+  }
+
   let pushed = 0;
-  for (const ev of events) {
+  let skippedExisting = 0;
+  for (const ev of targetEvents) {
+    const summary = `📞 Touchpoint: Reach out to ${ev.fullName}`;
+    const key = `${summary}__${ev.nextDueDate}`;
+
+    if (existingEventKeys.has(key)) {
+      skippedExisting++;
+      continue;
+    }
+
     await calendar.events.insert({
       calendarId,
       requestBody: {
-        summary: `📞 Touchpoint: Reach out to ${ev.fullName}`,
+        summary,
         description: `Scheduled Touchpoint reminder (every ${ev.intervalDays} days).`,
         start: { date: ev.nextDueDate },
         end: { date: ev.nextDueDate },
       },
     });
+    existingEventKeys.add(key);
     pushed++;
   }
 
-  logger.info('google.calendar.push', 'Completed outbound Google Calendar push', { pushed });
-  return { pushed };
+  try {
+    db.update(settings)
+      .set({ lastGoogleCalendarPushAt: new Date().toISOString() })
+      .where(eq(settings.id, cfg.id))
+      .run();
+  } catch {
+    // ignore
+  }
+
+  logger.info('google.calendar.push', 'Completed outbound Google Calendar push', { pushed, skippedExisting });
+  return { pushed, skippedExisting };
 }
 
 export async function testGoogleConnection(redirectUri: string): Promise<{
