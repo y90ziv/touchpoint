@@ -59,18 +59,193 @@ export const COMMON_TIMEZONES = [
   'Africa/Johannesburg',
 ];
 
-export function getTimezoneOffsetString(timeZone: string): string {
+export function getTimezoneOffsetString(timeZone: string, date: Date = new Date()): string {
   try {
     if (timeZone === 'UTC') return 'GMT+0';
     const formatter = new Intl.DateTimeFormat('en-US', {
       timeZone,
       timeZoneName: 'shortOffset',
     });
-    const parts = formatter.formatToParts(new Date());
+    const parts = formatter.formatToParts(date);
     const offset = parts.find((p) => p.type === 'timeZoneName')?.value;
     return offset || 'GMT+0';
   } catch {
     return 'GMT+0';
+  }
+}
+
+/**
+ * Normalizes user timezone input into a standard IANA timezone.
+ * Resolves common names like "Israel", "Jerusalem", "IDT", "IST", "GMT+3", "UTC+3"
+ * to canonical IANA timezone "Asia/Jerusalem" to guarantee accurate Daylight Saving Time (DST) tracking.
+ */
+export function normalizeTimezone(tzInput?: string | null): string {
+  if (!tzInput || !tzInput.trim()) return 'UTC';
+  const tz = tzInput.trim();
+
+  // If already a valid IANA timezone known to Intl, use it directly
+  try {
+    new Intl.DateTimeFormat(undefined, { timeZone: tz });
+    if (tz.toLowerCase() === 'israel') return 'Asia/Jerusalem';
+    if (tz.includes('/') || tz.toUpperCase() === 'UTC') return tz;
+  } catch {
+    // Fall through to normalizers
+  }
+
+  const lower = tz.toLowerCase().replace(/[\s_]+/g, ' ');
+
+  // Common regional aliases that require canonical IANA zones for DST
+  if (
+    lower.includes('jerusalem') ||
+    lower.includes('israel') ||
+    lower.includes('tel aviv') ||
+    lower === 'idt' ||
+    lower === 'ist'
+  ) {
+    return 'Asia/Jerusalem';
+  }
+  if (lower.includes('london') || lower.includes('uk') || lower.includes('britain') || lower === 'bst') {
+    return 'Europe/London';
+  }
+  if (lower.includes('berlin') || lower.includes('germany') || lower === 'cest' || lower === 'cet') {
+    return 'Europe/Berlin';
+  }
+  if (lower.includes('paris') || lower.includes('france')) {
+    return 'Europe/Paris';
+  }
+  if (lower.includes('new york') || lower.includes('eastern') || lower === 'edt' || lower === 'est') {
+    return 'America/New_York';
+  }
+  if (lower.includes('los angeles') || lower.includes('pacific') || lower === 'pdt' || lower === 'pst') {
+    return 'America/Los_Angeles';
+  }
+  if (lower.includes('chicago') || lower.includes('central') || lower === 'cdt' || lower === 'cst') {
+    return 'America/Chicago';
+  }
+
+  // Handle generic offset strings like GMT+3, UTC+3, +3, GMT-5, etc.
+  const offsetMatch = tz.match(/^(?:gmt|utc)?\s*([+-])\s*(\d{1,2})(?::?(\d{2}))?$/i);
+  if (offsetMatch) {
+    const sign = offsetMatch[1];
+    const hours = offsetMatch[2].padStart(2, '0');
+    const minutes = (offsetMatch[3] || '00').padStart(2, '0');
+    const formattedOffset = `${sign}${hours}:${minutes}`;
+    // If user specified GMT+3 or UTC+3, map to Asia/Jerusalem so DST is respected rather than fixed offset
+    if (formattedOffset === '+03:00' || formattedOffset === '+02:00') {
+      return 'Asia/Jerusalem';
+    }
+    try {
+      new Intl.DateTimeFormat(undefined, { timeZone: formattedOffset });
+      return formattedOffset;
+    } catch {
+      // ignore
+    }
+  }
+
+  return 'UTC';
+}
+
+/**
+ * Resolves the effective IANA timezone. If timezone is empty or 'UTC' (default fallback),
+ * infers local timezone from defaultCountryCode (e.g. +972 -> Asia/Jerusalem) or process.env.TZ.
+ */
+export function resolveEffectiveTimezone(
+  tzInput?: string | null,
+  countryCodeInput?: string | null
+): string {
+  if (tzInput && tzInput.trim() && tzInput.trim() !== 'UTC') {
+    return normalizeTimezone(tzInput);
+  }
+
+  // If tz is explicitly 'UTC' or empty, but country code is set
+  if (countryCodeInput && countryCodeInput.trim()) {
+    const code = countryCodeInput.trim().replace(/[^\d+]/g, '');
+    if (code === '+972' || code === '972') return 'Asia/Jerusalem';
+    if (code === '+44' || code === '44') return 'Europe/London';
+    if (code === '+49' || code === '49') return 'Europe/Berlin';
+    if (code === '+33' || code === '33') return 'Europe/Paris';
+    if (code === '+34' || code === '34') return 'Europe/Madrid';
+    if (code === '+39' || code === '39') return 'Europe/Rome';
+    if (code === '+31' || code === '31') return 'Europe/Amsterdam';
+    if (code === '+380' || code === '380') return 'Europe/Kyiv';
+    if (code === '+91' || code === '91') return 'Asia/Kolkata';
+    if (code === '+81' || code === '81') return 'Asia/Tokyo';
+    if (code === '+971' || code === '971') return 'Asia/Dubai';
+    if (code === '+65' || code === '65') return 'Asia/Singapore';
+    if (code === '+61' || code === '61') return 'Australia/Sydney';
+  }
+
+  if (typeof process !== 'undefined' && process.env?.TZ && process.env.TZ !== 'UTC') {
+    return normalizeTimezone(process.env.TZ);
+  }
+
+  return 'UTC';
+}
+
+export interface TimezoneDetails {
+  timezone: string;
+  offsetString: string;
+  isDST: boolean;
+  timeZoneName: string;
+  currentLocalTime: string;
+}
+
+export function getTimezoneDetails(
+  tzInput?: string | null,
+  countryCode?: string | null,
+  checkDate: Date = new Date()
+): TimezoneDetails {
+  const timezone = resolveEffectiveTimezone(tzInput, countryCode);
+  try {
+    const formatter = new Intl.DateTimeFormat('en-GB', {
+      timeZone: timezone,
+      timeZoneName: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(checkDate);
+    const tzName = parts.find((p) => p.type === 'timeZoneName')?.value || '';
+    const offsetStr = getTimezoneOffsetString(timezone, checkDate);
+
+    const hh = parts.find((p) => p.type === 'hour')?.value || '00';
+    const mm = parts.find((p) => p.type === 'minute')?.value || '00';
+
+    const getOffsetMinutes = (d: Date) => {
+      const p = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        timeZoneName: 'shortOffset',
+      }).formatToParts(d);
+      const str = p.find((item) => item.type === 'timeZoneName')?.value || 'GMT+0';
+      const m = str.match(/GMT([+-])(\d+)(?::(\d+))?/);
+      if (!m) return 0;
+      const sign = m[1] === '-' ? -1 : 1;
+      const hours = parseInt(m[2], 10);
+      const mins = m[3] ? parseInt(m[3], 10) : 0;
+      return sign * (hours * 60 + mins);
+    };
+
+    const currentOffsetMin = getOffsetMinutes(checkDate);
+    const janOffsetMin = getOffsetMinutes(new Date(Date.UTC(checkDate.getUTCFullYear(), 0, 15, 12, 0, 0)));
+    const julOffsetMin = getOffsetMinutes(new Date(Date.UTC(checkDate.getUTCFullYear(), 6, 15, 12, 0, 0)));
+    const standardOffsetMin = Math.min(janOffsetMin, julOffsetMin);
+    const isDST = currentOffsetMin > standardOffsetMin;
+
+    return {
+      timezone,
+      offsetString: offsetStr,
+      isDST,
+      timeZoneName: tzName,
+      currentLocalTime: `${hh}:${mm}`,
+    };
+  } catch {
+    return {
+      timezone: 'UTC',
+      offsetString: 'GMT+0',
+      isDST: false,
+      timeZoneName: 'UTC',
+      currentLocalTime: '00:00',
+    };
   }
 }
 

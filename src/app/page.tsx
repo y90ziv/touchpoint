@@ -12,6 +12,7 @@ import {
   Moon,
   Plus,
   Clock,
+  Bell,
   Phone,
   MessageSquare,
   UserCheck,
@@ -54,7 +55,12 @@ import DatePicker from 'react-datepicker';
 import { ProgressRingAvatar } from '@/components/ProgressRingAvatar';
 import { CountryCodeSelect } from '@/components/CountryCodeSelect';
 import { TimezoneSelect } from '@/components/TimezoneSelect';
-import { guessCountryDialCode } from '@/lib/geo-data';
+import {
+  guessCountryDialCode,
+  getTimezoneDetails,
+  resolveEffectiveTimezone,
+  normalizeTimezone,
+} from '@/lib/geo-data';
 import {
   applySmartSpreading,
   calculateRelationshipHealthScore,
@@ -742,6 +748,27 @@ export default function TouchpointApp() {
       if (dData.duplicates) setDuplicates(dData.duplicates);
       if (rData.nodes) setGraph(rData);
       if (sData.settings) {
+        let currentTz = sData.settings.timezone;
+        if (
+          typeof window !== 'undefined' &&
+          (currentTz === 'UTC' || !currentTz) &&
+          typeof Intl !== 'undefined'
+        ) {
+          try {
+            const detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            if (detectedTz && detectedTz !== 'UTC') {
+              currentTz = detectedTz;
+              sData.settings.timezone = detectedTz;
+              fetch('/api/settings', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ timezone: detectedTz }),
+              }).catch(() => {});
+            }
+          } catch {
+            // ignore
+          }
+        }
         setSettingsState(sData.settings);
         let preset = (sData.settings.themePreset || 'sbb') as typeof themePreset;
         let mode: 'dark' | 'light' = sData.settings.themeMode === 'dark' ? 'dark' : 'light';
@@ -5199,6 +5226,7 @@ export default function TouchpointApp() {
                             maxDailyDue: Number(settingsState.maxDailyDue || 3),
                             cadenceFuzzinessEnabled: Boolean(settingsState.cadenceFuzzinessEnabled),
                             cadenceFuzzinessPercent: Number(settingsState.cadenceFuzzinessPercent || 15),
+                            dailyDigestTime: settingsState.dailyDigestTime || '09:00',
                           }),
                         });
                         await loadAllData();
@@ -5294,6 +5322,162 @@ export default function TouchpointApp() {
                     Configure Telegram, an Outgoing Webhook (n8n, Home Assistant, Slack, Discord,
                     ntfy, or custom endpoint), or both simultaneously.
                   </p>
+
+                  {/* Daily Notification Schedule & Local Timezone */}
+                  {(() => {
+                    const tzInfo = getTimezoneDetails(settingsState.timezone, settingsState.defaultCountryCode);
+                    const browserTz = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : '';
+                    const isUsingBrowserTz = browserTz && normalizeTimezone(settingsState.timezone) === normalizeTimezone(browserTz);
+
+                    return (
+                      <div className="bg-background border border-border rounded-xl p-4 sm:p-5 space-y-4 shadow-sm">
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                              <Bell className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-sm text-foreground">
+                                Daily Notification Schedule &amp; Local Timezone
+                              </h4>
+                              <p className="text-xs text-muted">
+                                Controls when daily cadence reminders and birthday alerts are dispatched.
+                              </p>
+                            </div>
+                          </div>
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-xs font-semibold border flex items-center gap-1.5 ${
+                              settingsState.dailyDigestEnabled !== false
+                                ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-500 dark:text-emerald-400'
+                                : 'bg-card border-border text-muted'
+                            }`}
+                          >
+                            <span
+                              className={`w-2 h-2 rounded-full ${
+                                settingsState.dailyDigestEnabled !== false
+                                  ? 'bg-emerald-500'
+                                  : 'bg-zinc-500'
+                              }`}
+                            />
+                            {settingsState.dailyDigestEnabled !== false ? 'Active' : 'Paused'}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-medium text-muted mb-1.5">
+                              Daily Notification Time (Local Time)
+                            </label>
+                            <input
+                              type="time"
+                              value={settingsState.dailyDigestTime || '09:00'}
+                              onChange={(e) =>
+                                setSettingsState({ ...settingsState, dailyDigestTime: e.target.value })
+                              }
+                              className="w-full px-3 py-2 rounded-lg bg-card border border-border text-foreground font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            />
+                            <p className="text-[11px] text-muted mt-1">
+                              Touchpoint evaluates due contacts and dispatches your digest at this exact local hour:minute.
+                            </p>
+                          </div>
+
+                          <div>
+                            <TimezoneSelect
+                              id="notif-sched-timezone"
+                              label="Local Timezone"
+                              value={settingsState.timezone || 'Asia/Jerusalem'}
+                              onChange={(tz) =>
+                                setSettingsState({ ...settingsState, timezone: tz })
+                              }
+                            />
+                            {browserTz && !isUsingBrowserTz && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setSettingsState({ ...settingsState, timezone: browserTz })
+                                }
+                                className="text-[11px] font-semibold text-primary hover:underline mt-1.5 inline-flex items-center gap-1"
+                              >
+                                <span>Switch to browser timezone ({browserTz})</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Real-time Timezone & Daylight Saving Time status info */}
+                        <div className="p-3 rounded-lg bg-card border border-border/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-foreground">
+                                {tzInfo.timezone}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-full text-[11px] font-mono font-medium bg-background border border-border text-foreground">
+                                {tzInfo.offsetString} ({tzInfo.timeZoneName})
+                              </span>
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[11px] font-medium border ${
+                                  tzInfo.isDST
+                                    ? 'bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-400'
+                                    : 'bg-blue-500/15 border-blue-500/40 text-blue-600 dark:text-blue-400'
+                                }`}
+                              >
+                                {tzInfo.isDST ? '☀️ Daylight Saving Time Active' : '❄️ Standard Time Active'}
+                              </span>
+                            </div>
+                            <p className="text-muted text-[11px]">
+                              Current local time: <strong className="text-foreground font-mono">{tzInfo.currentLocalTime}</strong>. Automatic Daylight Saving Time adjustments are applied seamlessly year-round.
+                            </p>
+                          </div>
+                          <div className="shrink-0 text-right sm:text-right">
+                            <span className="text-[11px] text-muted block">Scheduled trigger:</span>
+                            <span className="font-semibold text-primary text-xs">
+                              Daily at {settingsState.dailyDigestTime || '09:00'} ({tzInfo.offsetString})
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                          <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={settingsState.dailyDigestEnabled !== false}
+                              onChange={(e) =>
+                                setSettingsState({
+                                  ...settingsState,
+                                  dailyDigestEnabled: e.target.checked,
+                                })
+                              }
+                              className="rounded border-border text-primary focus:ring-primary w-4 h-4"
+                            />
+                            <span>Enable Daily Digest (uncheck to pause all scheduled alerts)</span>
+                          </label>
+
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await fetch('/api/settings', {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  dailyDigestEnabled: settingsState.dailyDigestEnabled !== false,
+                                  dailyDigestTime: settingsState.dailyDigestTime || '09:00',
+                                  timezone: settingsState.timezone,
+                                  skipEmptyDigest: settingsState.skipEmptyDigest !== false,
+                                }),
+                              });
+                              await loadAllData();
+                              notify(
+                                `Saved Daily Notification Schedule (${settingsState.dailyDigestTime || '09:00'} ${settingsState.timezone}).`
+                              );
+                            }}
+                            className="px-3.5 py-1.5 rounded-lg bg-primary text-primary-fg font-semibold text-xs transition hover:opacity-90"
+                          >
+                            Save Notification Schedule
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Channel A: Telegram Bot */}
                   <div className="bg-background border border-border rounded-lg p-4 space-y-3">

@@ -3,6 +3,7 @@ import { count, eq } from 'drizzle-orm';
 import { getAuthDb, getUserDb, getDb } from '@/db';
 import { users, settings } from '@/db/schema';
 import { logger, setLogLevel, LogLevel } from '@/lib/logger';
+import { resolveEffectiveTimezone } from '@/lib/geo-data';
 
 import {
   SESSION_COOKIE_NAME,
@@ -108,7 +109,7 @@ export function registerUserAccount(input: {
     .insert(settings)
     .values({
       ownerUserId: insertedUser.id,
-      timezone: input.timezone || 'UTC',
+      timezone: resolveEffectiveTimezone(input.timezone, input.defaultCountryCode),
       defaultCountryCode: input.defaultCountryCode || '+1',
       icalSecretToken: icalToken,
     })

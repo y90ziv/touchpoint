@@ -9,6 +9,10 @@ import {
 import { dispatchOutgoingWebhook } from '@/lib/webhook-service';
 import { logger } from '@/lib/logger';
 import { registerGracefulShutdown } from '@/lib/lifecycle';
+import {
+  resolveEffectiveTimezone,
+  normalizeTimezone,
+} from '@/lib/geo-data';
 
 let schedulerStarted = false;
 let digestJob: Cron | null = null;
@@ -19,9 +23,10 @@ const lastDispatchedMinuteByUser = new Map<number, string>();
  * Falls back to UTC if the timezone string is invalid.
  */
 export function getCurrentTimeInTimezone(tz: string = 'UTC', date: Date = new Date()): string {
+  const normalized = normalizeTimezone(tz);
   try {
     const formatter = new Intl.DateTimeFormat('en-GB', {
-      timeZone: tz,
+      timeZone: normalized,
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
@@ -39,9 +44,10 @@ export function getCurrentTimeInTimezone(tz: string = 'UTC', date: Date = new Da
  * in the specified timezone (e.g. 2026-10-19T00:00:00.000Z).
  */
 export function getLocalDateInTimezone(tz: string = 'UTC', date: Date = new Date()): Date {
+  const normalized = normalizeTimezone(tz);
   try {
     const formatter = new Intl.DateTimeFormat('en-CA', {
-      timeZone: tz,
+      timeZone: normalized,
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -78,7 +84,8 @@ export async function runDailyDigestForUser(userId: number, now: Date = new Date
     const currentCfg = uDb.select().from(settings).get();
     if (!currentCfg || !currentCfg.dailyDigestEnabled) return;
 
-    const localRefDate = getLocalDateInTimezone(currentCfg.timezone || 'UTC', now);
+    const tz = resolveEffectiveTimezone(currentCfg.timezone, currentCfg.defaultCountryCode);
+    const localRefDate = getLocalDateInTimezone(tz, now);
 
     // Channel 1: Telegram Bot (if configured)
     if (currentCfg.telegramBotToken && currentCfg.telegramChatId) {
@@ -158,11 +165,13 @@ export async function initializeBackgroundServices() {
           const currentCfg = uDb.select().from(settings).get();
           if (!currentCfg || !currentCfg.dailyDigestEnabled) continue;
 
-          const tz = currentCfg.timezone || 'UTC';
+          const tz = resolveEffectiveTimezone(currentCfg.timezone, currentCfg.defaultCountryCode);
           const currentTime = getCurrentTimeInTimezone(tz, now);
+          const targetTime = (currentCfg.dailyDigestTime || '09:00').trim().padStart(5, '0');
 
-          if (currentTime === currentCfg.dailyDigestTime) {
-            const dispatchKey = `${now.toISOString().slice(0, 10)}_${currentTime}`;
+          if (currentTime === targetTime) {
+            const localDateStr = getLocalDateInTimezone(tz, now).toISOString().slice(0, 10);
+            const dispatchKey = `${localDateStr}_${currentTime}`;
             if (lastDispatchedMinuteByUser.get(uid) === dispatchKey) {
               continue; // Prevent duplicate execution within the exact same minute
             }

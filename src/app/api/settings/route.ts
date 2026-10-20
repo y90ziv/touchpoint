@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm';
 import { logger, setLogLevel, LogLevel, extractRequestId } from '@/lib/logger';
 import { getRequestUserId } from '@/lib/auth';
 import { startTelegramLongPolling } from '@/lib/telegram-service';
+import { resolveEffectiveTimezone, normalizeTimezone } from '@/lib/geo-data';
 
 const ALLOWED_SETTING_KEYS = [
   'themeMode',
@@ -47,6 +48,7 @@ function ensureSettingsRow(userId: number) {
     db.insert(settings)
       .values({
         ownerUserId: userId,
+        timezone: resolveEffectiveTimezone(process.env.TZ, '+972'),
         icalSecretToken: crypto.randomBytes(24).toString('hex'),
         telegramBindingToken: crypto.randomBytes(16).toString('hex'),
       })
@@ -121,6 +123,16 @@ export async function PATCH(request: Request) {
               continue;
             }
             updatePayload[key] = body[key];
+          }
+        }
+
+        if (typeof updatePayload.timezone === 'string') {
+          updatePayload.timezone = normalizeTimezone(updatePayload.timezone);
+        }
+        if (typeof updatePayload.dailyDigestTime === 'string') {
+          const match = updatePayload.dailyDigestTime.trim().match(/^(\d{1,2}):(\d{2})$/);
+          if (match) {
+            updatePayload.dailyDigestTime = `${match[1].padStart(2, '0')}:${match[2]}`;
           }
         }
 
