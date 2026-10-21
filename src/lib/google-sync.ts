@@ -358,7 +358,9 @@ export async function pushScheduleToGoogleCalendar(
         }
       }
     } catch (listErr) {
-      logger.warn('google.calendar.push', 'Could not query existing calendar events for dedup, proceeding with insert', listErr);
+      logger.warn('google.calendar.push', 'Could not query existing calendar events for dedup, proceeding with insert', {
+        error: String(listErr),
+      });
     }
   }
 

@@ -19,6 +19,7 @@ import {
 let schedulerStarted = false;
 let digestJob: Cron | null = null;
 const lastDispatchedMinuteByUser = new Map<string, string>();
+const lastDispatchedDigestDateByChat = new Map<string, string>();
 
 /**
  * Returns current HH:MM string formatted according to the given IANA timezone.
@@ -110,36 +111,51 @@ export async function runDailyDigestForUser(userId: number, now: Date = new Date
 
     // Channel 1: Telegram Bot (if configured)
     if (currentCfg.telegramBotToken && currentCfg.telegramChatId) {
-      try {
-        const digest = buildDailyDigestPayloads(localRefDate);
-        const bot = new Bot(currentCfg.telegramBotToken);
+      const localDateStr = localRefDate.toISOString().slice(0, 10);
+      const chatDispatchKey = `${currentCfg.telegramChatId}_${localDateStr}`;
 
-        for (const r of digest.reminders) {
-          await bot.api.sendMessage(currentCfg.telegramChatId, r.text, {
-            parse_mode: 'HTML',
-            reply_markup: r.keyboard,
-          });
-        }
+      if (lastDispatchedDigestDateByChat.has(chatDispatchKey)) {
+        logger.info(
+          'scheduler.digest.telegram',
+          `Telegram digest already dispatched to chat ${currentCfg.telegramChatId} for ${localDateStr}, skipping duplicate`
+        );
+      } else {
+        lastDispatchedDigestDateByChat.set(chatDispatchKey, localDateStr);
+        try {
+          const digest = buildDailyDigestPayloads(localRefDate);
+          const bot = new Bot(currentCfg.telegramBotToken);
 
-        if (digest.upcomingBirthdays.length > 0) {
-          const bdayLines = digest.upcomingBirthdays.map((b) => {
-            const dayLabel = b.daysAway === 0 ? '🎉 <b>Today!</b>' : `in ${b.daysAway}d (${b.date})`;
-            return `• <b>${b.contactName}</b> — ${b.label}: ${dayLabel}`;
-          });
-          await bot.api.sendMessage(
-            currentCfg.telegramChatId,
-            `🎂 <b>Upcoming Dates & Birthdays:</b>\n\n${bdayLines.join('\n')}`,
-            { parse_mode: 'HTML' }
-          );
-        }
+          const sentContactIds = new Set<number>();
+          for (const r of digest.reminders) {
+            if (sentContactIds.has(r.contactId)) continue;
+            sentContactIds.add(r.contactId);
 
-        if (digest.reminders.length === 0 && digest.upcomingBirthdays.length === 0 && !digest.skipEmpty) {
-          await bot.api.sendMessage(currentCfg.telegramChatId, '🎉 <b>Touchpoint:</b> All caught up today!', {
-            parse_mode: 'HTML',
-          });
+            await bot.api.sendMessage(currentCfg.telegramChatId, r.text, {
+              parse_mode: 'HTML',
+              reply_markup: r.keyboard,
+            });
+          }
+
+          if (digest.upcomingBirthdays.length > 0) {
+            const bdayLines = digest.upcomingBirthdays.map((b) => {
+              const dayLabel = b.daysAway === 0 ? '🎉 <b>Today!</b>' : `in ${b.daysAway}d (${b.date})`;
+              return `• <b>${b.contactName}</b> — ${b.label}: ${dayLabel}`;
+            });
+            await bot.api.sendMessage(
+              currentCfg.telegramChatId,
+              `🎂 <b>Upcoming Dates & Birthdays:</b>\n\n${bdayLines.join('\n')}`,
+              { parse_mode: 'HTML' }
+            );
+          }
+
+          if (digest.reminders.length === 0 && digest.upcomingBirthdays.length === 0 && !digest.skipEmpty) {
+            await bot.api.sendMessage(currentCfg.telegramChatId, '🎉 <b>Touchpoint:</b> All caught up today!', {
+              parse_mode: 'HTML',
+            });
+          }
+        } catch (tgErr) {
+          logger.error('scheduler.digest.telegram', 'Telegram digest dispatch failed', tgErr);
         }
-      } catch (tgErr) {
-        logger.error('scheduler.digest.telegram', 'Telegram digest dispatch failed', tgErr);
       }
     }
 
@@ -298,4 +314,5 @@ export function stopBackgroundServices() {
   }
   schedulerStarted = false;
   lastDispatchedMinuteByUser.clear();
+  lastDispatchedDigestDateByChat.clear();
 }

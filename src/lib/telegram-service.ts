@@ -9,7 +9,7 @@ import {
   getRelationshipsForContact,
   ContactMethod,
 } from '@/lib/touchpoints-service';
-import { applySmartSpreading } from '@/lib/cadence';
+import { applySmartSpreading, calculateRelationshipHealthScore } from '@/lib/cadence';
 import { logger } from '@/lib/logger';
 
 export function formatWhatsAppLink(phone: string | null | undefined, defaultCountryCode = '+972'): string | null {
@@ -36,6 +36,8 @@ export function buildContactReminderMessage(
   defaultCountryCode = '+972',
   referenceDate: Date = new Date()
 ): {
+  contactId: number;
+  contactName: string;
   text: string;
   keyboard: InlineKeyboard;
 } {
@@ -107,13 +109,14 @@ export function buildContactReminderMessage(
     lines.push(`\n${quickLinks.join('  ·  ')}`);
   }
 
-  // Step 1 Inline Buttons: Mark Contacted or Snooze
+  // Step 1 Inline Buttons: Mark Contacted or Snooze 3d (Snooze 7d removed as requested)
   const keyboard = new InlineKeyboard()
     .text('✅ Mark Contacted', `tp:pick_method:${contact.id}`)
-    .text('💤 Snooze 3d', `tp:snooze:${contact.id}:3`)
-    .text('💤 Snooze 7d', `tp:snooze:${contact.id}:7`);
+    .text('💤 Snooze 3d', `tp:snooze:${contact.id}:3`);
 
   return {
+    contactId: contact.id,
+    contactName: contact.fullName,
     text: lines.join('\n'),
     keyboard,
   };
@@ -231,7 +234,25 @@ export function buildDailyDigestPayloads(referenceDate: Date = new Date()) {
 
   const { surfacedToday, deferredToTomorrow } = applySmartSpreading(evaluations, maxDailyDue);
 
-  const reminders = surfacedToday.map((evalItem) =>
+  // Deduplicate surfaced contacts by ID and normalized name to prevent duplicate notifications
+  const contactNameById = new Map<number, string>(allContacts.map((c) => [c.id, c.fullName]));
+  const seenContactIds = new Set<number>();
+  const seenContactNames = new Set<string>();
+  const uniqueSurfacedToday: typeof surfacedToday = [];
+
+  for (const item of surfacedToday) {
+    if (seenContactIds.has(item.contactId)) continue;
+    seenContactIds.add(item.contactId);
+
+    const rawName = contactNameById.get(item.contactId) || '';
+    const normName = rawName.trim().toLowerCase();
+    if (normName && seenContactNames.has(normName)) continue;
+    if (normName) seenContactNames.add(normName);
+
+    uniqueSurfacedToday.push(item);
+  }
+
+  const reminders = uniqueSurfacedToday.map((evalItem) =>
     buildContactReminderMessage(evalItem.contactId, defaultCountryCode, referenceDate)
   );
 
@@ -394,6 +415,59 @@ export async function startTelegramLongPolling(token: string) {
 
     await ctx.reply(
       `👋 Connected to Touchpoint!\nYour Chat ID is: <code>${chatId}</code>\n\nTo link automatically, click the <b>"Connect Telegram Bot"</b> link in your Touchpoint Settings, or manually save this Chat ID in your settings dashboard.`,
+      { parse_mode: 'HTML' }
+    );
+  });
+
+  // /due command: Instantly returns reminders for contacts due today or overdue
+  bot.command('due', async (ctx) => {
+    const fromId = String(ctx.from?.id);
+    const resolvedUserId = findUserIdByTelegramChatId(fromId) || 1;
+    await runWithUser(resolvedUserId, async () => {
+      const digest = buildDailyDigestPayloads();
+      if (digest.reminders.length === 0) {
+        await ctx.reply('🎉 <b>Touchpoint:</b> All caught up! No contacts are currently due today.', {
+          parse_mode: 'HTML',
+        });
+        return;
+      }
+      for (const r of digest.reminders) {
+        await ctx.reply(r.text, { parse_mode: 'HTML', reply_markup: r.keyboard });
+      }
+    });
+  });
+
+  // /status command: Relationship cadence health & statistics
+  bot.command('status', async (ctx) => {
+    const fromId = String(ctx.from?.id);
+    const resolvedUserId = findUserIdByTelegramChatId(fromId) || 1;
+    await runWithUser(resolvedUserId, async () => {
+      const allContacts = listContactsWithDetails();
+      const evaluations = allContacts.map((c) => c.cadence);
+      const health = calculateRelationshipHealthScore(evaluations);
+      const overdueCount = evaluations.filter((c) => c.status === 'overdue').length;
+      const dueTodayCount = evaluations.filter((c) => c.status === 'due_today').length;
+
+      await ctx.reply(
+        `📊 <b>Touchpoint Cadence Status:</b>\n\n` +
+        `• <b>Network Health:</b> ${health.scorePercent}%\n` +
+        `• <b>On Track:</b> ${health.onTrackCount} of ${health.totalTrackedCount}\n` +
+        `• <b>Overdue:</b> ${overdueCount}\n` +
+        `• <b>Due Today:</b> ${dueTodayCount}\n\n` +
+        `Send /due to view interactive reminder cards for contacts needing attention.`,
+        { parse_mode: 'HTML' }
+      );
+    });
+  });
+
+  // /help command
+  bot.command('help', async (ctx) => {
+    await ctx.reply(
+      `🤖 <b>Touchpoint Telegram Bot Commands:</b>\n\n` +
+      `• /due — View contacts currently due or overdue\n` +
+      `• /status — Relationship health score & overview\n` +
+      `• /help — View available bot commands\n\n` +
+      `You can also tap the 1-click inline buttons on any reminder to log calls, messages, or snooze 3d!`,
       { parse_mode: 'HTML' }
     );
   });

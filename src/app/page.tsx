@@ -50,6 +50,7 @@ import {
   User,
   ShieldCheck,
   Camera,
+  Check,
 } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import { ProgressRingAvatar } from '@/components/ProgressRingAvatar';
@@ -483,6 +484,11 @@ export default function TouchpointApp() {
     icalSecretToken: '',
   });
 
+  const [systemServices, setSystemServices] = useState<{ scheduler: string; telegramBot: string }>({
+    scheduler: 'running',
+    telegramBot: 'idle',
+  });
+
   // UI Selection & Modals
   const [selectedContactIds, setSelectedContactIds] = useState<number[]>([]);
   const [activeContactDrawer, setActiveContactDrawer] = useState<ContactItem | null>(null);
@@ -602,6 +608,8 @@ export default function TouchpointApp() {
     selectedPresetDays: null as number | null,
     customDaysValue: 21,
     groupIds: [] as number[],
+    pets: [] as string[],
+    petInput: '',
   });
   const [addMoreContact, setAddMoreContact] = useState(false);
 
@@ -721,21 +729,27 @@ export default function TouchpointApp() {
         return;
       }
 
-      const [cRes, gRes, dRes, rRes, sRes] = await Promise.all([
+      const [cRes, gRes, dRes, rRes, sRes, hRes] = await Promise.all([
         fetch('/api/contacts'),
         fetch('/api/groups'),
         fetch('/api/contacts?mode=duplicates'),
         fetch('/api/relationships'),
         fetch('/api/settings'),
+        fetch('/api/health').catch(() => null),
       ]);
 
-      const [cData, gData, dData, rData, sData] = await Promise.all([
+      const [cData, gData, dData, rData, sData, hData] = await Promise.all([
         cRes.json(),
         gRes.json(),
         dRes.json(),
         rRes.json(),
         sRes.json(),
+        hRes ? hRes.json().catch(() => null) : Promise.resolve(null),
       ]);
+
+      if (hData?.services) {
+        setSystemServices(hData.services);
+      }
 
       if (cData.contacts) {
         setContacts(cData.contacts);
@@ -1362,6 +1376,7 @@ export default function TouchpointApp() {
         company: newContactForm.company || null,
         jobTitle: newContactForm.jobTitle || null,
         notes: newContactForm.notes || null,
+        pets: newContactForm.pets || [],
         birthday: newContactForm.birthday || null,
         significantDate: primarySignificant ? primarySignificant.date : null,
         significantDateLabel: primarySignificant ? primarySignificant.label : null,
@@ -1392,6 +1407,8 @@ export default function TouchpointApp() {
         selectedPresetDays: null,
         customDaysValue: 21,
         groupIds: [],
+        pets: [],
+        petInput: '',
       });
       await loadAllData();
       notify(addMoreContact ? 'Contact saved. Ready to add another.' : 'Contact saved.');
@@ -2226,6 +2243,18 @@ export default function TouchpointApp() {
   // Dashboard Metrics
   const evaluations = contacts.map((c) => c.cadence);
   const health = calculateRelationshipHealthScore(evaluations);
+  const isTelegramConfigured = Boolean(
+    settingsState.telegramChatId && (settingsState.telegramBotToken || settingsState.hasTelegramBotToken)
+  );
+  const isWebhookConfigured = Boolean(
+    settingsState.webhookEnabled && settingsState.webhookUrl
+  );
+  const isGoogleConnected = Boolean(
+    settingsState.googleRefreshToken || settingsState.hasGoogleRefreshToken
+  );
+  const isSchedulerRunning = systemServices.scheduler === 'running';
+  const isTelegramBotRunning =
+    systemServices.telegramBot === 'running' || (isTelegramConfigured && isSchedulerRunning);
   const { surfacedToday } = applySmartSpreading(
     evaluations,
     Number(settingsState.maxDailyDue || 3)
@@ -2532,12 +2561,21 @@ export default function TouchpointApp() {
         </div>
       </div>
 
-      {/* Bottom Network Cadence Status Readout (sidebars.md: passive telemetry only; primary actions live in toolbar) */}
-      <div className="space-y-2.5 pt-3 border-t border-[#262b36]">
-        <div className="rounded-lg bg-[#1b1f27] border border-[#2d323e] p-3 space-y-2">
+      {/* Bottom Network Cadence Status Readout & Integration Telemetry */}
+      <div className="space-y-2 pt-3 border-t border-[#262b36]">
+        <div className="rounded-lg bg-[#1b1f27] border border-[#2d323e] p-3 space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="text-[12px] font-semibold text-[#d6dae2] flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" /> Network Health
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  health.scorePercent >= 80
+                    ? 'bg-emerald-400'
+                    : health.scorePercent >= 50
+                    ? 'bg-amber-400'
+                    : 'bg-rose-400'
+                }`}
+              />{' '}
+              Network Health
             </span>
             <span className="text-[12px] font-bold font-mono text-[#ffffff] tabular-nums">
               {health.scorePercent}%
@@ -2545,13 +2583,91 @@ export default function TouchpointApp() {
           </div>
           <div className="w-full h-1.5 rounded-full bg-[#0f1115] overflow-hidden">
             <div
-              className="h-full bg-[#c92121] rounded-full transition-all duration-300"
+              className={`h-full rounded-full transition-all duration-300 ${
+                health.scorePercent >= 80
+                  ? 'bg-emerald-500'
+                  : health.scorePercent >= 50
+                  ? 'bg-amber-500'
+                  : 'bg-rose-500'
+              }`}
               style={{ width: `${Math.max(4, Math.min(100, health.scorePercent))}%` }}
             />
           </div>
           <p className="font-mono text-[11px] text-[#b8bfcc] leading-snug tabular-nums">
             {health.onTrackCount} of {health.totalTrackedCount} on schedule
           </p>
+
+          {/* Channels & Services Telemetry Badges */}
+          <div className="pt-2 border-t border-[#2d323e]/70 space-y-1.5">
+            <div className="flex items-center justify-between text-[10px] uppercase font-bold tracking-wider text-muted">
+              <span>Channels &amp; Services</span>
+              <button
+                type="button"
+                onClick={() => setActiveTab('settings')}
+                className="text-[10px] text-primary hover:underline lowercase font-normal"
+              >
+                manage
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 text-[11px]">
+              <div
+                className="flex items-center gap-1.5 truncate"
+                title={isTelegramConfigured ? 'Telegram Bot active' : 'Telegram not connected'}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                    isTelegramConfigured ? 'bg-emerald-400 shadow-xs shadow-emerald-500/50' : 'bg-zinc-600'
+                  }`}
+                />
+                <span className={`truncate ${isTelegramConfigured ? 'text-[#e2e8f0] font-medium' : 'text-muted'}`}>
+                  Telegram
+                </span>
+              </div>
+              <div
+                className="flex items-center gap-1.5 truncate"
+                title={isWebhookConfigured ? 'Webhook active' : 'Webhook not configured'}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                    isWebhookConfigured ? 'bg-emerald-400 shadow-xs shadow-emerald-500/50' : 'bg-zinc-600'
+                  }`}
+                />
+                <span className={`truncate ${isWebhookConfigured ? 'text-[#e2e8f0] font-medium' : 'text-muted'}`}>
+                  Webhook
+                </span>
+              </div>
+              <div
+                className="flex items-center gap-1.5 truncate"
+                title={isGoogleConnected ? 'Google Contacts connected' : 'Google Contacts not connected'}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                    isGoogleConnected ? 'bg-emerald-400 shadow-xs shadow-emerald-500/50' : 'bg-zinc-600'
+                  }`}
+                />
+                <span className={`truncate ${isGoogleConnected ? 'text-[#e2e8f0] font-medium' : 'text-muted'}`}>
+                  Google Sync
+                </span>
+              </div>
+              <div
+                className="flex items-center gap-1.5 truncate"
+                title={
+                  isSchedulerRunning
+                    ? `Scheduler running${isTelegramBotRunning ? ' + bot poller' : ''}`
+                    : 'Scheduler inactive'
+                }
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                    isSchedulerRunning ? 'bg-emerald-400 shadow-xs shadow-emerald-500/50' : 'bg-zinc-600'
+                  }`}
+                />
+                <span className={`truncate ${isSchedulerRunning ? 'text-[#e2e8f0] font-medium' : 'text-muted'}`}>
+                  Scheduler
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </>
@@ -3747,29 +3863,32 @@ export default function TouchpointApp() {
                 <thead>
                   <tr className="border-b border-border bg-background/80 text-muted text-[12px] font-semibold">
                     <th
-                      className="p-3 w-10 min-w-[40px] max-w-[40px] border-r border-border/50"
+                      className="p-0 w-10 min-w-[40px] max-w-[40px] border-r border-border/50 text-center select-none"
                       style={{ width: '40px', minWidth: '40px', maxWidth: '40px' }}
                     >
-                      <input
-                        type="checkbox"
-                        aria-label="Select all contacts on this page"
-                        checked={
-                          paginatedContacts.length > 0 &&
-                          paginatedContacts.every((c) => selectedContactIds.includes(c.id))
-                        }
-                        onChange={(e) => {
-                          const pageIds = paginatedContacts.map((c) => c.id);
-                          if (e.target.checked) {
-                            setSelectedContactIds((prev) =>
-                              Array.from(new Set([...prev, ...pageIds]))
-                            );
-                          } else {
-                            setSelectedContactIds((prev) =>
-                              prev.filter((id) => !pageIds.includes(id))
-                            );
+                      <label className="w-full h-full min-h-[40px] flex items-center justify-center cursor-pointer p-2.5">
+                        <input
+                          type="checkbox"
+                          aria-label="Select all contacts on this page"
+                          className="cursor-pointer"
+                          checked={
+                            paginatedContacts.length > 0 &&
+                            paginatedContacts.every((c) => selectedContactIds.includes(c.id))
                           }
-                        }}
-                      />
+                          onChange={(e) => {
+                            const pageIds = paginatedContacts.map((c) => c.id);
+                            if (e.target.checked) {
+                              setSelectedContactIds((prev) =>
+                                Array.from(new Set([...prev, ...pageIds]))
+                              );
+                            } else {
+                              setSelectedContactIds((prev) =>
+                                prev.filter((id) => !pageIds.includes(id))
+                              );
+                            }
+                          }}
+                        />
+                      </label>
                     </th>
                     {effectiveActiveColumns.map((colId, idx) => {
                       const meta = ALL_COLUMN_METADATA.find((m) => m.id === colId);
@@ -3916,21 +4035,35 @@ export default function TouchpointApp() {
                           className={`even:bg-background/35 hover:bg-card-hover transition-colors ${statusBorder}`}
                         >
                           <td
-                            className="p-3 w-10 min-w-[40px] max-w-[40px] border-r border-border/40"
+                            className="p-0 w-10 min-w-[40px] max-w-[40px] border-r border-border/40 text-center select-none cursor-pointer"
                             style={{ width: '40px', minWidth: '40px', maxWidth: '40px' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedContactIds((prev) =>
+                                prev.includes(c.id)
+                                  ? prev.filter((id) => id !== c.id)
+                                  : [...prev, c.id]
+                              );
+                            }}
                           >
-                            <input
-                              type="checkbox"
-                              aria-label={`Select ${c.fullName}`}
-                              checked={selectedContactIds.includes(c.id)}
-                              onChange={(e) =>
-                                setSelectedContactIds((prev) =>
-                                  e.target.checked
-                                    ? [...prev, c.id]
-                                    : prev.filter((id) => id !== c.id)
-                                )
-                              }
-                            />
+                            <label
+                              className="w-full h-full min-h-[44px] flex items-center justify-center cursor-pointer p-2.5"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <input
+                                type="checkbox"
+                                aria-label={`Select ${c.fullName}`}
+                                className="cursor-pointer"
+                                checked={selectedContactIds.includes(c.id)}
+                                onChange={(e) =>
+                                  setSelectedContactIds((prev) =>
+                                    e.target.checked
+                                      ? [...prev, c.id]
+                                      : prev.filter((id) => id !== c.id)
+                                  )
+                                }
+                              />
+                            </label>
                           </td>
                           {effectiveActiveColumns.map((colId) => {
                             const colWidth =
@@ -6904,28 +7037,28 @@ export default function TouchpointApp() {
         </button>
       </nav>
 
-      {/* Centered Contact Detail Modal / iOS Mobile Bottom Sheet (All Fields, Actions, Significant Dates, History & Relationships) */}
+      {/* Horizontal Contact Detail Modal (All Fields & Actions in One Horizontal View) */}
       {activeContactDrawer && (
         <div
           onClick={() => setActiveContactDrawer(null)}
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 bg-black/65 backdrop-blur-xs z-50 flex items-center justify-center p-2 sm:p-4 lg:p-6 animate-in fade-in duration-150"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-2xl max-h-[92vh] sm:max-h-[88vh] bg-card border-t sm:border border-border rounded-t-2xl sm:rounded-2xl p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-6 overflow-y-auto space-y-4 sm:space-y-5 text-[13px] shadow-2xl animate-in slide-in-from-bottom sm:zoom-in-95 duration-150 touch-scroll"
+            className="w-full max-w-[1380px] max-h-[95vh] bg-card border border-border rounded-2xl p-4 sm:p-5 shadow-2xl flex flex-col overflow-hidden text-[13px] animate-in zoom-in-95 duration-150"
           >
-            {/* Header: Avatar, Name, Job/Company & Actions */}
-            <div className="flex items-start justify-between gap-3 pb-4 border-b border-border">
-              <div className="flex items-center gap-3.5">
+            {/* Header: Avatar, Name, Job/Company, Badges & Actions */}
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-border shrink-0 gap-3">
+              <div className="flex items-center gap-3.5 min-w-0">
                 <ProgressRingAvatar
                   name={activeContactDrawer.fullName}
                   progressPercent={activeContactDrawer.cadence.progressPercent}
                   status={activeContactDrawer.cadence.status}
-                  size="lg"
+                  size="md"
                 />
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-[17px] font-bold tracking-tight text-foreground">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-[17px] font-bold tracking-tight text-foreground truncate">
                       {activeContactDrawer.fullName}
                     </h2>
                     {activeContactDrawer.keepInTouch &&
@@ -6948,18 +7081,8 @@ export default function TouchpointApp() {
                             : `+${String(activeContactDrawer.cadence.daysUntilDue).padStart(2, '0')}d`}
                         </span>
                       )}
-                  </div>
-                  <div className="text-muted flex items-center gap-1.5 mt-0.5 text-[12px]">
-                    <Briefcase className="w-3.5 h-3.5 text-muted" />
-                    <span>
-                      {[activeContactDrawer.jobTitle, activeContactDrawer.company]
-                        .filter(Boolean)
-                        .join(' · ') || 'No company or job title'}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1.5">
                     <span
-                      className={`px-2 py-0.5 rounded-md text-[11px] font-semibold ${
+                      className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
                         activeContactDrawer.source === 'google'
                           ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/35'
                           : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/35'
@@ -6967,24 +7090,33 @@ export default function TouchpointApp() {
                     >
                       {activeContactDrawer.source === 'google' ? 'Google Contact' : 'Local Contact'}
                     </span>
+                  </div>
+                  <div className="text-muted flex items-center gap-1.5 mt-0.5 text-[11px] truncate">
+                    <Briefcase className="w-3.5 h-3.5 text-muted shrink-0" />
+                    <span className="truncate">
+                      {[activeContactDrawer.jobTitle, activeContactDrawer.company]
+                        .filter(Boolean)
+                        .join(' · ') || 'No company or job title'}
+                    </span>
                     {(activeContactDrawer.firstName || activeContactDrawer.lastName) && (
-                      <span className="text-[11px] text-muted">
-                        First: <strong>{activeContactDrawer.firstName || '—'}</strong> · Last:{' '}
+                      <span className="text-muted/70 hidden sm:inline">
+                        · First: <strong>{activeContactDrawer.firstName || '—'}</strong> · Last:{' '}
                         <strong>{activeContactDrawer.lastName || '—'}</strong>
                       </span>
                     )}
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => handleOpenEditContact(activeContactDrawer)}
-                  className="px-3 py-1.5 min-h-[30px] rounded-lg bg-background border border-border hover:bg-card-hover font-medium flex items-center gap-1.5 text-[12px] text-foreground transition-colors"
+                  className="px-3 py-1.5 min-h-[30px] rounded-lg bg-background border border-border hover:bg-card-hover font-medium flex items-center gap-1.5 text-[12px] text-foreground transition-colors shadow-xs"
                   title="Edit Contact Details"
                 >
                   <Pencil className="w-3.5 h-3.5 text-primary" />
-                  <span>Edit…</span>
+                  <span>Edit Details…</span>
                 </button>
                 <button
                   type="button"
@@ -6998,1011 +7130,1336 @@ export default function TouchpointApp() {
               </div>
             </div>
 
-            {/* Quick Communication Actions (Phone & Email) */}
-            <div className="space-y-2">
-              <div className="text-[12px] font-semibold text-foreground">
-                Contact Channels &amp; Quick Dispatch
-              </div>
-              <div className="space-y-2">
-                {activeContactDrawer.phone ? (
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-background border border-border">
-                    <div className="flex items-center gap-2">
-                      <Phone className="w-3.5 h-3.5 text-primary" />
-                      <span className="font-mono font-semibold text-foreground">
-                        {activeContactDrawer.phone}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <a
-                        href={`tel:${cleanPhoneForDial(activeContactDrawer.phone)}`}
-                        className="px-2.5 py-1 min-h-[28px] rounded-lg bg-card hover:bg-card-hover border border-border text-[12px] font-medium flex items-center gap-1.5 text-foreground transition-colors"
-                        title="Voice Call"
-                      >
-                        <Phone className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Call
-                      </a>
-                      <a
-                        href={`https://wa.me/${cleanPhoneForDial(activeContactDrawer.phone)}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-2.5 py-1 min-h-[28px] rounded-lg bg-card hover:bg-card-hover border border-border text-[12px] font-medium flex items-center gap-1.5 text-foreground transition-colors"
-                        title="WhatsApp Chat"
-                      >
-                        <MessageSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> WhatsApp
-                      </a>
-                      <a
-                        href={`sms:${cleanPhoneForDial(activeContactDrawer.phone)}`}
-                        className="px-2.5 py-1 min-h-[28px] rounded-lg bg-card hover:bg-card-hover border border-border text-[12px] font-medium flex items-center gap-1.5 text-foreground transition-colors"
-                        title="SMS Message"
-                      >
-                        SMS
-                      </a>
-                    </div>
+            {/* Horizontal 3-Column Cockpit Grid */}
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 min-h-0 overflow-y-auto md:overflow-hidden">
+              {/* Column 1: Channels, Groups, Notes & Details */}
+              <div className="h-full flex flex-col gap-3.5 overflow-y-auto scrollbar-thin pr-1">
+                {/* Contact Channels */}
+                <div className="p-3.5 rounded-xl bg-background border border-border space-y-2">
+                  <div className="text-[12px] font-semibold text-foreground flex items-center justify-between">
+                    <span>Contact Channels &amp; Quick Dispatch</span>
                   </div>
-                ) : (
-                  <div className="p-3 rounded-xl bg-background/60 border border-border text-muted flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-[12px]">
-                      <Phone className="w-3.5 h-3.5 opacity-60" /> No phone number recorded
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEditContact(activeContactDrawer)}
-                      className="text-[12px] font-semibold text-primary hover:underline"
-                    >
-                      Add Phone…
-                    </button>
-                  </div>
-                )}
+                  <div className="space-y-2">
+                    {activeContactDrawer.phone ? (
+                      <div className="flex items-center justify-between p-2.5 rounded-lg bg-card border border-border">
+                        <div className="flex items-center gap-2 truncate">
+                          <Phone className="w-3.5 h-3.5 text-primary shrink-0" />
+                          <span className="font-mono font-semibold text-foreground text-xs truncate">
+                            {activeContactDrawer.phone}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <a
+                            href={`tel:${cleanPhoneForDial(activeContactDrawer.phone)}`}
+                            className="px-2 py-1 min-h-[26px] rounded-md bg-background hover:bg-card-hover border border-border text-[11px] font-medium flex items-center gap-1 text-foreground transition-colors"
+                            title="Voice Call"
+                          >
+                            <Phone className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> Call
+                          </a>
+                          <a
+                            href={`https://wa.me/${cleanPhoneForDial(activeContactDrawer.phone)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-2 py-1 min-h-[26px] rounded-md bg-background hover:bg-card-hover border border-border text-[11px] font-medium flex items-center gap-1 text-foreground transition-colors"
+                            title="WhatsApp Chat"
+                          >
+                            <MessageSquare className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> WhatsApp
+                          </a>
+                          <a
+                            href={`sms:${cleanPhoneForDial(activeContactDrawer.phone)}`}
+                            className="px-2 py-1 min-h-[26px] rounded-md bg-background hover:bg-card-hover border border-border text-[11px] font-medium text-foreground transition-colors"
+                            title="SMS Message"
+                          >
+                            SMS
+                          </a>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-2.5 rounded-lg bg-card/60 border border-border text-muted flex items-center justify-between text-xs">
+                        <span className="flex items-center gap-1.5">
+                          <Phone className="w-3.5 h-3.5 opacity-60" /> No phone recorded
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditContact(activeContactDrawer)}
+                          className="text-[11px] font-semibold text-primary hover:underline"
+                        >
+                          Add Phone…
+                        </button>
+                      </div>
+                    )}
 
-                {activeContactDrawer.email ? (
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-background border border-border">
-                    <div className="flex items-center gap-2 truncate">
-                      <Mail className="w-3.5 h-3.5 text-primary shrink-0" />
-                      <span className="text-foreground truncate font-mono font-medium">
-                        {activeContactDrawer.email}
-                      </span>
-                    </div>
-                    <a
-                      href={`mailto:${activeContactDrawer.email}`}
-                      className="px-2.5 py-1 min-h-[28px] rounded-lg bg-card hover:bg-card-hover border border-border text-[12px] font-medium flex items-center gap-1.5 text-foreground shrink-0 transition-colors"
-                      title="Send Email"
-                    >
-                      <Send className="w-3.5 h-3.5 text-primary" /> Email
-                    </a>
-                  </div>
-                ) : (
-                  <div className="p-3 rounded-xl bg-background/60 border border-border text-muted flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-[12px]">
-                      <Mail className="w-3.5 h-3.5 opacity-60" /> No email address recorded
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEditContact(activeContactDrawer)}
-                      className="text-[12px] font-semibold text-primary hover:underline"
-                    >
-                      Add Email…
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Cadence & Follow-Up Tracking Card */}
-            <div className="p-4 rounded-xl bg-background border border-border space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-primary" />
-                  <span className="text-[12px] font-semibold text-foreground">
-                    Cadence &amp; Follow-Up Status
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`px-2 py-0.5 rounded-md text-[11px] font-mono font-semibold capitalize ${
-                      activeContactDrawer.cadence.status === 'overdue'
-                        ? 'sbb-baton-overdue'
-                        : activeContactDrawer.cadence.status === 'due_today'
-                        ? 'sbb-baton-due'
-                        : activeContactDrawer.cadence.status === 'due_soon'
-                        ? 'sbb-baton-warning'
-                        : activeContactDrawer.cadence.status === 'paused'
-                        ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/35'
-                        : activeContactDrawer.cadence.status === 'untracked'
-                        ? 'bg-muted/15 text-muted border border-border'
-                        : 'sbb-baton-ok'
-                    }`}
-                  >
-                    {activeContactDrawer.cadence.status.replace('_', ' ')}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleDrawerPatch({ keepInTouch: !activeContactDrawer.keepInTouch })
-                    }
-                    className={`px-2.5 py-1 min-h-[28px] rounded-lg text-[11px] font-semibold border transition ${
-                      activeContactDrawer.keepInTouch
-                        ? 'bg-primary text-primary-fg border-primary'
-                        : 'bg-card text-muted border-border hover:text-foreground'
-                    }`}
-                  >
-                    {activeContactDrawer.keepInTouch ? '✓ Tracked' : 'Untracked'}
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2.5 text-[12px]">
-                <div className="p-2.5 rounded-lg bg-card border border-border">
-                  <div className="text-[11px] font-medium text-muted">Effective Interval</div>
-                  <div className="font-mono font-semibold text-foreground mt-0.5">
-                    Every {activeContactDrawer.cadence.effectiveIntervalDays} days
-                    {activeContactDrawer.customIntervalDays
-                      ? ' (Custom)'
-                      : ' (Group)'}
-                  </div>
-                </div>
-                <div className="p-2.5 rounded-lg bg-card border border-border">
-                  <div className="text-[11px] font-medium text-muted">Next Due Date</div>
-                  <div className="font-mono font-semibold text-foreground mt-0.5">
-                    {activeContactDrawer.cadence.nextDueDate
-                      ? formatDateByPattern(
-                          activeContactDrawer.cadence.nextDueDate,
-                          settingsState.dateFormat
-                        )
-                      : '—'}
-                    {activeContactDrawer.cadence.daysUntilDue !== undefined && (
-                      <span
-                        className={`ml-1 text-[11px] ${
-                          activeContactDrawer.cadence.daysUntilDue < 0
-                            ? 'text-overdue font-bold'
-                            : activeContactDrawer.cadence.daysUntilDue === 0
-                            ? 'text-due-soon font-bold'
-                            : 'text-muted'
-                        }`}
-                      >
-                        {activeContactDrawer.cadence.daysUntilDue < 0
-                          ? `(${Math.abs(activeContactDrawer.cadence.daysUntilDue)}d overdue)`
-                          : activeContactDrawer.cadence.daysUntilDue === 0
-                          ? '(Due today)'
-                          : `(in ${activeContactDrawer.cadence.daysUntilDue}d)`}
-                      </span>
+                    {activeContactDrawer.email ? (
+                      <div className="flex items-center justify-between p-2.5 rounded-lg bg-card border border-border">
+                        <div className="flex items-center gap-2 truncate">
+                          <Mail className="w-3.5 h-3.5 text-primary shrink-0" />
+                          <span className="text-foreground truncate font-mono text-xs font-medium">
+                            {activeContactDrawer.email}
+                          </span>
+                        </div>
+                        <a
+                          href={`mailto:${activeContactDrawer.email}`}
+                          className="px-2.5 py-1 min-h-[26px] rounded-md bg-background hover:bg-card-hover border border-border text-[11px] font-medium flex items-center gap-1.5 text-foreground shrink-0 transition-colors"
+                          title="Send Email"
+                        >
+                          <Send className="w-3 h-3 text-primary" /> Email
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="p-2.5 rounded-lg bg-card/60 border border-border text-muted flex items-center justify-between text-xs">
+                        <span className="flex items-center gap-1.5">
+                          <Mail className="w-3.5 h-3.5 opacity-60" /> No email recorded
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditContact(activeContactDrawer)}
+                          className="text-[11px] font-semibold text-primary hover:underline"
+                        >
+                          Add Email…
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
-                <div className="col-span-2 p-2.5 rounded-lg bg-card border border-border flex items-center justify-between">
-                  <div>
-                    <div className="text-[11px] font-medium text-muted">Last Contacted</div>
-                    <div className="font-mono font-semibold text-foreground mt-0.5">
-                      {activeContactDrawer.lastContactedAt
-                        ? `${formatDateByPattern(
-                            activeContactDrawer.lastContactedAt,
-                            settingsState.dateFormat
-                          )} (${activeContactDrawer.cadence.daysSinceContact} days ago)`
-                        : 'Never contacted yet'}
-                    </div>
-                  </div>
-                  {activeContactDrawer.lastTouchpoint && (
-                    <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-background border border-border text-muted">
-                      via {activeContactDrawer.lastTouchpoint.method}
+
+                {/* Group Memberships */}
+                <div className="p-3.5 rounded-xl bg-background border border-border space-y-1.5">
+                  <div className="text-[12px] font-semibold text-foreground flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Tag className="w-3.5 h-3.5 text-primary" /> Group Memberships
                     </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Quick Log Touchpoint buttons */}
-              <div className="pt-2.5 border-t border-border flex items-center justify-between gap-2">
-                <span className="text-[12px] font-medium text-muted">Quick Log Touchpoint</span>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => handleDrawerLogTouchpoint('call')}
-                    className="px-2.5 py-1 min-h-[28px] rounded-lg bg-card hover:bg-card-hover border border-border text-[12px] font-medium flex items-center gap-1.5 text-foreground transition-colors"
-                  >
-                    <Phone className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Call
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDrawerLogTouchpoint('message')}
-                    className="px-2.5 py-1 min-h-[28px] rounded-lg bg-card hover:bg-card-hover border border-border text-[12px] font-medium flex items-center gap-1.5 text-foreground transition-colors"
-                  >
-                    <MessageSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> WhatsApp
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDrawerLogTouchpoint('in_person')}
-                    className="px-2.5 py-1 min-h-[28px] rounded-lg bg-card hover:bg-card-hover border border-border text-[12px] font-medium flex items-center gap-1.5 text-foreground transition-colors"
-                  >
-                    <Users className="w-3.5 h-3.5 text-primary" /> Met
-                  </button>
-                </div>
-              </div>
-
-              {/* Schedule Follow-up / Snooze */}
-              <div className="pt-2.5 border-t border-border flex items-center justify-between gap-2 flex-wrap">
-                <span className="text-[12px] font-medium text-muted flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-primary" />
-                  Schedule Follow-up
-                </span>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => handleSnooze(activeContactDrawer.id, 1)}
-                    className="px-2.5 py-1 min-h-[28px] rounded-lg bg-card hover:bg-card-hover border border-border text-[12px] font-medium text-foreground transition-colors"
-                    title="Remind me tomorrow"
-                  >
-                    Tomorrow
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSnooze(activeContactDrawer.id, 3)}
-                    className="px-2.5 py-1 min-h-[28px] rounded-lg bg-card hover:bg-card-hover border border-border text-[12px] font-medium text-foreground transition-colors"
-                    title="Remind me in 3 days"
-                  >
-                    In 3d
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSnooze(activeContactDrawer.id, 7)}
-                    className="px-2.5 py-1 min-h-[28px] rounded-lg bg-card hover:bg-card-hover border border-border text-[12px] font-medium text-foreground transition-colors"
-                    title="Remind me in 1 week"
-                  >
-                    Next Week
-                  </button>
-                  <input
-                    type="date"
-                    min={new Date().toISOString().slice(0, 10)}
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        handleSnooze(activeContactDrawer.id, e.target.value);
-                        e.target.value = '';
-                      }
-                    }}
-                    className="px-2 py-0.5 rounded-lg bg-card border border-border text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
-                    title="Pick specific follow-up date"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Important Dates: Birthday & Significant Dates / Events */}
-            <div className="p-4 rounded-xl bg-background border border-border space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="text-[12px] font-semibold text-foreground flex items-center gap-1.5">
-                  <CalendarIcon className="w-4 h-4 text-primary" />
-                  <span>Important Dates &amp; Milestones</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowAddMilestone((prev) => !prev)}
-                  className="text-[12px] font-semibold text-primary hover:underline flex items-center gap-1"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>{showAddMilestone ? 'Cancel' : 'Add Date or Event…'}</span>
-                </button>
-              </div>
-
-              {/* Birthday Row */}
-              <div className="p-3 rounded-lg bg-card border border-border space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-foreground font-medium text-[12px] flex items-center gap-1.5">
-                    <Cake className="w-3.5 h-3.5 text-primary" />
-                    <span>Birthday</span>
-                  </label>
-                  <span className="text-[11px] text-muted font-mono">
-                    {settingsState.dateFormat || 'YYYY-MM-DD'}
-                  </span>
-                </div>
-                <BirthdayDatePicker
-                  value={activeContactDrawer.birthday || ''}
-                  onChange={(newBday) =>
-                    handleDrawerPatch({ birthday: newBday || null })
-                  }
-                  placeholder={`${settingsState.dateFormat || 'YYYY-MM-DD'} (type or pick)`}
-                  displayFormat={settingsState.dateFormat}
-                />
-              </div>
-
-              {/* Significant Dates & Events (Multiple) */}
-              <div className="p-3 rounded-lg bg-card border border-border space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-foreground font-medium text-[12px] flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Significant Dates &amp; Events</span>
-                  </label>
-                  <span className="text-[11px] text-muted">Anniversaries, milestones, etc.</span>
-                </div>
-
-                {/* List of all Significant Dates & Events */}
-                {(() => {
-                  const allSigDates: Array<{ id?: number; label: string; date: string }> = [
-                    ...(activeContactDrawer.significantDate
-                      ? [
-                          {
-                            label: activeContactDrawer.significantDateLabel || 'Anniversary',
-                            date: activeContactDrawer.significantDate,
-                          },
-                        ]
-                      : []),
-                    ...(activeContactDrawer.importantDates || []).map((d) => ({
-                      id: d.id,
-                      label: d.label,
-                      date: d.date,
-                    })),
-                  ];
-                  // Deduplicate by date + label
-                  const uniqueSigDates = allSigDates.filter(
-                    (d, i, arr) =>
-                      arr.findIndex((x) => x.date === d.date && x.label === d.label) === i
-                  );
-
-                  if (uniqueSigDates.length === 0 && !showAddMilestone) {
-                    return (
-                      <p className="text-[12px] text-muted">
-                        No significant dates added yet. Click &ldquo;Add Date or Event…&rdquo; to add anniversaries, weddings, etc.
-                      </p>
-                    );
-                  }
-
-                  return (
-                    <div className="flex flex-wrap gap-2">
-                      {uniqueSigDates.map((d, idx) => (
-                        <div
-                          key={d.id ?? `sig-${idx}`}
-                          className="px-2.5 py-1.5 rounded-lg bg-background border border-border flex items-center gap-2 text-[12px]"
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditContact(activeContactDrawer)}
+                      className="text-[11px] text-primary hover:underline"
+                    >
+                      manage
+                    </button>
+                  </div>
+                  {activeContactDrawer.groups && activeContactDrawer.groups.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                      {activeContactDrawer.groups.map((g) => (
+                        <span
+                          key={g.id}
+                          className="px-2.5 py-0.5 rounded-md text-[11px] font-semibold border flex items-center gap-1.5"
+                          style={{
+                            backgroundColor: `${g.color}18`,
+                            borderColor: `${g.color}55`,
+                            color: g.color,
+                          }}
                         >
-                          <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                          <span className="font-semibold text-foreground">{d.label}:</span>
-                          <span className="font-mono text-muted">
-                            {formatDateByPattern(d.date, settingsState.dateFormat)}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (d.id) {
-                                await handleDrawerDeleteMilestone(d.id);
-                              } else {
-                                await handleDrawerPatch({
-                                  significantDate: null,
-                                  significantDateLabel: null,
-                                });
-                              }
-                            }}
-                            aria-label={`Remove ${d.label}`}
-                            className="text-muted hover:text-overdue ml-1 p-0.5 rounded-md transition"
-                            title="Remove Date"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                          <span
+                            className="w-1.5 h-1.5 rounded-full"
+                            style={{ backgroundColor: g.color }}
+                          />
+                          {g.name}
+                          <span className="opacity-75 font-mono text-[10px]">({g.intervalDays}d)</span>
+                        </span>
                       ))}
                     </div>
-                  );
-                })()}
-
-                {/* Add Milestone Inline Mini-Form */}
-                {showAddMilestone && (
-                  <div className="p-3 rounded-lg bg-background border border-primary/40 space-y-2.5 mt-2">
-                    <div className="font-semibold text-foreground text-[12px] flex items-center justify-between">
-                      <span>Add New Date or Event</span>
-                      <span className="text-[11px] text-muted font-mono">{settingsState.dateFormat || 'YYYY-MM-DD'}</span>
+                  ) : (
+                    <div className="text-muted text-[11px]">
+                      Not assigned to any groups yet.{' '}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditContact(activeContactDrawer)}
+                        className="text-primary font-semibold hover:underline"
+                      >
+                        Assign Group…
+                      </button>
                     </div>
+                  )}
+                </div>
 
-                    {/* Quick suggestion pills */}
-                    <div className="flex flex-wrap gap-1.5">
-                      {['Anniversary', 'Wedding', 'Spouse Birthday', 'Child Birthday', 'Met Date', 'Graduation', 'Promotion'].map(
-                        (sug) => (
-                          <button
-                            key={sug}
-                            type="button"
-                            onClick={() => setNewMilestoneLabel(sug)}
-                            className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-secondary border border-border text-foreground hover:border-primary transition"
-                          >
-                            {sug}
-                          </button>
-                        )
+                {/* Notes */}
+                <div className="p-3.5 rounded-xl bg-background border border-border space-y-1 flex-1 min-h-[90px]">
+                  <div className="text-[12px] font-semibold text-foreground flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-primary" /> Notes
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditContact(activeContactDrawer)}
+                      className="text-[11px] text-primary hover:underline"
+                    >
+                      edit
+                    </button>
+                  </div>
+                  {activeContactDrawer.notes ? (
+                    <p className="text-foreground whitespace-pre-wrap leading-relaxed text-xs pt-0.5 max-h-[140px] overflow-y-auto scrollbar-thin">
+                      {activeContactDrawer.notes}
+                    </p>
+                  ) : (
+                    <div className="text-muted text-[11px] pt-1">
+                      No notes recorded yet.{' '}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditContact(activeContactDrawer)}
+                        className="text-primary font-semibold hover:underline"
+                      >
+                        Add Note…
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Pets & Custom Fields */}
+                {(activeContactDrawer.pets?.length > 0 ||
+                  (activeContactDrawer.customFields &&
+                    Object.keys(activeContactDrawer.customFields).length > 0)) && (
+                  <div className="p-3 rounded-xl bg-background border border-border space-y-2">
+                    {activeContactDrawer.pets && activeContactDrawer.pets.length > 0 && (
+                      <div>
+                        <div className="text-[11px] font-semibold text-foreground mb-1 flex items-center gap-1">
+                          <span>🐾 Pets</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {activeContactDrawer.pets.map((pet, idx) => (
+                            <span
+                              key={idx}
+                              className="px-2 py-0.5 rounded-md bg-card border border-border text-foreground font-medium text-[11px]"
+                            >
+                              🐾 {pet}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {activeContactDrawer.customFields &&
+                      Object.keys(activeContactDrawer.customFields).length > 0 && (
+                        <div className="pt-1.5 border-t border-border/50">
+                          <div className="text-[11px] font-semibold text-foreground mb-1 flex items-center gap-1">
+                            <SlidersHorizontal className="w-3 h-3 text-primary" />
+                            <span>Custom Fields</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {Object.entries(activeContactDrawer.customFields).map(([key, val]) => (
+                              <div key={key} className="p-1.5 rounded-md bg-card border border-border text-[11px]">
+                                <div className="text-[10px] text-muted">Field #{key}</div>
+                                <div className="font-medium text-foreground truncate">{val}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       )}
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                      <input
-                        value={newMilestoneLabel}
-                        onChange={(e) => setNewMilestoneLabel(e.target.value)}
-                        placeholder="Label (e.g., Anniversary)"
-                        className="px-2.5 py-1.5 rounded-lg bg-card border border-border text-[12px] text-foreground"
-                      />
-                      <BirthdayDatePicker
-                        value={newMilestoneDate}
-                        onChange={(val) => setNewMilestoneDate(val)}
-                        placeholder={`${settingsState.dateFormat || 'YYYY-MM-DD'} (type or pick)`}
-                        displayFormat={settingsState.dateFormat}
-                      />
-                    </div>
-                    <div className="flex justify-end gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowAddMilestone(false);
-                          setNewMilestoneLabel('');
-                          setNewMilestoneDate('');
-                        }}
-                        className="px-3 py-1.5 min-h-[28px] rounded-lg bg-card border border-border text-muted hover:text-foreground text-[12px] font-medium"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        disabled={!newMilestoneLabel.trim() || !newMilestoneDate}
-                        onClick={handleDrawerAddMilestone}
-                        className="px-3 py-1.5 min-h-[28px] rounded-lg bg-primary text-primary-fg font-semibold text-[12px] disabled:opacity-50"
-                      >
-                        Save Date
-                      </button>
-                    </div>
                   </div>
                 )}
               </div>
-            </div>
 
-            {/* Group Memberships */}
-            <div className="p-3.5 rounded-xl bg-background border border-border space-y-1.5">
-              <div className="text-[12px] font-semibold text-foreground flex items-center gap-1.5">
-                <Tag className="w-3.5 h-3.5 text-primary" /> Group Memberships
-              </div>
-              {activeContactDrawer.groups && activeContactDrawer.groups.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {activeContactDrawer.groups.map((g) => (
-                    <span
-                      key={g.id}
-                      className="px-2.5 py-0.5 rounded-md text-[11px] font-semibold border flex items-center gap-1.5"
-                      style={{
-                        backgroundColor: `${g.color}18`,
-                        borderColor: `${g.color}55`,
-                        color: g.color,
-                      }}
-                    >
+              {/* Column 2: Cadence, Follow-Up & Important Dates */}
+              <div className="h-full flex flex-col gap-3.5 overflow-y-auto scrollbar-thin pr-1">
+                {/* Cadence Status Card */}
+                <div className="p-3.5 rounded-xl bg-background border border-border space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-primary" />
+                      <span className="text-[12px] font-semibold text-foreground">
+                        Cadence &amp; Follow-Up Rhythm
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
                       <span
-                        className="w-1.5 h-1.5 rounded-full"
-                        style={{ backgroundColor: g.color }}
-                      />
-                      {g.name}
-                      <span className="opacity-75 font-mono text-[11px]">({g.intervalDays}d)</span>
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-muted text-[12px]">
-                  Not assigned to any groups yet.{' '}
-                  <button
-                    type="button"
-                    onClick={() => handleOpenEditContact(activeContactDrawer)}
-                    className="text-primary font-semibold hover:underline"
-                  >
-                    Assign Group…
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Notes */}
-            <div className="p-3.5 rounded-xl bg-background border border-border space-y-1">
-              <div className="text-[12px] font-semibold text-foreground flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5 text-primary" /> Notes
-              </div>
-              {activeContactDrawer.notes ? (
-                <p className="text-foreground whitespace-pre-wrap leading-relaxed pt-0.5">
-                  {activeContactDrawer.notes}
-                </p>
-              ) : (
-                <div className="text-muted text-[12px]">
-                  No notes recorded yet.{' '}
-                  <button
-                    type="button"
-                    onClick={() => handleOpenEditContact(activeContactDrawer)}
-                    className="text-primary font-semibold hover:underline"
-                  >
-                    Add Note…
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Pets */}
-            <div className="p-3.5 rounded-xl bg-background border border-border space-y-1">
-              <div className="text-[12px] font-semibold text-foreground flex items-center gap-1.5">
-                <span>🐾 Pets</span>
-              </div>
-              {activeContactDrawer.pets && activeContactDrawer.pets.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5 pt-0.5">
-                  {activeContactDrawer.pets.map((pet, idx) => (
-                    <span
-                      key={idx}
-                      className="px-2.5 py-0.5 rounded-md bg-card border border-border text-foreground font-medium text-[12px] flex items-center gap-1"
-                    >
-                      <span>🐾</span> {pet}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-muted text-[12px]">No pets recorded.</div>
-              )}
-            </div>
-
-            {/* Custom Fields */}
-            {activeContactDrawer.customFields &&
-              Object.keys(activeContactDrawer.customFields).length > 0 && (
-                <div className="p-3.5 rounded-xl bg-background border border-border space-y-1.5">
-                  <div className="text-[12px] font-semibold text-foreground flex items-center gap-1.5">
-                    <SlidersHorizontal className="w-3.5 h-3.5 text-primary" /> Custom Fields
+                        className={`px-2 py-0.5 rounded-md text-[11px] font-mono font-semibold capitalize ${
+                          activeContactDrawer.cadence.status === 'overdue'
+                            ? 'sbb-baton-overdue'
+                            : activeContactDrawer.cadence.status === 'due_today'
+                            ? 'sbb-baton-due'
+                            : activeContactDrawer.cadence.status === 'due_soon'
+                            ? 'sbb-baton-warning'
+                            : activeContactDrawer.cadence.status === 'paused'
+                            ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/35'
+                            : activeContactDrawer.cadence.status === 'untracked'
+                            ? 'bg-muted/15 text-muted border border-border'
+                            : 'sbb-baton-ok'
+                        }`}
+                      >
+                        {activeContactDrawer.cadence.status.replace('_', ' ')}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleDrawerPatch({ keepInTouch: !activeContactDrawer.keepInTouch })
+                        }
+                        className={`px-2.5 py-1 min-h-[26px] rounded-lg text-[11px] font-semibold border transition ${
+                          activeContactDrawer.keepInTouch
+                            ? 'bg-primary text-primary-fg border-primary'
+                            : 'bg-card text-muted border-border hover:text-foreground'
+                        }`}
+                      >
+                        {activeContactDrawer.keepInTouch ? '✓ Tracked' : 'Untracked'}
+                      </button>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 pt-0.5">
-                    {Object.entries(activeContactDrawer.customFields).map(([key, val]) => (
-                      <div key={key} className="p-2 rounded-lg bg-card border border-border">
-                        <div className="text-[11px] text-muted">Field #{key}</div>
-                        <div className="font-medium text-foreground truncate">{val}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
 
-            {/* Relationships on Network Map */}
-            <div className="p-3.5 rounded-xl bg-background border border-border space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="text-[12px] font-semibold text-foreground flex items-center gap-1.5">
-                  <Network className="w-3.5 h-3.5 text-primary" /> Relationships &amp; Family Links
-                </div>
-                <span className="text-[11px] font-mono text-muted">
-                  {drawerRelationships.length} linked
-                </span>
-              </div>
-              {drawerRelationships.length > 0 ? (
-                <div className="space-y-1.5 pt-0.5">
-                  {drawerRelationships.map((rel) => (
-                    <div
-                      key={rel.id}
-                      className="p-2.5 rounded-lg bg-card border border-border flex items-center justify-between gap-2"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary font-semibold capitalize text-[11px]">
-                          {rel.type.replace('_', ' ')}
+                  <div className="grid grid-cols-2 gap-2 text-[12px]">
+                    <div className="p-2.5 rounded-lg bg-card border border-border">
+                      <div className="text-[10px] font-medium text-muted">Effective Cadence</div>
+                      <div className="font-mono font-semibold text-foreground text-xs mt-0.5">
+                        Every {activeContactDrawer.cadence.effectiveIntervalDays} days
+                        <span className="text-[10px] text-muted font-normal ml-1">
+                          {activeContactDrawer.customIntervalDays ? '(Custom)' : '(Group)'}
                         </span>
-                        <span className="font-semibold text-foreground">{rel.otherName}</span>
                       </div>
-                      {rel.otherContact && (
-                        <button
-                          type="button"
-                          onClick={() => setActiveContactDrawer(rel.otherContact!)}
-                          className="px-2.5 py-1 min-h-[28px] rounded-md bg-background border border-border text-[11px] font-medium text-muted hover:text-foreground hover:bg-card-hover"
-                          title="View Contact"
-                        >
-                          Open &rarr;
-                        </button>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-card border border-border">
+                      <div className="text-[10px] font-medium text-muted">Next Due Date</div>
+                      <div className="font-mono font-semibold text-foreground text-xs mt-0.5">
+                        {activeContactDrawer.cadence.nextDueDate
+                          ? formatDateByPattern(
+                              activeContactDrawer.cadence.nextDueDate,
+                              settingsState.dateFormat
+                            )
+                          : '—'}
+                        {activeContactDrawer.cadence.daysUntilDue !== undefined && (
+                          <span
+                            className={`ml-1 text-[10px] ${
+                              activeContactDrawer.cadence.daysUntilDue < 0
+                                ? 'text-overdue font-bold'
+                                : activeContactDrawer.cadence.daysUntilDue === 0
+                                ? 'text-due-soon font-bold'
+                                : 'text-muted'
+                            }`}
+                          >
+                            {activeContactDrawer.cadence.daysUntilDue < 0
+                              ? `(${Math.abs(activeContactDrawer.cadence.daysUntilDue)}d overdue)`
+                              : activeContactDrawer.cadence.daysUntilDue === 0
+                              ? '(Due today)'
+                              : `(in ${activeContactDrawer.cadence.daysUntilDue}d)`}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="col-span-2 p-2.5 rounded-lg bg-card border border-border flex items-center justify-between">
+                      <div>
+                        <div className="text-[10px] font-medium text-muted">Last Contacted</div>
+                        <div className="font-mono font-semibold text-foreground text-xs mt-0.5">
+                          {activeContactDrawer.lastContactedAt
+                            ? `${formatDateByPattern(
+                                activeContactDrawer.lastContactedAt,
+                                settingsState.dateFormat
+                              )} (${activeContactDrawer.cadence.daysSinceContact}d ago)`
+                            : 'Never contacted yet'}
+                        </div>
+                      </div>
+                      {activeContactDrawer.lastTouchpoint && (
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-background border border-border text-muted">
+                          via {activeContactDrawer.lastTouchpoint.method}
+                        </span>
                       )}
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-muted text-[12px]">
-                  No relationships linked on map yet.{' '}
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('map')}
-                    className="text-primary font-semibold hover:underline"
-                  >
-                    Open Relationship Map…
-                  </button>
-                </div>
-              )}
-            </div>
+                  </div>
 
-            {/* Recent Touchpoints History */}
-            <div className="space-y-2.5 border-t border-border pt-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-[12px] font-semibold text-foreground flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-primary" />
-                  <span>Recent Touchpoints Log</span>
-                </h3>
-                <span className="text-[11px] font-mono text-muted">
-                  {drawerTouchpoints.length} recorded
-                </span>
-              </div>
-              {drawerTouchpoints.length > 0 ? (
-                <div className="space-y-2">
-                  {drawerTouchpoints.slice(0, 8).map((tp) => (
-                    editingTouchpointId === tp.id ? (
-                      <div
-                        key={tp.id}
-                        className="p-3 rounded-xl bg-card border border-primary/50 space-y-2 text-[12px]"
+                  {/* Quick Log Touchpoint buttons */}
+                  <div className="pt-2 border-t border-border flex items-center justify-between gap-1.5 flex-wrap">
+                    <span className="text-[11px] font-semibold text-muted">Quick Log Touchpoint</span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleDrawerLogTouchpoint('call')}
+                        className="px-2.5 py-1 min-h-[26px] rounded-lg bg-card hover:bg-card-hover border border-border text-[11px] font-medium flex items-center gap-1 text-foreground transition-colors"
                       >
-                        <div className="flex items-center gap-2">
-                          <select
-                            value={editTpMethod}
-                            onChange={(e) => setEditTpMethod(e.target.value)}
-                            className="px-2.5 py-1.5 text-[12px] rounded-lg bg-background border border-border"
-                          >
-                            <option value="call">Call</option>
-                            <option value="message">Message</option>
-                            <option value="in_person">In Person</option>
-                            <option value="email">Email</option>
-                          </select>
+                        <Phone className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> Call
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDrawerLogTouchpoint('message')}
+                        className="px-2.5 py-1 min-h-[26px] rounded-lg bg-card hover:bg-card-hover border border-border text-[11px] font-medium flex items-center gap-1 text-foreground transition-colors"
+                      >
+                        <MessageSquare className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> WhatsApp
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDrawerLogTouchpoint('in_person')}
+                        className="px-2.5 py-1 min-h-[26px] rounded-lg bg-card hover:bg-card-hover border border-border text-[11px] font-medium flex items-center gap-1 text-foreground transition-colors"
+                      >
+                        <Users className="w-3 h-3 text-primary" /> Met
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Schedule Follow-up / Snooze */}
+                  <div className="pt-2 border-t border-border flex items-center justify-between gap-1.5 flex-wrap">
+                    <span className="text-[11px] font-semibold text-muted flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-primary" />
+                      Follow-up
+                    </span>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => handleSnooze(activeContactDrawer.id, 1)}
+                        className="px-2 py-1 min-h-[26px] rounded-md bg-card hover:bg-card-hover border border-border text-[11px] font-medium text-foreground transition-colors"
+                        title="Remind me tomorrow"
+                      >
+                        Tomorrow
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSnooze(activeContactDrawer.id, 3)}
+                        className="px-2 py-1 min-h-[26px] rounded-md bg-card hover:bg-card-hover border border-border text-[11px] font-medium text-foreground transition-colors"
+                        title="Remind me in 3 days"
+                      >
+                        In 3d
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSnooze(activeContactDrawer.id, 7)}
+                        className="px-2 py-1 min-h-[26px] rounded-md bg-card hover:bg-card-hover border border-border text-[11px] font-medium text-foreground transition-colors"
+                        title="Remind me in 1 week"
+                      >
+                        Next Week
+                      </button>
+                      <input
+                        type="date"
+                        min={new Date().toISOString().slice(0, 10)}
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            handleSnooze(activeContactDrawer.id, e.target.value);
+                            e.target.value = '';
+                          }
+                        }}
+                        className="px-1.5 py-0.5 rounded-md bg-card border border-border text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                        title="Pick specific follow-up date"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Important Dates: Birthday & Significant Dates / Events */}
+                <div className="p-3.5 rounded-xl bg-background border border-border space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="text-[12px] font-semibold text-foreground flex items-center gap-1.5">
+                      <CalendarIcon className="w-4 h-4 text-primary" />
+                      <span>Important Dates &amp; Milestones</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddMilestone((prev) => !prev)}
+                      className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>{showAddMilestone ? 'Cancel' : 'Add Date…'}</span>
+                    </button>
+                  </div>
+
+                  {/* Birthday Row */}
+                  <div className="p-2.5 rounded-lg bg-card border border-border space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-foreground font-medium text-[11px] flex items-center gap-1">
+                        <Cake className="w-3.5 h-3.5 text-primary" />
+                        <span>Birthday</span>
+                      </label>
+                      <span className="text-[10px] text-muted font-mono">
+                        {settingsState.dateFormat || 'YYYY-MM-DD'}
+                      </span>
+                    </div>
+                    <BirthdayDatePicker
+                      value={activeContactDrawer.birthday || ''}
+                      onChange={(newBday) =>
+                        handleDrawerPatch({ birthday: newBday || null })
+                      }
+                      placeholder={`${settingsState.dateFormat || 'YYYY-MM-DD'} (type or pick)`}
+                      displayFormat={settingsState.dateFormat}
+                    />
+                  </div>
+
+                  {/* Significant Dates & Events */}
+                  <div className="p-2.5 rounded-lg bg-card border border-border space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-foreground font-medium text-[11px] flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-amber-500" />
+                        <span>Anniversaries &amp; Events</span>
+                      </label>
+                    </div>
+
+                    {/* List of all Significant Dates & Events */}
+                    {(() => {
+                      const allSigDates: Array<{ id?: number; label: string; date: string }> = [
+                        ...(activeContactDrawer.significantDate
+                          ? [
+                              {
+                                label: activeContactDrawer.significantDateLabel || 'Anniversary',
+                                date: activeContactDrawer.significantDate,
+                              },
+                            ]
+                          : []),
+                        ...(activeContactDrawer.importantDates || []).map((d) => ({
+                          id: d.id,
+                          label: d.label,
+                          date: d.date,
+                        })),
+                      ];
+                      const uniqueSigDates = allSigDates.filter(
+                        (d, i, arr) =>
+                          arr.findIndex((x) => x.date === d.date && x.label === d.label) === i
+                      );
+
+                      if (uniqueSigDates.length === 0 && !showAddMilestone) {
+                        return (
+                          <p className="text-[11px] text-muted">
+                            No events added yet. Click &ldquo;Add Date…&rdquo; to add anniversaries, weddings, etc.
+                          </p>
+                        );
+                      }
+
+                      return (
+                        <div className="flex flex-wrap gap-1.5 max-h-[110px] overflow-y-auto scrollbar-thin">
+                          {uniqueSigDates.map((d, idx) => (
+                            <div
+                              key={d.id ?? `sig-${idx}`}
+                              className="px-2 py-1 rounded-md bg-background border border-border flex items-center gap-1.5 text-[11px]"
+                            >
+                              <Sparkles className="w-3 h-3 text-amber-500 shrink-0" />
+                              <span className="font-semibold text-foreground">{d.label}:</span>
+                              <span className="font-mono text-muted">
+                                {formatDateByPattern(d.date, settingsState.dateFormat)}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  if (d.id) {
+                                    await handleDrawerDeleteMilestone(d.id);
+                                  } else {
+                                    await handleDrawerPatch({
+                                      significantDate: null,
+                                      significantDateLabel: null,
+                                    });
+                                  }
+                                }}
+                                aria-label={`Remove ${d.label}`}
+                                className="text-muted hover:text-overdue ml-1 p-0.5 rounded transition"
+                                title="Remove Date"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Add Milestone Inline Mini-Form */}
+                    {showAddMilestone && (
+                      <div className="p-2.5 rounded-lg bg-background border border-primary/40 space-y-2 mt-1">
+                        <div className="flex flex-wrap gap-1">
+                          {['Anniversary', 'Wedding', 'Spouse Bday', 'Kid Bday', 'Met Date', 'Graduation'].map(
+                            (sug) => (
+                              <button
+                                key={sug}
+                                type="button"
+                                onClick={() => setNewMilestoneLabel(sug)}
+                                className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-secondary border border-border text-foreground hover:border-primary transition"
+                              >
+                                {sug}
+                              </button>
+                            )
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-1.5 pt-0.5">
                           <input
-                            type="date"
-                            value={editTpDate}
-                            onChange={(e) => setEditTpDate(e.target.value)}
-                            className="px-2.5 py-1.5 text-[12px] rounded-lg bg-background border border-border font-mono"
+                            value={newMilestoneLabel}
+                            onChange={(e) => setNewMilestoneLabel(e.target.value)}
+                            placeholder="Label (e.g., Anniversary)"
+                            className="px-2 py-1 rounded-md bg-card border border-border text-[11px] text-foreground"
+                          />
+                          <BirthdayDatePicker
+                            value={newMilestoneDate}
+                            onChange={(val) => setNewMilestoneDate(val)}
+                            placeholder={`${settingsState.dateFormat || 'YYYY-MM-DD'} (pick)`}
+                            displayFormat={settingsState.dateFormat}
                           />
                         </div>
-                        <input
-                          type="text"
-                          value={editTpNote}
-                          onChange={(e) => setEditTpNote(e.target.value)}
-                          placeholder="Note (optional)"
-                          className="w-full px-2.5 py-1.5 text-[12px] rounded-lg bg-background border border-border"
-                        />
-                        <div className="flex items-center justify-end gap-2 pt-1">
+                        <div className="flex justify-end gap-1.5 pt-1">
                           <button
                             type="button"
-                            onClick={() => setEditingTouchpointId(null)}
-                            className="px-3 py-1 min-h-[28px] text-[12px] font-medium rounded-lg bg-muted/15 hover:bg-muted/25 text-muted hover:text-foreground transition"
+                            onClick={() => {
+                              setShowAddMilestone(false);
+                              setNewMilestoneLabel('');
+                              setNewMilestoneDate('');
+                            }}
+                            className="px-2.5 py-1 min-h-[26px] rounded-md bg-card border border-border text-muted hover:text-foreground text-[11px] font-medium"
                           >
                             Cancel
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleSaveEditTouchpoint(tp.id)}
-                            className="px-3 py-1 min-h-[28px] text-[12px] font-semibold rounded-lg bg-primary text-primary-fg hover:opacity-95 transition"
+                            disabled={!newMilestoneLabel.trim() || !newMilestoneDate}
+                            onClick={handleDrawerAddMilestone}
+                            className="px-2.5 py-1 min-h-[26px] rounded-md bg-primary text-primary-fg font-semibold text-[11px] disabled:opacity-50"
                           >
-                            Save Changes
+                            Save Date
                           </button>
                         </div>
                       </div>
-                    ) : (
-                      <div
-                        key={tp.id}
-                        className="p-3 rounded-xl bg-background border border-border flex items-start justify-between gap-2 group hover:border-foreground/30 transition"
-                      >
-                        <div className="space-y-0.5 flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {tp.method === 'call' ? (
-                              <Phone className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                            ) : tp.method === 'message' ? (
-                              <MessageSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                            ) : (
-                              <Users className="w-3.5 h-3.5 text-primary" />
-                            )}
-                            <span className="font-semibold capitalize text-[12px] text-foreground">
-                              {tp.method.replace('_', ' ')}
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Column 3: History & Network Relationships */}
+              <div className="h-full flex flex-col gap-3.5 overflow-y-auto scrollbar-thin pr-1">
+                {/* Relationships on Network Map */}
+                <div className="p-3.5 rounded-xl bg-background border border-border space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="text-[12px] font-semibold text-foreground flex items-center gap-1.5">
+                      <Network className="w-3.5 h-3.5 text-primary" /> Relationships &amp; Family Links
+                    </div>
+                    <span className="text-[10px] font-mono text-muted">
+                      {drawerRelationships.length} linked
+                    </span>
+                  </div>
+                  {drawerRelationships.length > 0 ? (
+                    <div className="space-y-1.5 pt-0.5 max-h-[140px] overflow-y-auto scrollbar-thin">
+                      {drawerRelationships.map((rel) => (
+                        <div
+                          key={rel.id}
+                          className="p-2 rounded-lg bg-card border border-border flex items-center justify-between gap-2 text-xs"
+                        >
+                          <div className="flex items-center gap-1.5 truncate">
+                            <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold capitalize text-[10px] shrink-0">
+                              {rel.type.replace('_', ' ')}
                             </span>
-                            <span className="text-[11px] text-muted font-mono">
-                              {formatDateByPattern(tp.contactedAt, settingsState.dateFormat)}
-                            </span>
+                            <span className="font-semibold text-foreground truncate">{rel.otherName}</span>
                           </div>
-                          {tp.note && (
-                            <div className="text-[12px] text-muted pl-5 truncate">{tp.note}</div>
+                          {rel.otherContact && (
+                            <button
+                              type="button"
+                              onClick={() => setActiveContactDrawer(rel.otherContact!)}
+                              className="px-2 py-0.5 rounded bg-background border border-border text-[10px] font-medium text-muted hover:text-foreground hover:bg-card-hover shrink-0"
+                              title="View Contact"
+                            >
+                              Open &rarr;
+                            </button>
                           )}
                         </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-muted text-[11px]">
+                      No relationships linked on map yet.{' '}
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('map')}
+                        className="text-primary font-semibold hover:underline"
+                      >
+                        Open Relationship Map…
+                      </button>
+                    </div>
+                  )}
+                </div>
 
-                        <div className="flex items-center gap-1 opacity-75 group-hover:opacity-100 transition">
-                          <button
-                            type="button"
-                            onClick={() => handleStartEditTouchpoint(tp)}
-                            aria-label="Edit touchpoint record"
-                            className="p-1.5 min-h-[28px] min-w-[28px] rounded-md hover:bg-card-hover text-muted hover:text-foreground transition flex items-center justify-center"
-                            title="Edit Touchpoint"
+                {/* Recent Touchpoints History */}
+                <div className="p-3.5 rounded-xl bg-background border border-border space-y-2 flex-1 flex flex-col min-h-[220px]">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-[12px] font-semibold text-foreground flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-primary" />
+                      <span>Recent Touchpoints Log</span>
+                    </h3>
+                    <span className="text-[10px] font-mono text-muted">
+                      {drawerTouchpoints.length} recorded
+                    </span>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto scrollbar-thin space-y-1.5 max-h-[calc(90vh-320px)] pr-0.5">
+                    {drawerTouchpoints.length > 0 ? (
+                      drawerTouchpoints.map((tp) =>
+                        editingTouchpointId === tp.id ? (
+                          <div
+                            key={tp.id}
+                            className="p-2.5 rounded-lg bg-card border border-primary/50 space-y-1.5 text-[11px]"
                           >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteTouchpoint(tp.id)}
-                            aria-label="Delete touchpoint record"
-                            className="p-1.5 min-h-[28px] min-w-[28px] rounded-md hover:bg-rose-500/10 text-muted hover:text-rose-500 transition flex items-center justify-center"
-                            title="Delete Touchpoint"
+                            <div className="flex items-center gap-1.5">
+                              <select
+                                value={editTpMethod}
+                                onChange={(e) => setEditTpMethod(e.target.value)}
+                                className="px-2 py-1 text-[11px] rounded bg-background border border-border"
+                              >
+                                <option value="call">Call</option>
+                                <option value="message">Message</option>
+                                <option value="in_person">In Person</option>
+                                <option value="email">Email</option>
+                              </select>
+                              <input
+                                type="date"
+                                value={editTpDate}
+                                onChange={(e) => setEditTpDate(e.target.value)}
+                                className="px-2 py-1 text-[11px] rounded bg-background border border-border font-mono"
+                              />
+                            </div>
+                            <input
+                              type="text"
+                              value={editTpNote}
+                              onChange={(e) => setEditTpNote(e.target.value)}
+                              placeholder="Note (optional)"
+                              className="w-full px-2 py-1 text-[11px] rounded bg-background border border-border"
+                            />
+                            <div className="flex items-center justify-end gap-1.5 pt-0.5">
+                              <button
+                                type="button"
+                                onClick={() => setEditingTouchpointId(null)}
+                                className="px-2.5 py-1 text-[10px] font-medium rounded bg-muted/15 hover:bg-muted/25 text-muted hover:text-foreground transition"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleSaveEditTouchpoint(tp.id)}
+                                className="px-2.5 py-1 text-[10px] font-semibold rounded bg-primary text-primary-fg hover:opacity-95 transition"
+                              >
+                                Save Changes
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div
+                            key={tp.id}
+                            className="p-2 rounded-lg bg-card border border-border flex items-start justify-between gap-2 group hover:border-foreground/30 transition text-xs"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                            <div className="space-y-0.5 flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {tp.method === 'call' ? (
+                                  <Phone className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                ) : tp.method === 'message' ? (
+                                  <MessageSquare className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                ) : (
+                                  <Users className="w-3 h-3 text-primary" />
+                                )}
+                                <span className="font-semibold capitalize text-[11px] text-foreground">
+                                  {tp.method.replace('_', ' ')}
+                                </span>
+                                <span className="text-[10px] text-muted font-mono">
+                                  {formatDateByPattern(tp.contactedAt, settingsState.dateFormat)}
+                                </span>
+                              </div>
+                              {tp.note && (
+                                <div className="text-[11px] text-muted pl-4 truncate">{tp.note}</div>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-0.5 opacity-70 group-hover:opacity-100 transition shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleStartEditTouchpoint(tp)}
+                                aria-label="Edit touchpoint record"
+                                className="p-1 rounded hover:bg-card-hover text-muted hover:text-foreground transition flex items-center justify-center"
+                                title="Edit Touchpoint"
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteTouchpoint(tp.id)}
+                                aria-label="Delete touchpoint record"
+                                className="p-1 rounded hover:bg-rose-500/10 text-muted hover:text-rose-500 transition flex items-center justify-center"
+                                title="Delete Touchpoint"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      )
+                    ) : (
+                      <div className="p-3 rounded-lg bg-card/60 border border-border text-muted text-[11px] text-center">
+                        No touchpoints logged yet. Use the quick buttons in Column 2 to log one.
                       </div>
-                    )
-                  ))}
+                    )}
+                  </div>
                 </div>
-              ) : (
-                <div className="p-3 rounded-xl bg-background/60 border border-border text-muted text-[12px] text-center">
-                  No touchpoints logged yet. Use the quick buttons above to log one.
-                </div>
-              )}
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal: Create Local Contact */}
+      {/* Modal: Create Local Contact (Horizontal Cockpit View) */}
       {showNewContactModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-150">
+        <div
+          onClick={() => setShowNewContactModal(false)}
+          className="fixed inset-0 bg-black/65 backdrop-blur-xs z-50 flex items-center justify-center p-2 sm:p-4 lg:p-6 animate-in fade-in duration-150"
+        >
           <form
             onSubmit={handleCreateLocalContact}
-            className="bg-card border-t sm:border border-border rounded-t-2xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-6 space-y-4 text-[13px] shadow-2xl max-h-[92vh] sm:max-h-[90vh] overflow-y-auto touch-scroll animate-in slide-in-from-bottom sm:zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-[1380px] max-h-[95vh] bg-card border border-border rounded-2xl p-4 sm:p-5 shadow-2xl flex flex-col overflow-hidden text-[13px] animate-in zoom-in-95 duration-150"
           >
-            <div className="flex items-center justify-between pb-3 border-b border-border">
-              <div>
-                <h3 className="text-[16px] font-bold tracking-tight text-foreground">New Local Contact</h3>
-                <p className="text-[12px] text-muted">Add a person to your relationship cadence directory</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowNewContactModal(false)}
-                aria-label="Close new contact modal"
-                className="text-muted hover:text-foreground px-2.5 py-1.5 min-h-[30px] min-w-[30px] rounded-lg border border-border hover:bg-card-hover font-semibold transition-colors"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[12px] font-medium text-foreground mb-1">First Name *</label>
-                <input
-                  required
-                  value={newContactForm.firstName}
-                  onChange={(e) =>
-                    setNewContactForm({ ...newContactForm, firstName: e.target.value })
+            {/* Header: Avatar, Name Live Preview, Job/Company, Badges & Actions */}
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-border shrink-0 gap-3">
+              <div className="flex items-center gap-3.5 min-w-0">
+                <ProgressRingAvatar
+                  name={
+                    [newContactForm.firstName, newContactForm.lastName].filter(Boolean).join(' ') ||
+                    'New Contact'
                   }
-                  placeholder="Dan"
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-border text-[13px]"
+                  progressPercent={100}
+                  status={newContactForm.keepInTouch ? 'on_track' : 'untracked'}
+                  size="md"
                 />
-              </div>
-              <div>
-                <label className="block text-[12px] font-medium text-foreground mb-1">Last Name</label>
-                <input
-                  value={newContactForm.lastName}
-                  onChange={(e) =>
-                    setNewContactForm({ ...newContactForm, lastName: e.target.value })
-                  }
-                  placeholder="Cohen"
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-border text-[13px]"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[12px] font-medium text-foreground mb-1">Phone</label>
-                <input
-                  value={newContactForm.phone}
-                  onChange={(e) =>
-                    setNewContactForm({ ...newContactForm, phone: e.target.value })
-                  }
-                  placeholder="+972-54-1234567"
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-border font-mono text-[13px]"
-                />
-              </div>
-              <div>
-                <label className="block text-[12px] font-medium text-foreground mb-1">Email</label>
-                <input
-                  value={newContactForm.email}
-                  onChange={(e) =>
-                    setNewContactForm({ ...newContactForm, email: e.target.value })
-                  }
-                  placeholder="dan@example.com"
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-border font-mono text-[13px]"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[12px] font-medium text-foreground mb-1">Company (Optional)</label>
-                <input
-                  value={newContactForm.company}
-                  onChange={(e) =>
-                    setNewContactForm({ ...newContactForm, company: e.target.value })
-                  }
-                  placeholder="Acme Corp"
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-border text-[13px]"
-                />
-              </div>
-              <div>
-                <label className="block text-[12px] font-medium text-foreground mb-1">Job Title (Optional)</label>
-                <input
-                  value={newContactForm.jobTitle}
-                  onChange={(e) =>
-                    setNewContactForm({ ...newContactForm, jobTitle: e.target.value })
-                  }
-                  placeholder="Product Manager"
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-border text-[13px]"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="block text-foreground mb-1 flex items-center justify-between font-medium text-[12px]">
-                  <span className="flex items-center gap-1.5">
-                    <Cake className="w-3.5 h-3.5 text-primary" />
-                    <span>Birthday (Optional)</span>
-                  </span>
-                  <span className="text-[11px] text-muted font-mono">{settingsState.dateFormat || 'YYYY-MM-DD'}</span>
-                </label>
-                <BirthdayDatePicker
-                  value={newContactForm.birthday}
-                  onChange={(val) => setNewContactForm({ ...newContactForm, birthday: val })}
-                  placeholder={`${settingsState.dateFormat || 'YYYY-MM-DD'} (type or pick)`}
-                  displayFormat={settingsState.dateFormat}
-                />
-              </div>
-
-              <div className="p-3 rounded-xl bg-background border border-border space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-[12px] font-medium text-foreground flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Significant Dates &amp; Events (Optional)</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setNewContactForm({
-                        ...newContactForm,
-                        significantDates: [
-                          ...newContactForm.significantDates,
-                          { label: '', date: '' },
-                        ],
-                      })
-                    }
-                    className="text-[12px] font-semibold text-primary hover:underline flex items-center gap-1"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Add Another Date
-                  </button>
-                </div>
-
-                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                  {newContactForm.significantDates.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <input
-                        value={item.label}
-                        onChange={(e) => {
-                          const updated = [...newContactForm.significantDates];
-                          updated[idx].label = e.target.value;
-                          setNewContactForm({ ...newContactForm, significantDates: updated });
-                        }}
-                        placeholder="Label (e.g., Anniversary)"
-                        className="w-1/2 px-2.5 py-1.5 rounded-lg bg-card border border-border text-[12px] text-foreground"
-                      />
-                      <div className="flex-1">
-                        <BirthdayDatePicker
-                          value={item.date}
-                          onChange={(val) => {
-                            const updated = [...newContactForm.significantDates];
-                            updated[idx].date = val;
-                            setNewContactForm({ ...newContactForm, significantDates: updated });
-                          }}
-                          placeholder={settingsState.dateFormat || 'YYYY-MM-DD'}
-                          displayFormat={settingsState.dateFormat}
-                        />
-                      </div>
-                      {newContactForm.significantDates.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const updated = newContactForm.significantDates.filter((_, i) => i !== idx);
-                            setNewContactForm({ ...newContactForm, significantDates: updated });
-                          }}
-                          aria-label="Remove significant date"
-                          className="text-muted hover:text-overdue p-1"
-                          title="Remove"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Interactive Cadence Interval Selector */}
-            <div className="space-y-1.5">
-              <label className="block text-[12px] font-medium text-foreground">Stay-in-Touch Cadence</label>
-              <div className="flex flex-wrap gap-1.5">
-                {INTERVAL_PRESETS.map((preset) => {
-                  const active =
-                    newContactForm.intervalMode === 'preset' &&
-                    newContactForm.selectedPresetDays === preset.value;
-                  return (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      onClick={() =>
-                        setNewContactForm({
-                          ...newContactForm,
-                          intervalMode: 'preset',
-                          selectedPresetDays: preset.value,
-                        })
-                      }
-                      className={`px-2.5 py-1.5 min-h-[28px] rounded-lg border text-[12px] font-medium transition ${
-                        active
-                          ? 'bg-primary text-primary-fg border-primary'
-                          : 'bg-background border-border text-muted hover:text-foreground'
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-[17px] font-bold tracking-tight text-foreground truncate">
+                      {[newContactForm.firstName, newContactForm.lastName].filter(Boolean).join(' ') ||
+                        'New Local Contact'}
+                    </h2>
+                    <span
+                      className={`sbb-baton ${
+                        newContactForm.keepInTouch ? 'sbb-baton-ok' : 'sbb-baton-warning'
                       }`}
                     >
-                      {preset.label}
-                    </button>
-                  );
-                })}
-                <button
-                  type="button"
-                  onClick={() =>
-                    setNewContactForm({
-                      ...newContactForm,
-                      intervalMode: 'custom',
-                    })
-                  }
-                  className={`px-2.5 py-1.5 min-h-[28px] rounded-lg border text-[12px] font-medium transition ${
-                    newContactForm.intervalMode === 'custom'
-                      ? 'bg-primary text-primary-fg border-primary'
-                      : 'bg-background border-border text-muted hover:text-foreground'
-                  }`}
-                >
-                  Custom Days…
-                </button>
+                      {newContactForm.keepInTouch ? 'Cadence Active' : 'Untracked'}
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/35">
+                      Local Contact
+                    </span>
+                  </div>
+                  <div className="text-muted flex items-center gap-1.5 mt-0.5 text-[11px] truncate">
+                    <Briefcase className="w-3.5 h-3.5 text-muted shrink-0" />
+                    <span className="truncate">
+                      {[newContactForm.jobTitle, newContactForm.company].filter(Boolean).join(' · ') ||
+                        'Add a person to your relationship cadence directory'}
+                    </span>
+                    {(newContactForm.firstName || newContactForm.lastName) && (
+                      <span className="text-muted/70 hidden sm:inline">
+                        · First: <strong>{newContactForm.firstName || '—'}</strong> · Last:{' '}
+                        <strong>{newContactForm.lastName || '—'}</strong>
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              {newContactForm.intervalMode === 'custom' && (
-                <div className="flex items-center gap-3 pt-2">
+              <div className="flex items-center gap-2 shrink-0">
+                <label className="hidden sm:flex items-center gap-2 cursor-pointer text-muted hover:text-foreground select-none text-[12px] mr-1">
                   <input
-                    type="range"
-                    min={1}
-                    max={180}
-                    value={newContactForm.customDaysValue}
-                    onChange={(e) =>
-                      setNewContactForm({
-                        ...newContactForm,
-                        customDaysValue: Number(e.target.value),
-                      })
-                    }
-                    className="flex-1 accent-primary h-2 bg-muted/20 border border-border rounded-lg cursor-pointer"
+                    type="checkbox"
+                    checked={addMoreContact}
+                    onChange={(e) => setAddMoreContact(e.target.checked)}
+                    className="rounded-sm border-border text-primary focus:ring-0"
                   />
-                  <span className="font-mono font-semibold w-28 text-right text-[12px]">
-                    Every {newContactForm.customDaysValue} days
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-[12px] font-medium text-foreground mb-1">Notes</label>
-              <textarea
-                rows={2}
-                value={newContactForm.notes}
-                onChange={(e) =>
-                  setNewContactForm({ ...newContactForm, notes: e.target.value })
-                }
-                placeholder="Context, how you met, family details, or topics to remember…"
-                className="w-full px-3 py-2 rounded-lg bg-background border border-border text-[13px]"
-              />
-            </div>
-
-            <div className="flex items-center justify-between pt-3 border-t border-border">
-              <label className="flex items-center gap-2 cursor-pointer text-muted hover:text-foreground select-none text-[12px]">
-                <input
-                  type="checkbox"
-                  checked={addMoreContact}
-                  onChange={(e) => setAddMoreContact(e.target.checked)}
-                  className="rounded-sm border-border text-primary focus:ring-0"
-                />
-                <span>Create Another After Saving</span>
-              </label>
-              <div className="flex items-center gap-2">
+                  <span>Create Another</span>
+                </label>
                 <button
                   type="button"
                   onClick={() => setShowNewContactModal(false)}
-                  className="px-3.5 py-1.5 min-h-[32px] rounded-lg border border-border font-medium text-[12px] text-foreground hover:bg-card-hover"
+                  className="px-3 py-1.5 min-h-[30px] rounded-lg bg-background border border-border hover:bg-card-hover font-medium text-[12px] text-foreground transition-colors shadow-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 min-h-[32px] rounded-lg bg-primary text-primary-fg font-semibold text-[12px] hover:opacity-95"
+                  className="px-4 py-1.5 min-h-[30px] rounded-lg bg-primary text-primary-fg font-semibold flex items-center gap-1.5 text-[12px] hover:opacity-95 shadow-xs transition-opacity"
                 >
-                  Save Contact
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Save Contact</span>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setShowNewContactModal(false)}
+                  aria-label="Close new contact modal"
+                  className="text-muted hover:text-foreground text-[13px] px-2.5 py-1.5 min-h-[30px] min-w-[30px] rounded-lg border border-border hover:bg-card-hover font-semibold transition-colors"
+                  title="Close (Esc)"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Horizontal 3-Column Cockpit Grid */}
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 min-h-0 overflow-y-auto md:overflow-hidden">
+              {/* Column 1: Identity, Channels & Group Memberships */}
+              <div className="h-full flex flex-col gap-3.5 overflow-y-auto scrollbar-thin pr-1">
+                {/* Person & Identity Info */}
+                <div className="p-3.5 rounded-xl bg-background border border-border space-y-3">
+                  <div className="text-[12px] font-semibold text-foreground flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5 text-primary" /> Person &amp; Professional Info
+                    </span>
+                    <span className="text-[11px] text-muted">* required</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-[11px] font-medium text-foreground mb-1">First Name *</label>
+                      <input
+                        required
+                        value={newContactForm.firstName}
+                        onChange={(e) =>
+                          setNewContactForm({ ...newContactForm, firstName: e.target.value })
+                        }
+                        placeholder="Dan"
+                        className="w-full px-3 py-1.5 rounded-lg bg-card border border-border text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-foreground mb-1">Last Name</label>
+                      <input
+                        value={newContactForm.lastName}
+                        onChange={(e) =>
+                          setNewContactForm({ ...newContactForm, lastName: e.target.value })
+                        }
+                        placeholder="Cohen"
+                        className="w-full px-3 py-1.5 rounded-lg bg-card border border-border text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-foreground mb-1">Company</label>
+                      <input
+                        value={newContactForm.company}
+                        onChange={(e) =>
+                          setNewContactForm({ ...newContactForm, company: e.target.value })
+                        }
+                        placeholder="Acme Corp"
+                        className="w-full px-3 py-1.5 rounded-lg bg-card border border-border text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-foreground mb-1">Job Title</label>
+                      <input
+                        value={newContactForm.jobTitle}
+                        onChange={(e) =>
+                          setNewContactForm({ ...newContactForm, jobTitle: e.target.value })
+                        }
+                        placeholder="Product Lead"
+                        className="w-full px-3 py-1.5 rounded-lg bg-card border border-border text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Contact Channels */}
+                <div className="p-3.5 rounded-xl bg-background border border-border space-y-3">
+                  <div className="text-[12px] font-semibold text-foreground flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Phone className="w-3.5 h-3.5 text-primary" /> Contact Channels
+                    </span>
+                  </div>
+                  <div className="space-y-2.5">
+                    <div>
+                      <label className="block text-[11px] font-medium text-foreground mb-1">Phone Number</label>
+                      <div className="relative">
+                        <Phone className="w-3.5 h-3.5 text-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input
+                          value={newContactForm.phone}
+                          onChange={(e) =>
+                            setNewContactForm({ ...newContactForm, phone: e.target.value })
+                          }
+                          placeholder="+972-54-1234567"
+                          className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-card border border-border font-mono text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-foreground mb-1">Email Address</label>
+                      <div className="relative">
+                        <Mail className="w-3.5 h-3.5 text-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input
+                          type="email"
+                          value={newContactForm.email}
+                          onChange={(e) =>
+                            setNewContactForm({ ...newContactForm, email: e.target.value })
+                          }
+                          placeholder="dan@example.com"
+                          className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-card border border-border font-mono text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Group Memberships */}
+                <div className="p-3.5 rounded-xl bg-background border border-border space-y-2 flex-1 min-h-[110px]">
+                  <div className="text-[12px] font-semibold text-foreground flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Tag className="w-3.5 h-3.5 text-primary" /> Group Memberships
+                    </span>
+                    <span className="text-[11px] text-muted">
+                      {newContactForm.groupIds.length} selected
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 pt-0.5">
+                    {groups.map((g) => {
+                      const selected = newContactForm.groupIds.includes(g.id);
+                      return (
+                        <button
+                          key={g.id}
+                          type="button"
+                          onClick={() => {
+                            setNewContactForm({
+                              ...newContactForm,
+                              groupIds: selected
+                                ? newContactForm.groupIds.filter((id) => id !== g.id)
+                                : [...newContactForm.groupIds, g.id],
+                            });
+                          }}
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border flex items-center gap-1.5 transition-colors ${
+                            selected
+                              ? 'shadow-xs'
+                              : 'opacity-60 hover:opacity-100 bg-card border-border text-foreground'
+                          }`}
+                          style={
+                            selected
+                              ? {
+                                  backgroundColor: `${g.color}22`,
+                                  borderColor: g.color,
+                                  color: g.color,
+                                }
+                              : {}
+                          }
+                        >
+                          <span
+                            className="w-1.5 h-1.5 rounded-full"
+                            style={{ backgroundColor: g.color }}
+                          />
+                          <span>{g.name}</span>
+                          <span className="opacity-75 font-mono text-[10px]">({g.intervalDays}d)</span>
+                        </button>
+                      );
+                    })}
+                    {groups.length === 0 && (
+                      <p className="text-[11px] text-muted">No groups created yet.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Column 2: Cadence Rhythm & Important Dates */}
+              <div className="h-full flex flex-col gap-3.5 overflow-y-auto scrollbar-thin pr-1">
+                {/* Cadence Rhythm Card */}
+                <div className="p-3.5 rounded-xl bg-background border border-border space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-primary" />
+                      <span className="text-[12px] font-semibold text-foreground">
+                        Cadence &amp; Follow-Up Rhythm
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setNewContactForm({
+                          ...newContactForm,
+                          keepInTouch: !newContactForm.keepInTouch,
+                        })
+                      }
+                      className={`px-2.5 py-1 min-h-[26px] rounded-lg text-[11px] font-semibold border transition ${
+                        newContactForm.keepInTouch
+                          ? 'bg-primary text-primary-fg border-primary'
+                          : 'bg-card text-muted border-border hover:text-foreground'
+                      }`}
+                    >
+                      {newContactForm.keepInTouch ? '✓ Tracked' : 'Untracked'}
+                    </button>
+                  </div>
+
+                  {newContactForm.keepInTouch && (
+                    <div className="space-y-2.5">
+                      <div className="flex flex-wrap gap-1.5">
+                        {INTERVAL_PRESETS.map((preset) => {
+                          const active =
+                            newContactForm.intervalMode === 'preset' &&
+                            newContactForm.selectedPresetDays === preset.value;
+                          return (
+                            <button
+                              key={preset.label}
+                              type="button"
+                              onClick={() =>
+                                setNewContactForm({
+                                  ...newContactForm,
+                                  intervalMode: 'preset',
+                                  selectedPresetDays: preset.value,
+                                })
+                              }
+                              className={`px-2.5 py-1 min-h-[26px] rounded-lg border text-[11px] font-medium transition ${
+                                active
+                                  ? 'bg-primary text-primary-fg border-primary'
+                                  : 'bg-card border-border text-muted hover:text-foreground hover:bg-card-hover'
+                              }`}
+                            >
+                              {preset.label}
+                            </button>
+                          );
+                        })}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setNewContactForm({
+                              ...newContactForm,
+                              intervalMode: 'custom',
+                            })
+                          }
+                          className={`px-2.5 py-1 min-h-[26px] rounded-lg border text-[11px] font-medium transition ${
+                            newContactForm.intervalMode === 'custom'
+                              ? 'bg-primary text-primary-fg border-primary'
+                              : 'bg-card border-border text-muted hover:text-foreground hover:bg-card-hover'
+                          }`}
+                        >
+                          Custom Days…
+                        </button>
+                      </div>
+
+                      {newContactForm.intervalMode === 'custom' && (
+                        <div className="flex items-center gap-3 pt-1 p-2 rounded-lg bg-card border border-border">
+                          <input
+                            type="range"
+                            min={1}
+                            max={180}
+                            value={newContactForm.customDaysValue}
+                            onChange={(e) =>
+                              setNewContactForm({
+                                ...newContactForm,
+                                customDaysValue: Number(e.target.value),
+                              })
+                            }
+                            className="flex-1 accent-primary h-2 bg-muted/20 border border-border rounded-lg cursor-pointer"
+                          />
+                          <span className="font-mono font-semibold w-28 text-right text-[11px] text-foreground">
+                            Every {newContactForm.customDaysValue} days
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="p-2.5 rounded-lg bg-card border border-border text-[11px] flex items-center justify-between">
+                        <span className="text-muted">Target Rhythm:</span>
+                        <span className="font-mono font-semibold text-foreground">
+                          {newContactForm.intervalMode === 'custom'
+                            ? `Every ${newContactForm.customDaysValue} days`
+                            : newContactForm.selectedPresetDays
+                            ? `Every ${newContactForm.selectedPresetDays} days`
+                            : newContactForm.groupIds.length > 0
+                            ? `Inherited from group (${
+                                groups.find((g) => newContactForm.groupIds.includes(g.id))?.intervalDays || 30
+                              }d)`
+                            : 'Default Cadence (30 days)'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Important Dates: Birthday & Significant Dates / Events */}
+                <div className="p-3.5 rounded-xl bg-background border border-border space-y-2.5 flex-1">
+                  <div className="flex items-center justify-between">
+                    <div className="text-[12px] font-semibold text-foreground flex items-center gap-1.5">
+                      <CalendarIcon className="w-4 h-4 text-primary" />
+                      <span>Important Dates &amp; Milestones</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setNewContactForm({
+                          ...newContactForm,
+                          significantDates: [
+                            ...newContactForm.significantDates,
+                            { label: '', date: '' },
+                          ],
+                        })
+                      }
+                      className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Add Date…</span>
+                    </button>
+                  </div>
+
+                  {/* Birthday Row */}
+                  <div className="p-2.5 rounded-lg bg-card border border-border space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-foreground font-medium text-[11px] flex items-center gap-1">
+                        <Cake className="w-3.5 h-3.5 text-primary" />
+                        <span>Birthday</span>
+                      </label>
+                      <span className="text-[10px] text-muted font-mono">
+                        {settingsState.dateFormat || 'YYYY-MM-DD'}
+                      </span>
+                    </div>
+                    <BirthdayDatePicker
+                      value={newContactForm.birthday}
+                      onChange={(val) => setNewContactForm({ ...newContactForm, birthday: val })}
+                      placeholder={`${settingsState.dateFormat || 'YYYY-MM-DD'} (type or pick)`}
+                      displayFormat={settingsState.dateFormat}
+                    />
+                  </div>
+
+                  {/* Significant Dates & Events */}
+                  <div className="p-2.5 rounded-lg bg-card border border-border space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-foreground font-medium text-[11px] flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-amber-500" />
+                        <span>Anniversaries &amp; Events</span>
+                      </label>
+                    </div>
+
+                    <div className="space-y-2 max-h-[140px] overflow-y-auto scrollbar-thin pr-1">
+                      {newContactForm.significantDates.map((item, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <input
+                            value={item.label}
+                            onChange={(e) => {
+                              const updated = [...newContactForm.significantDates];
+                              updated[idx].label = e.target.value;
+                              setNewContactForm({ ...newContactForm, significantDates: updated });
+                            }}
+                            placeholder="Label (e.g. Anniversary)"
+                            className="w-1/2 px-2.5 py-1.5 rounded-lg bg-background border border-border text-[11px] text-foreground"
+                          />
+                          <div className="flex-1">
+                            <BirthdayDatePicker
+                              value={item.date}
+                              onChange={(val) => {
+                                const updated = [...newContactForm.significantDates];
+                                updated[idx].date = val;
+                                setNewContactForm({ ...newContactForm, significantDates: updated });
+                              }}
+                              placeholder={settingsState.dateFormat || 'YYYY-MM-DD'}
+                              displayFormat={settingsState.dateFormat}
+                            />
+                          </div>
+                          {newContactForm.significantDates.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = newContactForm.significantDates.filter((_, i) => i !== idx);
+                                setNewContactForm({ ...newContactForm, significantDates: updated });
+                              }}
+                              aria-label="Remove date"
+                              className="text-muted hover:text-overdue p-1"
+                              title="Remove"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Column 3: Notes, Pets & Relationship Context */}
+              <div className="h-full flex flex-col gap-3.5 overflow-y-auto scrollbar-thin pr-1">
+                {/* Notes */}
+                <div className="p-3.5 rounded-xl bg-background border border-border space-y-2 flex-1 flex flex-col min-h-[150px]">
+                  <div className="text-[12px] font-semibold text-foreground flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-primary" /> Notes &amp; Background
+                    </span>
+                  </div>
+                  <textarea
+                    rows={4}
+                    value={newContactForm.notes}
+                    onChange={(e) =>
+                      setNewContactForm({ ...newContactForm, notes: e.target.value })
+                    }
+                    placeholder="Context, how you met, mutual friends, family details, key topics or things to remember…"
+                    className="w-full flex-1 min-h-[110px] p-2.5 rounded-lg bg-card border border-border text-[12px] text-foreground placeholder:text-muted/70 focus:outline-none focus:ring-1 focus:ring-primary resize-none leading-relaxed"
+                  />
+                </div>
+
+                {/* Pets (Optional) */}
+                <div className="p-3.5 rounded-xl bg-background border border-border space-y-2">
+                  <div className="text-[12px] font-semibold text-foreground flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <span>🐾 Pets (Optional)</span>
+                    </span>
+                    <span className="text-[10px] text-muted">
+                      {newContactForm.pets.length} recorded
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 min-h-[26px]">
+                    {newContactForm.pets.map((pet, idx) => (
+                      <span
+                        key={idx}
+                        className="px-2 py-0.5 rounded-md bg-card border border-border text-foreground font-medium text-[11px] flex items-center gap-1"
+                      >
+                        🐾 {pet}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNewContactForm({
+                              ...newContactForm,
+                              pets: newContactForm.pets.filter((_, i) => i !== idx),
+                            });
+                          }}
+                          className="hover:text-overdue ml-0.5"
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                    {newContactForm.pets.length === 0 && (
+                      <span className="text-[11px] text-muted">No pets added yet</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <input
+                      value={newContactForm.petInput}
+                      onChange={(e) =>
+                        setNewContactForm({ ...newContactForm, petInput: e.target.value })
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (newContactForm.petInput.trim()) {
+                            setNewContactForm({
+                              ...newContactForm,
+                              pets: [...newContactForm.pets, newContactForm.petInput.trim()],
+                              petInput: '',
+                            });
+                          }
+                        }
+                      }}
+                      placeholder="Add pet name (e.g. Milo)…"
+                      className="flex-1 px-2.5 py-1 rounded-md bg-card border border-border text-[11px] text-foreground"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (newContactForm.petInput.trim()) {
+                          setNewContactForm({
+                            ...newContactForm,
+                            pets: [...newContactForm.pets, newContactForm.petInput.trim()],
+                            petInput: '',
+                          });
+                        }
+                      }}
+                      className="px-2.5 py-1 min-h-[26px] rounded-md bg-background hover:bg-card-hover border border-border text-[11px] font-medium text-foreground"
+                    >
+                      Add Pet
+                    </button>
+                  </div>
+                </div>
+
+                {/* Directory Sync & Multi-Add Footer Info */}
+                <div className="p-3.5 rounded-xl bg-background border border-border space-y-2">
+                  <div className="text-[11px] text-muted leading-relaxed">
+                    Once saved, this contact is added to your local directory and tracked in the cadence scheduler.
+                  </div>
+                  <div className="sm:hidden flex flex-col gap-2 pt-2 border-t border-border">
+                    <label className="flex items-center gap-2 cursor-pointer text-muted hover:text-foreground text-[12px]">
+                      <input
+                        type="checkbox"
+                        checked={addMoreContact}
+                        onChange={(e) => setAddMoreContact(e.target.checked)}
+                        className="rounded-sm border-border text-primary focus:ring-0"
+                      />
+                      <span>Create Another After Saving</span>
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowNewContactModal(false)}
+                        className="flex-1 py-2 rounded-lg border border-border text-xs font-medium"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="flex-1 py-2 rounded-lg bg-primary text-primary-fg text-xs font-semibold"
+                      >
+                        Save Contact
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </form>
