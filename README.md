@@ -3,7 +3,12 @@
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
 [![Docker: ARM64 & AMD64](https://img.shields.io/badge/Docker-ARM64%20%2F%20AMD64-2496ED.svg)](Dockerfile)
 [![Database: SQLite WAL](https://img.shields.io/badge/Database-SQLite%20(Embedded)-003B57.svg)](src/db/schema.ts)
+[![Built with AI](https://img.shields.io/badge/Built%20with-AI%20🤖-8A2BE2.svg)](#-built-with-ai)
 
+> 🤖 **Built with AI**
+>
+> Touchpoint is an open-source application architected, engineered, and designed collaboratively with AI.
+>
 > 🔔 **Active Development Notice**
 >
 > Touchpoint is under active development. Check [CHANGELOG.md](CHANGELOG.md) before updating your container to review new features or configuration updates.
@@ -20,6 +25,7 @@
 - 🧠 **Anti-Fatigue Smart Spreading**: Caps daily reminders at your configured limit (e.g. `3/day`) and gracefully balances rhythms with optional $\pm 15\%$ cadence fuzziness.
 - 🎛️ **Horizontal Cockpit UI**: Wide 3-column unscrollable cockpit for viewing and creating contacts with live avatar previews, contact channels (Call, WhatsApp, SMS, Email), and milestone trackers.
 - 🕸️ **Visual Relationship Graph**: Interactive 2D network map visualizing family trees, spouses, colleagues, and mutual introductions.
+- 🤖 **Built with AI**: Entirely engineered, designed, and tested using autonomous AI pair-programming workflows.
 - 🚀 **Zero-Fuss Deployment**: `docker compose up -d` and you're ready in seconds.
 
 ---
@@ -157,6 +163,12 @@ npm run dev
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) - Contribution guidelines and PR workflow
 - [`SECURITY.md`](SECURITY.md) - Security model and vulnerability disclosure policy
 - [`LICENSE`](LICENSE) - GNU Affero General Public License v3.0 (AGPL-3.0)
+
+---
+
+## 🤖 Built with AI
+
+Touchpoint was architected, written, and maintained collaboratively using modern agentic AI pair-programming. Every layer—from the embedded SQLite WAL schema and anti-fatigue smart spreading algorithm to the horizontal cockpit interface, bidirectional relationship graph, and zero-port Telegram bot—was crafted, verified, and continuously refined with AI.
 
 ---
 
