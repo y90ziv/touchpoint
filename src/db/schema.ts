@@ -72,6 +72,8 @@ export const contacts = sqliteTable(
     company: text('company'),
     jobTitle: text('job_title'),
     pets: text('pets').notNull().default('[]'), // JSON array of strings e.g. ["Barnaby (Golden Retriever)"]
+    country: text('country'),
+    postalCode: text('postal_code'),
     birthday: text('birthday'), // YYYY-MM-DD or MM-DD
     significantDate: text('significant_date'), // YYYY-MM-DD or MM-DD
     significantDateLabel: text('significant_date_label'), // e.g. "Anniversary", "Wedding", "First Met"
@@ -185,6 +187,7 @@ export const googleSyncTombstones = sqliteTable(
     id: integer('id').primaryKey({ autoIncrement: true }),
     googleResourceName: text('google_resource_name').notNull(),
     reason: text('reason').notNull().default('merged'), // 'merged' | 'deleted'
+    contactName: text('contact_name'),
     targetContactId: integer('target_contact_id').references(() => contacts.id, {
       onDelete: 'set null',
     }),

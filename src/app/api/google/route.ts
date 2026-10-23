@@ -5,6 +5,9 @@ import {
   runLiveGooglePeopleSync,
   pushScheduleToGoogleCalendar,
   testGoogleConnection,
+  listGoogleSyncTombstones,
+  deleteGoogleSyncTombstone,
+  clearAllDeletedGoogleSyncTombstones,
 } from '@/lib/google-sync';
 import { listContactsWithDetails } from '@/lib/contacts-service';
 import { getDb, runWithUser } from '@/db';
@@ -49,6 +52,18 @@ export async function GET(request: Request) {
     async () => {
       try {
         const { searchParams } = new URL(request.url);
+        const mode = searchParams.get('mode');
+
+        if (mode === 'tombstones') {
+          const tombstones = listGoogleSyncTombstones();
+          logger.http('GET', '/api/google?mode=tombstones', 200, Date.now() - start, {
+            count: tombstones.length,
+            userId,
+            requestId,
+          });
+          return NextResponse.json({ tombstones, requestId });
+        }
+
         const code = searchParams.get('code');
         const state = searchParams.get('state');
         const clientRedirectUri = searchParams.get('redirect_uri');
@@ -133,9 +148,36 @@ export async function POST(request: Request) {
           return NextResponse.json({ ...result, requestId });
         }
 
-        const summary = await runLiveGooglePeopleSync(redirectUri);
-        logger.http('POST', '/api/google (sync)', 200, Date.now() - start, {
+        if (action === 'unblock_tombstone') {
+          const tombstoneId = Number(body.tombstoneId);
+          if (!tombstoneId) {
+            return NextResponse.json({ error: 'tombstoneId is required', requestId }, { status: 400 });
+          }
+          const success = deleteGoogleSyncTombstone(tombstoneId);
+          logger.http('POST', '/api/google (unblock_tombstone)', 200, Date.now() - start, {
+            tombstoneId,
+            success,
+            userId,
+            requestId,
+          });
+          return NextResponse.json({ success, requestId });
+        }
+
+        if (action === 'clear_deleted_tombstones') {
+          const count = clearAllDeletedGoogleSyncTombstones();
+          logger.http('POST', '/api/google (clear_deleted_tombstones)', 200, Date.now() - start, {
+            count,
+            userId,
+            requestId,
+          });
+          return NextResponse.json({ success: true, count, requestId });
+        }
+
+        const fullRescan = Boolean(body.fullRescan);
+        const summary = await runLiveGooglePeopleSync(redirectUri, { fullRescan });
+        logger.http('POST', `/api/google (sync${fullRescan ? '_full_rescan' : ''})`, 200, Date.now() - start, {
           ...summary,
+          fullRescan,
           userId,
           requestId,
         });

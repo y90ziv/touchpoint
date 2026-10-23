@@ -90,6 +90,8 @@ describe('Security & Multi-Tenancy Features', () => {
         company TEXT,
         job_title TEXT,
         pets TEXT NOT NULL DEFAULT '[]',
+        country TEXT,
+        postal_code TEXT,
         birthday TEXT,
         significant_date TEXT,
         significant_date_label TEXT,

@@ -60,8 +60,8 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      data-theme="leadflow"
-      data-mode="dark"
+      data-theme="sbb"
+      data-mode="light"
       className={`${geistSans.variable} ${geistMono.variable} ${libreBaskerville.variable} font-sans h-full w-full overflow-hidden`}
       suppressHydrationWarning
     >

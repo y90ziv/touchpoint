@@ -105,7 +105,7 @@ export function CountryCodeSelect({
         onClick={() => setIsOpen((prev) => !prev)}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
-        className="w-full min-h-[38px] px-3 py-2 rounded-lg bg-background border border-border hover:border-primary/50 text-foreground text-left flex items-center justify-between gap-2 transition focus:outline-none focus:ring-2 focus:ring-primary/20"
+        className="w-full min-h-[38px] px-3 py-2 rounded-lg bg-background border border-border hover:border-primary/50 text-foreground text-left flex items-center justify-between gap-2 transition duration-160 ease-snappy-out active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
       >
         <span className="flex items-center gap-2 min-w-0 truncate">
           {selectedCountry ? (
@@ -135,7 +135,7 @@ export function CountryCodeSelect({
 
       {/* Dropdown Popover */}
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-card border border-border rounded-xl shadow-2xl p-2 space-y-2 text-xs animate-in fade-in zoom-in-95 duration-100 max-h-72 flex flex-col">
+        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-card border border-border rounded-xl shadow-md p-2 space-y-2 text-xs motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-reduce:animate-none duration-100 max-h-72 flex flex-col">
           {/* Search Bar */}
           <div className="relative shrink-0">
             <Search className="w-3.5 h-3.5 text-muted absolute left-2.5 top-2.5" />
@@ -143,7 +143,7 @@ export function CountryCodeSelect({
               ref={searchInputRef}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search country, code, or dial code (+972)..."
+              placeholder="Search country, code, or dial code (+972)…"
               className="w-full pl-8 pr-7 py-1.5 rounded-lg bg-background border border-border text-foreground text-xs focus:outline-none focus:border-primary placeholder:text-muted"
             />
             {search && (
@@ -173,7 +173,7 @@ export function CountryCodeSelect({
                       key={c.iso}
                       type="button"
                       onClick={() => handleSelect(c)}
-                      className={`w-full px-2.5 py-1.5 rounded-lg flex items-center justify-between text-left transition ${
+                      className={`w-full px-2.5 py-1.5 rounded-lg flex items-center justify-between text-left transition duration-160 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed ${
                         isSelected
                           ? 'bg-primary/10 text-primary font-semibold'
                           : 'hover:bg-card-hover text-foreground'
@@ -199,8 +199,8 @@ export function CountryCodeSelect({
             ) : (
               // Standard View: Popular first, then All Countries
               <>
-                <div className="px-2 pt-1 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-muted">
-                  Popular Calling Codes
+                <div className="px-2 pt-1 pb-0.5 text-xs font-medium text-muted">
+                  Popular calling codes
                 </div>
                 {POPULAR_COUNTRIES.map((c) => {
                   const isSelected = selectedCountry?.iso === c.iso;
@@ -209,7 +209,7 @@ export function CountryCodeSelect({
                       key={`popular-${c.iso}`}
                       type="button"
                       onClick={() => handleSelect(c)}
-                      className={`w-full px-2.5 py-1.5 rounded-lg flex items-center justify-between text-left transition ${
+                      className={`w-full px-2.5 py-1.5 rounded-lg flex items-center justify-between text-left transition duration-160 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed ${
                         isSelected
                           ? 'bg-primary/10 text-primary font-semibold'
                           : 'hover:bg-card-hover text-foreground'
@@ -229,8 +229,8 @@ export function CountryCodeSelect({
                   );
                 })}
 
-                <div className="px-2 pt-2.5 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-muted border-t border-border mt-1">
-                  All Countries (A–Z)
+                <div className="px-2 pt-2.5 pb-0.5 text-xs font-medium text-muted border-t border-border mt-1">
+                  All countries (A–Z)
                 </div>
                 {ALL_COUNTRIES.map((c) => {
                   const isSelected = selectedCountry?.iso === c.iso;
@@ -239,7 +239,7 @@ export function CountryCodeSelect({
                       key={c.iso}
                       type="button"
                       onClick={() => handleSelect(c)}
-                      className={`w-full px-2.5 py-1.5 rounded-lg flex items-center justify-between text-left transition ${
+                      className={`w-full px-2.5 py-1.5 rounded-lg flex items-center justify-between text-left transition duration-160 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed ${
                         isSelected
                           ? 'bg-primary/10 text-primary font-semibold'
                           : 'hover:bg-card-hover text-foreground'

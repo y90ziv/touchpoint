@@ -28,7 +28,11 @@ export interface GooglePersonCandidate {
  */
 export function importGoogleCandidatesAdditiveOnly(
   candidates: GooglePersonCandidate[],
-  options: { skipEmailOnly?: boolean; lastGoogleSyncAt?: string | null } = {}
+  options: {
+    skipEmailOnly?: boolean;
+    lastGoogleSyncAt?: string | null;
+    fullRescan?: boolean;
+  } = {}
 ): {
   scanned: number;
   imported: number;
@@ -82,16 +86,17 @@ export function importGoogleCandidatesAdditiveOnly(
       continue;
     }
 
-    // Rule 2 (Option 3): If an initial sync has already occurred, skip candidates whose Google
-    // updateTime is older than or equal to lastGoogleSyncAt (and backfill a tombstone so they
-    // stay permanently dismissed even if touched later).
-    if (!Number.isNaN(lastSyncEpochMs) && person.updatedAt) {
+    // Rule 2 (Option 3): If an initial sync has already occurred (and not in fullRescan mode),
+    // skip candidates whose Google updateTime is older than or equal to lastGoogleSyncAt
+    // (and backfill a tombstone so they stay permanently dismissed even if touched later).
+    if (!options.fullRescan && !Number.isNaN(lastSyncEpochMs) && person.updatedAt) {
       const candidateEpochMs = Date.parse(person.updatedAt);
       if (!Number.isNaN(candidateEpochMs) && candidateEpochMs <= lastSyncEpochMs) {
         db.insert(googleSyncTombstones)
           .values({
             googleResourceName: person.resourceName,
             reason: 'merged',
+            contactName: person.fullName || null,
             createdAt: now,
           })
           .onConflictDoNothing()
@@ -184,7 +189,10 @@ export function generateGoogleAuthUrl(redirectUri: string): string {
   });
 }
 
-export async function runLiveGooglePeopleSync(redirectUri: string) {
+export async function runLiveGooglePeopleSync(
+  redirectUri: string,
+  options: { fullRescan?: boolean } = {}
+) {
   const db = getDb();
   const cfg = db.select().from(settings).get();
   if (!cfg?.googleRefreshToken) {
@@ -198,7 +206,9 @@ export async function runLiveGooglePeopleSync(redirectUri: string) {
   const candidates: GooglePersonCandidate[] = [];
   let nextPageToken: string | undefined = undefined;
 
-  logger.info('google.sync', 'Fetching contacts from Google People API (outbound permitted)');
+  logger.info('google.sync', 'Fetching contacts from Google People API (outbound permitted)', {
+    fullRescan: options.fullRescan,
+  });
 
   do {
     const res: { data: { connections?: Array<Record<string, any>>; nextPageToken?: string | null } } =
@@ -256,6 +266,7 @@ export async function runLiveGooglePeopleSync(redirectUri: string) {
   return importGoogleCandidatesAdditiveOnly(candidates, {
     skipEmailOnly: cfg.skipGoogleEmailOnly,
     lastGoogleSyncAt: cfg.lastGoogleSyncAt,
+    fullRescan: options.fullRescan,
   });
 }
 
@@ -428,5 +439,51 @@ export async function testGoogleConnection(redirectUri: string): Promise<{
     ok: true,
     totalGoogleContactsSampled: count,
   };
+}
+
+export interface GoogleSyncTombstoneItem {
+  id: number;
+  googleResourceName: string;
+  reason: 'merged' | 'deleted';
+  contactName: string | null;
+  targetContactId: number | null;
+  targetContactName?: string | null;
+  createdAt: string;
+}
+
+export function listGoogleSyncTombstones(): GoogleSyncTombstoneItem[] {
+  const db = getDb();
+  const rows = db.select().from(googleSyncTombstones).all();
+  const allContacts = db
+    .select({ id: contacts.id, fullName: contacts.fullName })
+    .from(contacts)
+    .all();
+  const contactMap = new Map(allContacts.map((c) => [c.id, c.fullName]));
+
+  return rows.map((r) => ({
+    id: r.id,
+    googleResourceName: r.googleResourceName,
+    reason: r.reason as 'merged' | 'deleted',
+    contactName: r.contactName || null,
+    targetContactId: r.targetContactId || null,
+    targetContactName: r.targetContactId ? contactMap.get(r.targetContactId) || null : null,
+    createdAt: r.createdAt,
+  }));
+}
+
+export function deleteGoogleSyncTombstone(id: number): boolean {
+  const db = getDb();
+  const res = db.delete(googleSyncTombstones).where(eq(googleSyncTombstones.id, id)).run();
+  logger.info('google.tombstone', 'Unblocked Google contact tombstone', { id });
+  return res.changes > 0;
+}
+
+export function clearAllDeletedGoogleSyncTombstones(): number {
+  const db = getDb();
+  const res = db.delete(googleSyncTombstones).where(eq(googleSyncTombstones.reason, 'deleted')).run();
+  logger.info('google.tombstone', 'Cleared all deleted Google contact tombstones', {
+    count: res.changes,
+  });
+  return res.changes;
 }
 

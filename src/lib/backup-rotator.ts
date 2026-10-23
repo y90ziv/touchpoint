@@ -222,6 +222,29 @@ export function enforceBackupRetention(userId: number = 1): { removedCount: numb
 }
 
 /**
+ * Permanently deletes all database snapshots for the user.
+ */
+export function deleteAllSnapshots(userId: number = 1): { deletedCount: number } {
+  const backupDir = getBackupsDirectory();
+  const allSnapshots = listDatabaseSnapshots(userId);
+  let deletedCount = 0;
+  for (const s of allSnapshots) {
+    try {
+      const fullPath = path.join(backupDir, s.filename);
+      if (fs.existsSync(fullPath)) {
+        fs.unlinkSync(fullPath);
+        deletedCount++;
+      }
+    } catch (err) {
+      logger.warn('backup.cleanup', `Failed to delete snapshot ${s.filename}`, { error: String(err) });
+    }
+  }
+
+  logger.info('backup.cleanup', `Deleted all ${deletedCount} snapshots for user ${userId}`);
+  return { deletedCount };
+}
+
+/**
  * Executes a scheduled rotation pass (creates daily snapshot and applies retention).
  */
 export function runScheduledBackupRotation(userId: number = 1) {

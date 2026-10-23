@@ -3,6 +3,7 @@ import {
   listDatabaseSnapshots,
   createDatabaseSnapshot,
   enforceBackupRetention,
+  deleteAllSnapshots,
 } from '@/lib/backup-rotator';
 import { getRequestUserId } from '@/lib/auth';
 import { runWithUser } from '@/db';
@@ -33,6 +34,25 @@ export async function POST(request: Request) {
       logger.error('api.backup.snapshots.post', 'Failed to generate manual snapshot', err);
       return NextResponse.json(
         { error: err instanceof Error ? err.message : 'Snapshot generation failed' },
+        { status: 500 }
+      );
+    }
+  });
+}
+
+export async function DELETE(request: Request) {
+  const start = Date.now();
+  const userId = getRequestUserId(request);
+
+  return runWithUser(userId, () => {
+    try {
+      const { deletedCount } = deleteAllSnapshots(userId);
+      logger.http('DELETE', '/api/backup/snapshots', 200, Date.now() - start, { userId, deletedCount });
+      return NextResponse.json({ success: true, deletedCount });
+    } catch (err) {
+      logger.error('api.backup.snapshots.delete', 'Failed to clean all snapshots', err);
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : 'Failed to clean snapshots' },
         { status: 500 }
       );
     }

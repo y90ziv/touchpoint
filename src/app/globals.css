@@ -1,230 +1,340 @@
+/* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V5 · weakest: S, PRM interface refined for high-craft tactile productivity · shape: app screen · posture: restrained */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* 0A. SBB Chronometer Dispatch (Apple HIG + Studio Craft Refined) */
+/* =========================================================================
+   1. GLOBAL MOTION & EASING PRIMITIVES (Emil Kowalski Design Engineering)
+   ========================================================================= */
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-micro: 120ms;
+  --dur-short: 160ms;
+  --dur-medium: 220ms;
+  --dur-long: 300ms;
+  --transform-origin: top center;
+  --tp-popover-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+  --tp-slider-track: rgba(140, 140, 150, 0.25);
+  --tp-slider-thumb-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  --tp-badge-warning: #92400e;
+  --tp-badge-success: #166534;
+}
+
+[data-mode="dark"] {
+  --tp-badge-warning: var(--tp-warning);
+  --tp-badge-success: var(--tp-success);
+}
+
+/* =========================================================================
+   2. THEME DEFINITIONS (Semantic OKLCH / Tinted Values across 6 Presets)
+   ========================================================================= */
+
+/* --- 0A. SBB Chronometer Dispatch (Light) --- */
 [data-theme="sbb"][data-mode="light"],
 :root[data-mode="light"]:not([data-theme]),
 :root[data-theme="sbb"]:not([data-mode="dark"]) {
-  --tp-bg: #f6f6f3;
-  --tp-sidebar: #141619;
-  --tp-card: #ffffff;
-  --tp-card-hover: #efefe9;
-  --tp-border: #d4d7dc;
-  --tp-text: #141619;
+  --tp-bg: #f5f5f2;
+  --tp-sidebar: #15171a;
+  --tp-card: #fcfcfb;
+  --tp-card-hover: #ecece7;
+  --tp-border: #d2d6dc;
+  --tp-text: #15171a;
   --tp-muted: #525866;
-  --tp-primary: #c92121;
-  --tp-primary-fg: #ffffff;
-  --tp-overdue: #c92121;
-  --tp-warning: #b45309;
-  --tp-success: #15803d;
+  --tp-primary: #c82020;
+  --tp-primary-fg: #fbfbfa;
+  --tp-overdue: #dc2626;
+  --tp-warning: #d97706;
+  --tp-success: #16a34a;
+  --tp-info: #2563eb;
+  --tp-ground: #f5f5f2;
+  --tp-well: color-mix(in srgb, #525866 14%, transparent);
+  --tp-surface-card: #fcfcfb;
   --tp-font-heading: -apple-system, BlinkMacSystemFont, var(--font-geist-sans), 'Inter', sans-serif;
   --tp-font-body: -apple-system, BlinkMacSystemFont, var(--font-geist-sans), 'Inter', sans-serif;
 }
 
+/* --- 0A. SBB Chronometer Dispatch (Dark) --- */
 [data-theme="sbb"][data-mode="dark"],
 :root[data-mode="dark"]:not([data-theme]),
 :root:not([data-mode="light"]):not([data-theme]) {
-  --tp-bg: #0c0e12;
+  --tp-bg: #0b0d11;
   --tp-sidebar: #08090c;
-  --tp-card: #14171d;
-  --tp-card-hover: #1c2029;
-  --tp-border: #262b36;
-  --tp-text: #f6f6f3;
+  --tp-card: #13161c;
+  --tp-card-hover: #1b1e26;
+  --tp-border: #242833;
+  --tp-text: #f5f5f2;
   --tp-muted: #9ca3b5;
-  --tp-primary: #c92121;
-  --tp-primary-fg: #ffffff;
-  --tp-overdue: #ef4444;
+  --tp-primary: #d92b2b;
+  --tp-primary-fg: #fbfbfa;
+  --tp-overdue: #dc2626;
   --tp-warning: #f59e0b;
   --tp-success: #10b981;
+  --tp-info: #367ef2;
+  --tp-ground: #0b0d11;
+  --tp-well: color-mix(in srgb, #9ca3b5 14%, transparent);
+  --tp-surface-card: #13161c;
   --tp-font-heading: -apple-system, BlinkMacSystemFont, var(--font-geist-sans), 'Inter', sans-serif;
   --tp-font-body: -apple-system, BlinkMacSystemFont, var(--font-geist-sans), 'Inter', sans-serif;
 }
 
-/* 0B. Obsidian & Electric Cobalt (LeadFlow) */
+/* --- 0B. Electric Cobalt / LeadFlow (Light) --- */
+[data-theme="leadflow"][data-mode="light"],
+[data-theme="cobalt"][data-mode="light"],
+:root[data-theme="leadflow"]:not([data-mode="dark"]),
+:root[data-theme="cobalt"]:not([data-mode="dark"]),
+[data-theme="leadflow"]:not([data-mode="dark"]),
+[data-theme="cobalt"]:not([data-mode="dark"]) {
+  --tp-bg: #f7f9fd;
+  --tp-sidebar: #eff2f7;
+  --tp-card: #fcfdfe;
+  --tp-card-hover: #f1f4f9;
+  --tp-border: #dae1eb;
+  --tp-text: #0e1218;
+  --tp-muted: #5b6678;
+  --tp-primary: #2563eb;
+  --tp-primary-fg: #fbfdfe;
+  --tp-overdue: #dc2626;
+  --tp-warning: #d97706;
+  --tp-success: #16a34a;
+  --tp-info: #2563eb;
+  --tp-ground: #f7f9fd;
+  --tp-well: color-mix(in srgb, #5b6678 14%, transparent);
+  --tp-surface-card: #fcfdfe;
+  --tp-font-heading: var(--font-geist-sans), -apple-system, sans-serif;
+  --tp-font-body: var(--font-geist-sans), -apple-system, sans-serif;
+}
+
+/* --- 0B. Electric Cobalt / LeadFlow (Dark) --- */
 [data-theme="leadflow"][data-mode="dark"],
 [data-theme="cobalt"][data-mode="dark"] {
-  --tp-bg: #09090b;
-  --tp-sidebar: #0c0d0f;
-  --tp-card: #121316;
-  --tp-card-hover: #17181d;
-  --tp-border: rgba(255, 255, 255, 0.09);
-  --tp-text: #fafafa;
-  --tp-muted: #8e8e99;
-  --tp-primary: #2b7fff;
-  --tp-primary-fg: #ffffff;
+  --tp-bg: #090b10;
+  --tp-sidebar: #0c0e14;
+  --tp-card: #11141c;
+  --tp-card-hover: #171b26;
+  --tp-border: #202637;
+  --tp-text: #f7f9fd;
+  --tp-muted: #8b95a8;
+  --tp-primary: #367ef2;
+  --tp-primary-fg: #0a0d13;
   --tp-overdue: #ef4444;
   --tp-warning: #f59e0b;
   --tp-success: #10b981;
+  --tp-info: #367ef2;
+  --tp-ground: #090b10;
+  --tp-well: color-mix(in srgb, #8b95a8 14%, transparent);
+  --tp-surface-card: #11141c;
   --tp-font-heading: var(--font-geist-sans), -apple-system, sans-serif;
   --tp-font-body: var(--font-geist-sans), -apple-system, sans-serif;
 }
 
-[data-theme="leadflow"][data-mode="light"],
-[data-theme="cobalt"][data-mode="light"] {
-  --tp-bg: #fbfbfc;
-  --tp-sidebar: #f4f4f6;
-  --tp-card: #ffffff;
-  --tp-card-hover: #f7f7f9;
-  --tp-border: rgba(0, 0, 0, 0.08);
-  --tp-text: #09090b;
-  --tp-muted: #64748b;
-  --tp-primary: #2b7fff;
-  --tp-primary-fg: #ffffff;
-  --tp-overdue: #ef4444;
-  --tp-warning: #f59e0b;
-  --tp-success: #10b981;
-  --tp-font-heading: var(--font-geist-sans), -apple-system, sans-serif;
-  --tp-font-body: var(--font-geist-sans), -apple-system, sans-serif;
+/* --- 1. Warm Studio (Light) --- */
+[data-theme="studio"][data-mode="light"],
+:root[data-theme="studio"]:not([data-mode="dark"]),
+[data-theme="studio"]:not([data-mode="dark"]) {
+  --tp-bg: #f7f5f0;
+  --tp-sidebar: #eeeae2;
+  --tp-card: #fcfbf8;
+  --tp-card-hover: #f3efe6;
+  --tp-border: #ded7cb;
+  --tp-text: #1c1917;
+  --tp-muted: #716a65;
+  --tp-primary: #c2410c;
+  --tp-primary-fg: #fdfbf7;
+  --tp-overdue: #dc2626;
+  --tp-warning: #d97706;
+  --tp-success: #059669;
+  --tp-info: #2563eb;
+  --tp-ground: #f7f5f0;
+  --tp-well: color-mix(in srgb, #78716c 14%, transparent);
+  --tp-surface-card: #fcfbf8;
+  --tp-font-heading: 'Outfit', var(--font-geist-sans), sans-serif;
+  --tp-font-body: 'Figtree', var(--font-geist-sans), sans-serif;
 }
 
-/* 1. Warm Studio */
+/* --- 1. Warm Studio (Dark) --- */
 [data-theme="studio"][data-mode="dark"] {
-  --tp-bg: #0c0b0a;
-  --tp-sidebar: #100f0e;
-  --tp-card: #161514;
-  --tp-card-hover: #1d1b1a;
-  --tp-border: rgba(255, 255, 255, 0.09);
-  --tp-text: #fafaf9;
-  --tp-muted: #9c9994;
-  --tp-primary: #e85d3a;
-  --tp-primary-fg: #ffffff;
+  --tp-bg: #0e0d0b;
+  --tp-sidebar: #12100e;
+  --tp-card: #171512;
+  --tp-card-hover: #201d19;
+  --tp-border: #2c2823;
+  --tp-text: #f5f3ef;
+  --tp-muted: #a8a29e;
+  --tp-primary: #f97316;
+  --tp-primary-fg: #0e0d0b;
   --tp-overdue: #e85d3a;
   --tp-warning: #d97706;
   --tp-success: #10b981;
+  --tp-info: #367ef2;
+  --tp-ground: #0e0d0b;
+  --tp-well: color-mix(in srgb, #a8a29e 14%, transparent);
+  --tp-surface-card: #171512;
   --tp-font-heading: var(--font-geist-sans), sans-serif;
   --tp-font-body: var(--font-geist-sans), sans-serif;
 }
 
-[data-theme="studio"][data-mode="light"] {
-  --tp-bg: #f9f8f6;
-  --tp-sidebar: #f2efe9;
-  --tp-card: #ffffff;
-  --tp-card-hover: #f5f3ef;
-  --tp-border: #e4e0d8;
-  --tp-text: #18181b;
-  --tp-muted: #71717a;
-  --tp-primary: #e85d3a;
-  --tp-primary-fg: #ffffff;
-  --tp-overdue: #dc2626;
+/* --- 2. Nordic Pine & Sage (Light) --- */
+[data-theme="nordic"][data-mode="light"],
+:root[data-theme="nordic"]:not([data-mode="dark"]),
+[data-theme="nordic"]:not([data-mode="dark"]) {
+  --tp-bg: #f2f5f3;
+  --tp-sidebar: #e7ece8;
+  --tp-card: #fbfcfb;
+  --tp-card-hover: #ebf0ec;
+  --tp-border: #d3ded6;
+  --tp-text: #111b15;
+  --tp-muted: #596b60;
+  --tp-primary: #047857;
+  --tp-primary-fg: #f0fdf4;
+  --tp-overdue: #b91c1c;
   --tp-warning: #d97706;
   --tp-success: #059669;
-  --tp-font-heading: 'Outfit', sans-serif;
-  --tp-font-body: 'Figtree', sans-serif;
+  --tp-info: #2563eb;
+  --tp-ground: #f2f5f3;
+  --tp-well: color-mix(in srgb, #596b60 14%, transparent);
+  --tp-surface-card: #fbfcfb;
+  --tp-font-heading: 'Plus Jakarta Sans', var(--font-geist-sans), sans-serif;
+  --tp-font-body: 'Inter', var(--font-geist-sans), sans-serif;
 }
 
-/* 2. Nordic Pine & Sage */
+/* --- 2. Nordic Pine & Sage (Dark) --- */
 [data-theme="nordic"][data-mode="dark"] {
-  --tp-bg: #0d1513;
-  --tp-sidebar: #090f0e;
-  --tp-card: #14201d;
-  --tp-card-hover: #1b2a26;
-  --tp-border: #233530;
-  --tp-text: #f0fdf4;
-  --tp-muted: #86a39b;
+  --tp-bg: #0a110e;
+  --tp-sidebar: #070d0b;
+  --tp-card: #101c17;
+  --tp-card-hover: #172620;
+  --tp-border: #1f332a;
+  --tp-text: #edf7f1;
+  --tp-muted: #829c8e;
   --tp-primary: #10b981;
-  --tp-primary-fg: #052e16;
+  --tp-primary-fg: #062116;
   --tp-overdue: #e07a5f;
   --tp-warning: #f59e0b;
   --tp-success: #10b981;
-  --tp-font-heading: 'Plus Jakarta Sans', sans-serif;
-  --tp-font-body: 'Inter', sans-serif;
+  --tp-info: #367ef2;
+  --tp-ground: #0a110e;
+  --tp-well: color-mix(in srgb, #829c8e 14%, transparent);
+  --tp-surface-card: #101c17;
+  --tp-font-heading: 'Plus Jakarta Sans', var(--font-geist-sans), sans-serif;
+  --tp-font-body: 'Inter', var(--font-geist-sans), sans-serif;
 }
 
-[data-theme="nordic"][data-mode="light"] {
-  --tp-bg: #f4f6f4;
-  --tp-sidebar: #ebefec;
-  --tp-card: #ffffff;
-  --tp-card-hover: #f8faf8;
-  --tp-border: #d8e0da;
-  --tp-text: #111c18;
-  --tp-muted: #5c7068;
-  --tp-primary: #059669;
-  --tp-primary-fg: #ffffff;
-  --tp-overdue: #d9534f;
+/* --- 3. Midnight Indigo (Light) --- */
+[data-theme="midnight"][data-mode="light"],
+:root[data-theme="midnight"]:not([data-mode="dark"]),
+[data-theme="midnight"]:not([data-mode="dark"]) {
+  --tp-bg: #f5f6fb;
+  --tp-sidebar: #ebedf5;
+  --tp-card: #fafbfe;
+  --tp-card-hover: #edf0f8;
+  --tp-border: #d5d9ec;
+  --tp-text: #0e1422;
+  --tp-muted: #5f6f88;
+  --tp-primary: #4f46e5;
+  --tp-primary-fg: #f7f9fd;
+  --tp-overdue: #be123c;
   --tp-warning: #d97706;
   --tp-success: #059669;
-  --tp-font-heading: 'Plus Jakarta Sans', sans-serif;
-  --tp-font-body: 'Inter', sans-serif;
+  --tp-info: #2563eb;
+  --tp-ground: #f5f6fb;
+  --tp-well: color-mix(in srgb, #5f6f88 14%, transparent);
+  --tp-surface-card: #fafbfe;
+  --tp-font-heading: 'Space Grotesk', var(--font-geist-sans), sans-serif;
+  --tp-font-body: 'DM Sans', var(--font-geist-sans), sans-serif;
 }
 
-/* 3. Midnight Indigo */
+/* --- 3. Midnight Indigo (Dark) --- */
 [data-theme="midnight"][data-mode="dark"] {
-  --tp-bg: #090d16;
-  --tp-sidebar: #06090f;
-  --tp-card: #111827;
-  --tp-card-hover: #1a2234;
-  --tp-border: #1f2937;
-  --tp-text: #f8fafc;
-  --tp-muted: #94a3b8;
-  --tp-primary: #6366f1;
-  --tp-primary-fg: #ffffff;
+  --tp-bg: #080a14;
+  --tp-sidebar: #060710;
+  --tp-card: #0f1222;
+  --tp-card-hover: #161a30;
+  --tp-border: #202542;
+  --tp-text: #f4f6fd;
+  --tp-muted: #8a93b5;
+  --tp-primary: #7c7ef8;
+  --tp-primary-fg: #080a14;
   --tp-overdue: #f43f5e;
   --tp-warning: #f59e0b;
   --tp-success: #10b981;
-  --tp-font-heading: 'Space Grotesk', sans-serif;
-  --tp-font-body: 'DM Sans', sans-serif;
+  --tp-info: #367ef2;
+  --tp-ground: #080a14;
+  --tp-well: color-mix(in srgb, #8a93b5 14%, transparent);
+  --tp-surface-card: #0f1222;
+  --tp-font-heading: 'Space Grotesk', var(--font-geist-sans), sans-serif;
+  --tp-font-body: 'DM Sans', var(--font-geist-sans), sans-serif;
 }
 
-[data-theme="midnight"][data-mode="light"] {
-  --tp-bg: #f8fafc;
-  --tp-sidebar: #f1f5f9;
-  --tp-card: #ffffff;
-  --tp-card-hover: #f8fafc;
-  --tp-border: #e2e8f0;
-  --tp-text: #0f172a;
-  --tp-muted: #64748b;
-  --tp-primary: #4f46e5;
-  --tp-primary-fg: #ffffff;
-  --tp-overdue: #e11d48;
-  --tp-warning: #d97706;
-  --tp-success: #059669;
-  --tp-font-heading: 'Space Grotesk', sans-serif;
-  --tp-font-body: 'DM Sans', sans-serif;
-}
-
-/* 4. Kyoto Ink & Gold */
-[data-theme="kyoto"][data-mode="dark"] {
-  --tp-bg: #121316;
-  --tp-sidebar: #0d0e11;
-  --tp-card: #191b20;
-  --tp-card-hover: #21242b;
-  --tp-border: #2a2d36;
-  --tp-text: #faf8f5;
-  --tp-muted: #9ca3af;
-  --tp-primary: #d97706;
-  --tp-primary-fg: #ffffff;
-  --tp-overdue: #ef4444;
-  --tp-warning: #f59e0b;
-  --tp-success: #10b981;
-  --tp-font-heading: 'Sora', sans-serif;
-  --tp-font-body: 'Plus Jakarta Sans', sans-serif;
-}
-
-[data-theme="kyoto"][data-mode="light"] {
-  --tp-bg: #faf8f5;
-  --tp-sidebar: #f2efe9;
-  --tp-card: #ffffff;
-  --tp-card-hover: #f9f6f0;
-  --tp-border: #e5e0d5;
-  --tp-text: #18181b;
-  --tp-muted: #71717a;
+/* --- 4. Kyoto Ink & Gold (Light) --- */
+[data-theme="kyoto"][data-mode="light"],
+:root[data-theme="kyoto"]:not([data-mode="dark"]),
+[data-theme="kyoto"]:not([data-mode="dark"]) {
+  --tp-bg: #f7f6f2;
+  --tp-sidebar: #edebe4;
+  --tp-card: #fcfbf9;
+  --tp-card-hover: #f2f0e8;
+  --tp-border: #dad6ca;
+  --tp-text: #171614;
+  --tp-muted: #736e64;
   --tp-primary: #b45309;
-  --tp-primary-fg: #ffffff;
+  --tp-primary-fg: #fffbeb;
   --tp-overdue: #dc2626;
   --tp-warning: #d97706;
   --tp-success: #059669;
-  --tp-font-heading: 'Sora', sans-serif;
-  --tp-font-body: 'Plus Jakarta Sans', sans-serif;
+  --tp-info: #2563eb;
+  --tp-ground: #f7f6f2;
+  --tp-well: color-mix(in srgb, #736e64 14%, transparent);
+  --tp-surface-card: #fcfbf9;
+  --tp-font-heading: 'Sora', var(--font-geist-sans), sans-serif;
+  --tp-font-body: 'Plus Jakarta Sans', var(--font-geist-sans), sans-serif;
 }
 
-body {
+/* --- 4. Kyoto Ink & Gold (Dark) --- */
+[data-theme="kyoto"][data-mode="dark"] {
+  --tp-bg: #100f0d;
+  --tp-sidebar: #0c0b0a;
+  --tp-card: #181613;
+  --tp-card-hover: #22201b;
+  --tp-border: #302c25;
+  --tp-text: #f7f5f0;
+  --tp-muted: #a19b8e;
+  --tp-primary: #d97706;
+  --tp-primary-fg: #120e06;
+  --tp-overdue: #ef4444;
+  --tp-warning: #f59e0b;
+  --tp-success: #10b981;
+  --tp-info: #367ef2;
+  --tp-ground: #100f0d;
+  --tp-well: color-mix(in srgb, #a19b8e 14%, transparent);
+  --tp-surface-card: #181613;
+  --tp-font-heading: 'Sora', var(--font-geist-sans), sans-serif;
+  --tp-font-body: 'Plus Jakarta Sans', var(--font-geist-sans), sans-serif;
+}
+
+/* =========================================================================
+   3. BASE DOCUMENT RULES (Gate 34: overflow-x: clip, Gate F3: balanced heads)
+   ========================================================================= */
+html, body {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: clip;
   background-color: var(--tp-bg);
   color: var(--tp-text);
   font-family: var(--tp-font-body);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1, h2, h3 {
+  font-family: var(--tp-font-heading);
+  text-wrap: balance;
+}
+
+h4, h5, h6 {
   font-family: var(--tp-font-heading);
 }
 
@@ -254,6 +364,130 @@ select {
   background: var(--tp-muted);
 }
 
+/* =========================================================================
+   4. EMIL KOWALSKI TACTILE INTERACTION PRIMITIVES
+   ========================================================================= */
+
+/* Press Feedback: subtle scale on active */
+.tp-pressable,
+.active-scale-97 {
+  transition: transform var(--dur-short) var(--ease-out), background-color var(--dur-short) var(--ease-out);
+}
+.tp-pressable:active,
+.active-scale-97:active {
+  transform: scale(0.97);
+}
+
+/* Entrances: animate from scale(0.95) with opacity: 0 (never scale(0)) */
+@keyframes tpFadeScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.tp-entrance {
+  animation: tpFadeScaleIn var(--dur-medium) var(--ease-out) forwards;
+}
+
+/* Origin-Aware Popovers */
+.tp-popover {
+  transform-origin: var(--transform-origin, top center);
+  transition: opacity var(--dur-short) var(--ease-out), transform var(--dur-short) var(--ease-out);
+}
+
+/* Stagger Animations: 35ms cascading delays for list and card entrances */
+.stagger-1 { animation-delay: 35ms; }
+.stagger-2 { animation-delay: 70ms; }
+.stagger-3 { animation-delay: 105ms; }
+.stagger-4 { animation-delay: 140ms; }
+.stagger-5 { animation-delay: 175ms; }
+.stagger-6 { animation-delay: 210ms; }
+.stagger-7 { animation-delay: 245ms; }
+.stagger-8 { animation-delay: 280ms; }
+
+/* Pointer:fine Hover Protection (no sticky hover on touch) */
+@media (hover: hover) and (pointer: fine) {
+  .tp-hover-card:hover {
+    background-color: var(--tp-card-hover);
+  }
+  .tp-hover-border:hover {
+    border-color: var(--tp-border);
+  }
+}
+
+/* =========================================================================
+   5. SURFACE LADDER UTILITY CLASSES (Hallmark Anti-Slop)
+   ========================================================================= */
+.bg-ground {
+  background-color: var(--tp-ground);
+}
+
+.bg-well {
+  background-color: var(--tp-well);
+}
+
+.bg-surface-card {
+  background-color: var(--tp-surface-card);
+  color: var(--tp-text);
+  border: 1px solid var(--tp-border);
+}
+
+/* Badge contrast floor enforcement (WCAG AA 4.5:1 text on card surface) */
+.tp-badge-warning {
+  color: var(--tp-badge-warning);
+}
+
+.tp-badge-success {
+  color: var(--tp-badge-success);
+}
+
+/* =========================================================================
+   6. ACCESSIBLE CONTROLS, FOCUS RINGS & REDUCED MOTION (Gates 15, 26a, 26b, 27)
+   ========================================================================= */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--tp-primary);
+  outline-offset: 2px;
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .tp-entrance {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* =========================================================================
+   7. COMPONENT SPECIFIC THEMED OVERRIDES (No Color Literals)
+   ========================================================================= */
+
 /* React Datepicker Touchpoint Theme Overrides */
 .react-datepicker-wrapper {
   width: 100%;
@@ -266,7 +500,7 @@ select {
   color: var(--tp-text) !important;
   border: 1px solid var(--tp-border) !important;
   border-radius: 0.75rem !important;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--tp-popover-shadow) !important;
   font-family: inherit !important;
   padding: 0.5rem;
 }
@@ -293,7 +527,7 @@ select {
   color: var(--tp-text) !important;
   border-radius: 0.375rem !important;
   font-size: 0.8125rem;
-  transition: all 0.15s ease;
+  transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out) !important;
 }
 .react-datepicker__day:hover {
   background-color: var(--tp-card-hover) !important;
@@ -347,106 +581,90 @@ select {
   background-color: var(--tp-primary) !important;
 }
 
-/* Full Viewport 100% Scaling — No Outer Slack/Scrollbar */
-html, body {
-  height: 100%;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-}
-
-/* Accessible & Visible Range Slider Track & Thumb */
+/* Accessible Range Slider Track & Thumb */
 input[type="range"] {
   accent-color: var(--tp-primary);
 }
 
 input[type="range"]::-webkit-slider-runnable-track {
   height: 8px;
-  background-color: rgba(140, 140, 150, 0.25);
+  background-color: var(--tp-slider-track);
   border: 1px solid var(--tp-border);
   border-radius: 9999px;
 }
 
 input[type="range"]::-moz-range-track {
   height: 8px;
-  background-color: rgba(140, 140, 150, 0.25);
+  background-color: var(--tp-slider-track);
   border: 1px solid var(--tp-border);
   border-radius: 9999px;
 }
 
 input[type="range"]::-webkit-slider-thumb {
-  margin-top: -5px;
-  height: 18px;
-  width: 18px;
+  margin-top: -4px;
+  height: 16px;
+  width: 16px;
   border-radius: 9999px;
   background-color: var(--tp-primary);
-  border: 2px solid #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  border: 2px solid var(--tp-card);
+  box-shadow: var(--tp-slider-thumb-shadow);
   cursor: pointer;
   -webkit-appearance: none;
 }
 
 input[type="range"]::-moz-range-thumb {
-  height: 18px;
-  width: 18px;
+  height: 16px;
+  width: 16px;
   border-radius: 9999px;
   background-color: var(--tp-primary);
-  border: 2px solid #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  border: 2px solid var(--tp-card);
+  box-shadow: var(--tp-slider-thumb-shadow);
   cursor: pointer;
 }
 
-/* SBB Chronometer Dispatch System Primitives — Refined per Apple HIG & Studio Craft */
+/* Cadence Status Indicators & Batons (Sentence Case, Untracked, Semantic Variables) */
 .sbb-baton {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
   padding: 0.2rem 0.5rem;
-  border-radius: 5px;
-  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  border-radius: 6px;
+  font-family: var(--tp-font-body);
   font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   line-height: 1.25;
 }
 
 .sbb-baton-overdue {
-  background-color: #c92121; /* 5.94:1 with #ffffff */
-  color: #ffffff;
+  background-color: var(--tp-overdue);
+  color: var(--tp-primary-fg);
 }
 
 .sbb-baton-due {
-  background-color: #0050d8; /* 6.45:1 with #ffffff */
-  color: #ffffff;
+  background-color: var(--tp-info);
+  color: var(--tp-primary-fg);
 }
 
 .sbb-baton-warning {
-  background-color: #b45309; /* 5.02:1 with #ffffff */
-  color: #ffffff;
+  background-color: var(--tp-warning);
+  color: var(--tp-primary-fg);
 }
 
 .sbb-baton-ok {
-  background-color: #141619; /* 16.7:1 with #f6f6f3 */
-  color: #f6f6f3;
-}
-
-:root[data-mode="dark"] .sbb-baton-ok {
-  background-color: #262b36;
-  color: #f6f6f3;
+  background-color: var(--tp-well);
+  color: var(--tp-text);
+  border: 1px solid var(--tp-border);
 }
 
 .sbb-mono-label {
-  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--tp-font-body);
   font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 
-/* Apple HIG Functional Layer Material (liquid-glass.md › Cross-platform translation) */
+/* Functional Layer Material (Liquid Glass) */
 .apple-glass-bar {
   background-color: color-mix(in srgb, var(--tp-card) 82%, transparent);
   backdrop-filter: blur(24px) saturate(1.4);
@@ -461,25 +679,7 @@ input[type="range"]::-moz-range-thumb {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
-  outline: 2px solid var(--tp-primary);
-  outline-offset: 2px;
-}
-
-/* Mobile & Apple HIG Safe Area Inset Helpers */
+/* Mobile Safe Area Inset Helpers */
 .pt-safe {
   padding-top: max(0.5rem, env(safe-area-inset-top, 0px));
 }
@@ -500,7 +700,7 @@ textarea:focus-visible {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Smooth Horizontal Chip Carousels without ugly scrollbars */
+/* Horizontal Carousels without scrollbars */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
@@ -510,3 +710,65 @@ textarea:focus-visible {
   scrollbar-width: none;
 }
 
+/* =========================================================================
+   React Calendar Heatmap Touchpoint Theme
+   ========================================================================= */
+.touchpoint-heatmap {
+  width: 100%;
+  display: block;
+}
+
+.touchpoint-heatmap .react-calendar-heatmap text {
+  font-size: 3.2px;
+  fill: var(--tp-muted);
+  font-family: inherit;
+  font-weight: 500;
+}
+
+.touchpoint-heatmap .react-calendar-heatmap .react-calendar-heatmap-weekday-label {
+  font-size: 2.8px;
+  fill: var(--tp-muted);
+  opacity: 0.85;
+}
+
+.touchpoint-heatmap .react-calendar-heatmap rect {
+  rx: 1.5px;
+  ry: 1.5px;
+  stroke: var(--tp-border);
+  stroke-width: 0.3px;
+  cursor: pointer;
+  transition: opacity 120ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .touchpoint-heatmap .react-calendar-heatmap rect:hover {
+    stroke: var(--tp-text);
+    stroke-width: 0.8px;
+    opacity: 0.85;
+  }
+}
+
+.touchpoint-heatmap .color-empty {
+  fill: var(--tp-well);
+  opacity: 0.65;
+}
+
+.touchpoint-heatmap .color-scale-1 {
+  fill: var(--tp-success);
+  opacity: 0.35;
+}
+
+.touchpoint-heatmap .color-scale-2 {
+  fill: var(--tp-success);
+  opacity: 0.6;
+}
+
+.touchpoint-heatmap .color-scale-3 {
+  fill: var(--tp-success);
+  opacity: 0.85;
+}
+
+.touchpoint-heatmap .color-scale-4 {
+  fill: var(--tp-success);
+  opacity: 1;
+}

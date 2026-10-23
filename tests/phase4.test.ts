@@ -8,7 +8,12 @@ import {
   deleteContact,
 } from '@/lib/contacts-service';
 import { addTopic, createRelationship } from '@/lib/touchpoints-service';
-import { importGoogleCandidatesAdditiveOnly } from '@/lib/google-sync';
+import {
+  importGoogleCandidatesAdditiveOnly,
+  listGoogleSyncTombstones,
+  deleteGoogleSyncTombstone,
+  clearAllDeletedGoogleSyncTombstones,
+} from '@/lib/google-sync';
 import {
   buildContactReminderMessage,
   processTelegramCallbackData,
@@ -259,5 +264,50 @@ describe('Phase 4: Google Additive-Only Sync, Telegram Bot & Outgoing Webhook', 
 
     const sig = signWebhookPayload(JSON.stringify(payload), 'my-webhook-secret');
     expect(sig).toMatch(/^sha256=[a-f0-9]{64}$/);
+  });
+
+  it('allows unblocking tombstoned Google contacts and re-importing them via fullRescan', () => {
+    // 1. Initial import of Google contact
+    const candidate = {
+      resourceName: 'people/c999',
+      fullName: 'Shirael Cohen',
+      phone: '+972-50-1234567',
+      updatedAt: '2026-10-10T10:00:00Z',
+    };
+    const firstSync = importGoogleCandidatesAdditiveOnly([candidate]);
+    expect(firstSync.imported).toBe(1);
+
+    const contact = listContactsWithDetails().find((c) => c.googleResourceName === 'people/c999')!;
+    expect(contact.fullName).toBe('Shirael Cohen');
+
+    // 2. User deletes the contact in Touchpoint
+    deleteContact(contact.id);
+    expect(listContactsWithDetails().length).toBe(0);
+
+    // 3. Verify tombstone was created with contactName and reason = 'deleted'
+    const tombstones = listGoogleSyncTombstones();
+    expect(tombstones.length).toBe(1);
+    expect(tombstones[0].googleResourceName).toBe('people/c999');
+    expect(tombstones[0].contactName).toBe('Shirael Cohen');
+    expect(tombstones[0].reason).toBe('deleted');
+
+    // 4. While tombstoned, sync will never re-import it
+    const blockedSync = importGoogleCandidatesAdditiveOnly([candidate], { fullRescan: true });
+    expect(blockedSync.imported).toBe(0);
+    expect(blockedSync.skippedExisting).toBe(1);
+
+    // 5. User unblocks the tombstone in the Tombstone Manager
+    const unblocked = deleteGoogleSyncTombstone(tombstones[0].id);
+    expect(unblocked).toBe(true);
+    expect(listGoogleSyncTombstones().length).toBe(0);
+
+    // 6. User re-syncs with fullRescan: true -> contact is cleanly imported back!
+    const resync = importGoogleCandidatesAdditiveOnly([candidate], {
+      lastGoogleSyncAt: '2026-10-21T00:00:00Z',
+      fullRescan: true,
+    });
+    expect(resync.imported).toBe(1);
+    expect(listContactsWithDetails().length).toBe(1);
+    expect(listContactsWithDetails()[0].fullName).toBe('Shirael Cohen');
   });
 });

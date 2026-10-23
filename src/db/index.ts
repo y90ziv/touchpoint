@@ -72,6 +72,8 @@ CREATE TABLE IF NOT EXISTS contacts (
   company TEXT,
   job_title TEXT,
   pets TEXT NOT NULL DEFAULT '[]',
+  country TEXT,
+  postal_code TEXT,
   birthday TEXT,
   significant_date TEXT,
   significant_date_label TEXT,
@@ -157,6 +159,7 @@ CREATE TABLE IF NOT EXISTS google_sync_tombstones (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   google_resource_name TEXT NOT NULL UNIQUE,
   reason TEXT NOT NULL DEFAULT 'merged',
+  contact_name TEXT,
   target_contact_id INTEGER REFERENCES contacts(id) ON DELETE SET NULL,
   created_at TEXT NOT NULL
 );
@@ -255,6 +258,19 @@ export function createDatabase(dbPath?: string): {
   }
   if (!existingContactCols.includes('significant_date_label')) {
     sqlite.exec('ALTER TABLE contacts ADD COLUMN significant_date_label TEXT');
+  }
+  if (!existingContactCols.includes('country')) {
+    sqlite.exec('ALTER TABLE contacts ADD COLUMN country TEXT');
+  }
+  if (!existingContactCols.includes('postal_code')) {
+    sqlite.exec('ALTER TABLE contacts ADD COLUMN postal_code TEXT');
+  }
+
+  const existingTombstoneCols = (
+    sqlite.pragma('table_info(google_sync_tombstones)') as Array<{ name: string }>
+  ).map((c) => c.name);
+  if (!existingTombstoneCols.includes('contact_name')) {
+    sqlite.exec('ALTER TABLE google_sync_tombstones ADD COLUMN contact_name TEXT');
   }
 
   const db = drizzle(sqlite, { schema });

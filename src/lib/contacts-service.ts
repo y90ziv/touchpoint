@@ -32,6 +32,8 @@ export interface CreateContactInput {
   fullName?: string;
   phone?: string | null;
   email?: string | null;
+  country?: string | null;
+  postalCode?: string | null;
   company?: string | null;
   jobTitle?: string | null;
   pets?: string[];
@@ -78,6 +80,8 @@ export function createContact(input: CreateContactInput) {
       fullName: fullName || 'Unnamed Contact',
       phone: input.phone?.trim() || null,
       email: input.email?.trim() || null,
+      country: input.country?.trim() || null,
+      postalCode: input.postalCode?.trim() || null,
       company: input.company?.trim() || null,
       jobTitle: input.jobTitle?.trim() || null,
       pets: JSON.stringify(input.pets || []),
@@ -179,6 +183,8 @@ export function updateContact(
   }
   if (updates.phone !== undefined) updatePayload.phone = updates.phone?.trim() || null;
   if (updates.email !== undefined) updatePayload.email = updates.email?.trim() || null;
+  if (updates.country !== undefined) updatePayload.country = updates.country?.trim() || null;
+  if (updates.postalCode !== undefined) updatePayload.postalCode = updates.postalCode?.trim() || null;
   if (updates.company !== undefined) updatePayload.company = updates.company?.trim() || null;
   if (updates.jobTitle !== undefined) updatePayload.jobTitle = updates.jobTitle?.trim() || null;
   if (updates.pets !== undefined) updatePayload.pets = JSON.stringify(updates.pets);
@@ -255,7 +261,10 @@ export function updateContact(
 export function deleteContact(id: number) {
   const db = getDb();
   const existing = db
-    .select({ googleResourceName: contacts.googleResourceName })
+    .select({
+      googleResourceName: contacts.googleResourceName,
+      fullName: contacts.fullName,
+    })
     .from(contacts)
     .where(eq(contacts.id, id))
     .get();
@@ -263,11 +272,20 @@ export function deleteContact(id: number) {
     db.insert(googleSyncTombstones)
       .values({
         googleResourceName: existing.googleResourceName,
+        contactName: existing.fullName || null,
         reason: 'deleted',
         targetContactId: null,
         createdAt: new Date().toISOString(),
       })
-      .onConflictDoNothing()
+      .onConflictDoUpdate({
+        target: [googleSyncTombstones.googleResourceName],
+        set: {
+          reason: 'deleted',
+          contactName: existing.fullName || null,
+          targetContactId: null,
+          createdAt: new Date().toISOString(),
+        },
+      })
       .run();
   }
   db.delete(contacts).where(eq(contacts.id, id)).run();
@@ -559,6 +577,7 @@ export function mergeContacts(
         .values({
           googleResourceName: secondary.googleResourceName,
           reason: 'merged',
+          contactName: secondary.fullName || null,
           targetContactId: primaryId,
           createdAt: new Date().toISOString(),
         })
