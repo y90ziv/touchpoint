@@ -1,6 +1,8 @@
 services:
   touchpoint:
-    build: .
+    image: ghcr.io/y90ziv/touchpoint:latest
+    # Uncomment to build from local source instead of pulling pre-built image:
+    # build: .
     container_name: touchpoint
     restart: unless-stopped
     ports:

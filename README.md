@@ -1,6 +1,7 @@
 # 🤝 Touchpoint
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
+[![Docker Image](https://img.shields.io/badge/Docker%20Image-ghcr.io%2Fy90ziv%2Ftouchpoint-2496ED.svg?logo=docker&logoColor=white)](https://github.com/y90ziv/touchpoint/pkgs/container/touchpoint)
 [![Docker: ARM64 & AMD64](https://img.shields.io/badge/Docker-ARM64%20%2F%20AMD64-2496ED.svg)](Dockerfile)
 [![Database: SQLite WAL](https://img.shields.io/badge/Database-SQLite%20(Embedded)-003B57.svg)](src/db/schema.ts)
 [![Built with AI](https://img.shields.io/badge/Built%20with-AI%20🤖-8A2BE2.svg)](#built-with-ai)
@@ -85,22 +86,51 @@ Touchpoint is a self-hosted, privacy-first personal relationship manager (PRM) d
 - **Snapshot manager**: view timestamped snapshots, download `.db` files, restore instantly, or purge all snapshots with safety confirmations.
 - **ZIP export**: export and import complete portable `.zip` archives of your database and logs.
 
-## Deploy with Docker Compose
+## Deploy with Docker
 
-1. **Clone the repository and prepare `.env` (optional)**:
+Touchpoint provides multi-architecture pre-built container images (`linux/amd64` and `linux/arm64` for Raspberry Pi) published directly to GitHub Container Registry (`ghcr.io/y90ziv/touchpoint:latest`). You do not need to clone the repository or compile anything locally.
+
+### Option 1: Docker Compose (Recommended)
+
+1. **Download `docker-compose.yml`**:
 ```bash
-git clone https://github.com/y90ziv/touchpoint.git
-cd touchpoint
-cp .env.example .env
+curl -fsSL https://raw.githubusercontent.com/y90ziv/touchpoint/main/docker-compose.yml -o docker-compose.yml
+```
+
+*(Optional) Create a `.env` file to customize your session secret or log level:*
+```bash
+echo "SESSION_SECRET=$(openssl rand -hex 32)" > .env
 ```
 
 2. **Start the container**:
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
 3. **Open the setup wizard**:
 Navigate to [http://localhost:3000](http://localhost:3000) to create your Owner account. Your SQLite database persists automatically in `./data/touchpoint.db`.
+
+### Option 2: Instant Single Command (`docker run`)
+
+```bash
+mkdir -p touchpoint-data
+docker run -d \
+  --name touchpoint \
+  --restart unless-stopped \
+  -p 3000:3000 \
+  -v $(pwd)/touchpoint-data:/app/data \
+  -e SESSION_SECRET=$(openssl rand -hex 32) \
+  ghcr.io/y90ziv/touchpoint:latest
+```
+
+### Updating to the Latest Version
+
+Updating an existing installation takes seconds with no re-compilation required:
+
+```bash
+docker compose pull
+docker compose up -d
+```
 
 ## Environment variables
 

@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### CI/CD & Distribution
+
+* **ci:** add GitHub Actions test workflow running strict TypeScript checks and full Vitest suite on pull requests
+* **docker:** automated multi-architecture (`linux/amd64` and `linux/arm64`) Docker container image build and publishing to GitHub Container Registry (`ghcr.io/y90ziv/touchpoint`)
+* **deployment:** switch `docker-compose.yml` to pull pre-built images by default; add single-command `docker run` and instant zero-compilation update flow (`docker compose pull && docker compose up -d`)
+
 ## [0.3.0] (2026-10-23)
 
 ### Features

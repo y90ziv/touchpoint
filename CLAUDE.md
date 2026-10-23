@@ -50,11 +50,17 @@ npm test                   # Run full Vitest test suite (in-memory SQLite)
 
 ### Production Deployment (Docker / Raspberry Pi)
 ```bash
-# Build and start single-container stack (persists SQLite in ./data)
-docker compose up -d --build
+# Pull and start pre-built multi-arch container (ghcr.io/y90ziv/touchpoint:latest)
+docker compose up -d
+
+# Update existing container to latest release without recompiling
+docker compose pull && docker compose up -d
 
 # Tail structured JSON container logs
 docker logs -f touchpoint
+
+# Optional: Build container locally from source
+docker compose up -d --build
 ```
 
 ## Critical Coding Standards
