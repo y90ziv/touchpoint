@@ -7,14 +7,17 @@ import { renderToString } from 'react-dom/server';
 import { Card, Well, TactileButton, Badge } from '../src/components/ui';
 
 const PROJECT_ROOT = path.resolve(__dirname, '..');
-const SLOPLINT_PATH = '/Users/yairziv/.agents/skills/hallmark/scripts/sloplint.mjs';
+const SLOPLINT_PATH =
+  process.env.SLOPLINT_PATH ||
+  path.join(process.env.HOME || '', '.agents/skills/hallmark/scripts/sloplint.mjs');
+const hasSloplint = fs.existsSync(SLOPLINT_PATH);
 
 describe('Adversarial Stress Harness: Hallmark Anti-Slop, Motion & Touch (Challenger 2)', () => {
 
   // ===========================================================================
   // SECTION 1: SLOPLINT ORACLE SENSITIVITY & GATE INTEGRITY
   // ===========================================================================
-  describe('Sloplint Oracle Sensitivity (Mutation Testing)', () => {
+  describe.skipIf(!hasSloplint)('Sloplint Oracle Sensitivity (Mutation Testing)', () => {
     const tempDir = path.join(PROJECT_ROOT, '.tmp_sloplint_test');
 
     beforeAll(() => {
