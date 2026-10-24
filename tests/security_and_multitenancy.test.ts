@@ -76,7 +76,12 @@ describe('Security & Multi-Tenancy Features', () => {
         webhook_url TEXT,
         webhook_secret TEXT,
         cadence_fuzziness_enabled INTEGER NOT NULL DEFAULT 0,
-        cadence_fuzziness_percent INTEGER NOT NULL DEFAULT 15
+        cadence_fuzziness_percent INTEGER NOT NULL DEFAULT 15,
+        snapshot_schedule_mode TEXT NOT NULL DEFAULT 'scheduled',
+        snapshot_interval_unit TEXT NOT NULL DEFAULT 'days',
+        snapshot_interval_value INTEGER NOT NULL DEFAULT 1,
+        last_snapshot_at TEXT,
+        last_telegram_digest_date TEXT
       );
       CREATE TABLE IF NOT EXISTS contacts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

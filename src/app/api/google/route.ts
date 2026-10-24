@@ -7,6 +7,7 @@ import {
   testGoogleConnection,
   listGoogleSyncTombstones,
   deleteGoogleSyncTombstone,
+  deleteGoogleSyncTombstones,
   clearAllDeletedGoogleSyncTombstones,
 } from '@/lib/google-sync';
 import { listContactsWithDetails } from '@/lib/contacts-service';
@@ -161,6 +162,21 @@ export async function POST(request: Request) {
             requestId,
           });
           return NextResponse.json({ success, requestId });
+        }
+
+        if (action === 'bulk_unblock_tombstones') {
+          const rawIds = Array.isArray(body.tombstoneIds) ? body.tombstoneIds : [];
+          const tombstoneIds = rawIds.map((id: unknown) => Number(id)).filter(Boolean);
+          if (!tombstoneIds.length) {
+            return NextResponse.json({ error: 'tombstoneIds array is required', requestId }, { status: 400 });
+          }
+          const count = deleteGoogleSyncTombstones(tombstoneIds);
+          logger.http('POST', '/api/google (bulk_unblock_tombstones)', 200, Date.now() - start, {
+            count,
+            userId,
+            requestId,
+          });
+          return NextResponse.json({ success: true, count, requestId });
         }
 
         if (action === 'clear_deleted_tombstones') {

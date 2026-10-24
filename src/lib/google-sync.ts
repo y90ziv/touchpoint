@@ -1,5 +1,5 @@
 import { google } from 'googleapis';
-import { eq, isNotNull } from 'drizzle-orm';
+import { eq, isNotNull, inArray } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { contacts, settings, googleSyncTombstones } from '@/db/schema';
 import { logger } from '@/lib/logger';
@@ -97,6 +97,8 @@ export function importGoogleCandidatesAdditiveOnly(
             googleResourceName: person.resourceName,
             reason: 'merged',
             contactName: person.fullName || null,
+            contactPhone: person.phone || null,
+            contactEmail: person.email || null,
             createdAt: now,
           })
           .onConflictDoNothing()
@@ -446,6 +448,8 @@ export interface GoogleSyncTombstoneItem {
   googleResourceName: string;
   reason: 'merged' | 'deleted';
   contactName: string | null;
+  contactPhone?: string | null;
+  contactEmail?: string | null;
   targetContactId: number | null;
   targetContactName?: string | null;
   createdAt: string;
@@ -465,6 +469,8 @@ export function listGoogleSyncTombstones(): GoogleSyncTombstoneItem[] {
     googleResourceName: r.googleResourceName,
     reason: r.reason as 'merged' | 'deleted',
     contactName: r.contactName || null,
+    contactPhone: r.contactPhone || null,
+    contactEmail: r.contactEmail || null,
     targetContactId: r.targetContactId || null,
     targetContactName: r.targetContactId ? contactMap.get(r.targetContactId) || null : null,
     createdAt: r.createdAt,
@@ -476,6 +482,17 @@ export function deleteGoogleSyncTombstone(id: number): boolean {
   const res = db.delete(googleSyncTombstones).where(eq(googleSyncTombstones.id, id)).run();
   logger.info('google.tombstone', 'Unblocked Google contact tombstone', { id });
   return res.changes > 0;
+}
+
+export function deleteGoogleSyncTombstones(ids: number[]): number {
+  if (!ids.length) return 0;
+  const db = getDb();
+  const res = db.delete(googleSyncTombstones).where(inArray(googleSyncTombstones.id, ids)).run();
+  logger.info('google.tombstone', 'Unblocked Google contact tombstones in bulk', {
+    ids,
+    count: res.changes,
+  });
+  return res.changes;
 }
 
 export function clearAllDeletedGoogleSyncTombstones(): number {

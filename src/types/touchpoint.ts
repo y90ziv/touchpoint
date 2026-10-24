@@ -201,6 +201,7 @@ export type NavigationTab =
   | 'map'
   | 'calendar'
   | 'settings'
+  | 'archived'
   | 'help';
 
 export type SearchFilterTab = 'all' | 'due' | 'birthdays' | 'tracked';
@@ -234,6 +235,8 @@ export interface GoogleTombstoneItem {
   googleResourceName: string;
   reason: 'merged' | 'deleted';
   contactName: string | null;
+  contactPhone?: string | null;
+  contactEmail?: string | null;
   targetContactId: number | null;
   targetContactName?: string | null;
   createdAt: string;
@@ -266,6 +269,10 @@ export interface SettingsState {
   icalSecretToken: string;
   globalPausedUntil?: string | null;
   cadenceFuzziness?: number;
+  snapshotScheduleMode?: 'manual' | 'scheduled';
+  snapshotIntervalUnit?: 'days' | 'weeks' | 'months';
+  snapshotIntervalValue?: number;
+  lastSnapshotAt?: string | null;
   dashboardWidgets?: Record<string, boolean>;
   [key: string]: any;
 }

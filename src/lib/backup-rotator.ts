@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { getSqlite, getAuthDb } from '@/db';
-import { users } from '@/db/schema';
+import { getSqlite, getAuthDb, getUserDb } from '@/db';
+import { users, settings } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { logger } from '@/lib/logger';
 
@@ -245,21 +245,86 @@ export function deleteAllSnapshots(userId: number = 1): { deletedCount: number }
 }
 
 /**
- * Executes a scheduled rotation pass (creates daily snapshot and applies retention).
+ * Evaluates whether a scheduled backup rotation should execute given the configured interval.
  */
-export function runScheduledBackupRotation(userId: number = 1) {
+export function shouldRunSnapshotRotation(
+  lastSnapshotAt: string | null | undefined,
+  mode: string = 'scheduled',
+  unit: string = 'days',
+  value: number = 1,
+  now: Date = new Date()
+): boolean {
+  if (mode === 'manual') {
+    return false;
+  }
+  if (!lastSnapshotAt) {
+    return true;
+  }
+
+  const lastDate = new Date(lastSnapshotAt);
+  if (isNaN(lastDate.getTime())) {
+    return true;
+  }
+
+  const safeVal = Math.max(1, Number(value) || 1);
+
+  if (unit === 'weeks') {
+    const diffMs = now.getTime() - lastDate.getTime();
+    const weekMs = 7 * 24 * 60 * 60 * 1000;
+    return diffMs >= safeVal * weekMs;
+  }
+
+  if (unit === 'months') {
+    const nextTarget = new Date(lastDate);
+    nextTarget.setMonth(nextTarget.getMonth() + safeVal);
+    return now.getTime() >= nextTarget.getTime();
+  }
+
+  // Default: days
+  const diffMs = now.getTime() - lastDate.getTime();
+  const dayMs = 24 * 60 * 60 * 1000;
+  return diffMs >= safeVal * dayMs;
+}
+
+/**
+ * Executes a scheduled rotation pass (creates snapshot according to schedule configuration and applies retention).
+ */
+export function runScheduledBackupRotation(userId: number = 1, now: Date = new Date()) {
   try {
-    const now = new Date();
-    // On Sundays, also tag as weekly
+    const uDb = getUserDb(userId).db;
+    const cfg = uDb.select().from(settings).get();
+    const mode = cfg?.snapshotScheduleMode ?? 'scheduled';
+    const unit = cfg?.snapshotIntervalUnit ?? 'days';
+    const value = cfg?.snapshotIntervalValue ?? 1;
+    const lastAt = cfg?.lastSnapshotAt;
+
+    if (!shouldRunSnapshotRotation(lastAt, mode, unit, value, now)) {
+      logger.info('backup.rotation', `Skipping scheduled backup rotation for user ${userId}`, {
+        mode,
+        interval: `every ${value} ${unit}`,
+        lastSnapshotAt: lastAt || 'never',
+      });
+      return;
+    }
+
     const isSunday = now.getDay() === 0;
-    // On 1st of month, also tag as monthly
     const isFirstOfMonth = now.getDate() === 1;
 
-    createDatabaseSnapshot('daily', userId);
-    if (isSunday) createDatabaseSnapshot('weekly', userId);
-    if (isFirstOfMonth) createDatabaseSnapshot('monthly', userId);
+    let type: 'daily' | 'weekly' | 'monthly' = 'daily';
+    if (unit === 'weeks' || isSunday) type = 'weekly';
+    if (unit === 'months' || isFirstOfMonth) type = 'monthly';
 
+    createDatabaseSnapshot(type, userId);
     enforceBackupRetention(userId);
+
+    if (cfg) {
+      uDb.update(settings).set({ lastSnapshotAt: now.toISOString() }).where(eq(settings.id, cfg.id)).run();
+    }
+
+    logger.info('backup.rotation', `Completed scheduled backup rotation for user ${userId}`, {
+      type,
+      schedule: `every ${value} ${unit}`,
+    });
   } catch (err) {
     logger.error('backup.rotation', 'Failed during scheduled backup rotation', err);
   }

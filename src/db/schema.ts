@@ -56,6 +56,11 @@ export const settings = sqliteTable('settings', {
     .notNull()
     .default(false),
   cadenceFuzzinessPercent: integer('cadence_fuzziness_percent').notNull().default(15),
+  snapshotScheduleMode: text('snapshot_schedule_mode').notNull().default('scheduled'), // 'manual' | 'scheduled'
+  snapshotIntervalUnit: text('snapshot_interval_unit').notNull().default('days'), // 'days' | 'weeks' | 'months'
+  snapshotIntervalValue: integer('snapshot_interval_value').notNull().default(1),
+  lastSnapshotAt: text('last_snapshot_at'),
+  lastTelegramDigestDate: text('last_telegram_digest_date'),
 });
 
 export const contacts = sqliteTable(
@@ -188,6 +193,8 @@ export const googleSyncTombstones = sqliteTable(
     googleResourceName: text('google_resource_name').notNull(),
     reason: text('reason').notNull().default('merged'), // 'merged' | 'deleted'
     contactName: text('contact_name'),
+    contactPhone: text('contact_phone'),
+    contactEmail: text('contact_email'),
     targetContactId: integer('target_contact_id').references(() => contacts.id, {
       onDelete: 'set null',
     }),

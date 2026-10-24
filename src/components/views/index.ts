@@ -16,5 +16,7 @@ export type { CalendarScheduleViewProps } from './CalendarScheduleView';
 export { SettingsView } from './SettingsView';
 export type { SettingsViewProps } from './SettingsView';
 
+export { ArchivedContactsView } from './ArchivedContactsView';
+
 export { HelpGuideView } from './HelpGuideView';
 export type { HelpGuideViewProps } from './HelpGuideView';

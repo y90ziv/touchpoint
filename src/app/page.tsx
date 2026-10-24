@@ -13,6 +13,7 @@ import {
   ContactsDirectoryView,
   GroupsView,
   SettingsView,
+  ArchivedContactsView,
   HelpGuideView,
 } from '@/components/views';
 import {
@@ -67,6 +68,7 @@ function TouchpointWorkspace() {
         {ui.activeTab === 'map' && <RelationshipMapView />}
         {ui.activeTab === 'calendar' && <CalendarScheduleView />}
         {ui.activeTab === 'settings' && <SettingsView />}
+        {ui.activeTab === 'archived' && <ArchivedContactsView />}
         {ui.activeTab === 'help' && (
           <HelpGuideView />
         )}

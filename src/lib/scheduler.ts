@@ -15,11 +15,25 @@ import {
   resolveEffectiveTimezone,
   normalizeTimezone,
 } from '@/lib/geo-data';
+import { eq } from 'drizzle-orm';
 
-let schedulerStarted = false;
-let digestJob: Cron | null = null;
-const lastDispatchedMinuteByUser = new Map<string, string>();
-const lastDispatchedDigestDateByChat = new Map<string, string>();
+interface GlobalSchedulerState {
+  schedulerStarted: boolean;
+  digestJob: Cron | null;
+  lastDispatchedMinuteByUser: Map<string, string>;
+  lastDispatchedDigestDateByChat: Map<string, string>;
+}
+
+const g = globalThis as unknown as { __touchpoint_scheduler__?: GlobalSchedulerState };
+if (!g.__touchpoint_scheduler__) {
+  g.__touchpoint_scheduler__ = {
+    schedulerStarted: false,
+    digestJob: null,
+    lastDispatchedMinuteByUser: new Map<string, string>(),
+    lastDispatchedDigestDateByChat: new Map<string, string>(),
+  };
+}
+const schedulerState = g.__touchpoint_scheduler__;
 
 /**
  * Returns current HH:MM string formatted according to the given IANA timezone.
@@ -114,13 +128,27 @@ export async function runDailyDigestForUser(userId: number, now: Date = new Date
       const localDateStr = localRefDate.toISOString().slice(0, 10);
       const chatDispatchKey = `${currentCfg.telegramChatId}_${localDateStr}`;
 
-      if (lastDispatchedDigestDateByChat.has(chatDispatchKey)) {
+      if (
+        schedulerState.lastDispatchedDigestDateByChat.has(chatDispatchKey) ||
+        currentCfg.lastTelegramDigestDate === localDateStr
+      ) {
         logger.info(
           'scheduler.digest.telegram',
           `Telegram digest already dispatched to chat ${currentCfg.telegramChatId} for ${localDateStr}, skipping duplicate`
         );
       } else {
-        lastDispatchedDigestDateByChat.set(chatDispatchKey, localDateStr);
+        schedulerState.lastDispatchedDigestDateByChat.set(chatDispatchKey, localDateStr);
+        // Persist to database immediately to guard across process restarts or multi-instance triggers
+        try {
+          uDb
+            .update(settings)
+            .set({ lastTelegramDigestDate: localDateStr })
+            .where(eq(settings.id, currentCfg.id))
+            .run();
+        } catch (dbErr) {
+          logger.warn('scheduler.digest.telegram', 'Failed to update lastTelegramDigestDate', { error: String(dbErr) });
+        }
+
         try {
           const digest = buildDailyDigestPayloads(localRefDate);
           const bot = new Bot(currentCfg.telegramBotToken);
@@ -192,8 +220,8 @@ export async function runGoogleCalendarAutoPushForUser(userId: number) {
 }
 
 export async function initializeBackgroundServices() {
-  if (schedulerStarted) return;
-  schedulerStarted = true;
+  if (schedulerState.schedulerStarted) return;
+  schedulerState.schedulerStarted = true;
 
   try {
     const userIds = getAllActiveUserIds();
@@ -213,7 +241,7 @@ export async function initializeBackgroundServices() {
     }
 
     // Run every minute to check if current HH:MM matches configured schedule for each user
-    digestJob = new Cron('* * * * *', async () => {
+    schedulerState.digestJob = new Cron('* * * * *', async () => {
       try {
         const activeIds = getAllActiveUserIds();
         const now = new Date();
@@ -232,8 +260,8 @@ export async function initializeBackgroundServices() {
             const targetTime = (currentCfg.dailyDigestTime || '09:00').trim().padStart(5, '0');
             if (currentTime === targetTime) {
               const dispatchKey = `digest_${uid}_${localDateStr}_${currentTime}`;
-              if (!lastDispatchedMinuteByUser.has(dispatchKey)) {
-                lastDispatchedMinuteByUser.set(dispatchKey, localDateStr);
+              if (!schedulerState.lastDispatchedMinuteByUser.has(dispatchKey)) {
+                schedulerState.lastDispatchedMinuteByUser.set(dispatchKey, localDateStr);
                 logger.info(
                   'scheduler.digest',
                   `Running scheduled Daily Digest for user ${uid} at ${currentTime} (${tz})`
@@ -265,8 +293,8 @@ export async function initializeBackgroundServices() {
 
               if (shouldPush) {
                 const pushKey = `cal_${uid}_${localDateStr}_${targetPushTime}`;
-                if (!lastDispatchedMinuteByUser.has(pushKey)) {
-                  lastDispatchedMinuteByUser.set(pushKey, localDateStr);
+                if (!schedulerState.lastDispatchedMinuteByUser.has(pushKey)) {
+                  schedulerState.lastDispatchedMinuteByUser.set(pushKey, localDateStr);
                   logger.info(
                     'scheduler.google.push',
                     `Running scheduled Google Calendar auto-push for user ${uid} (${currentCfg.googleCalendarAutoPush}) at ${currentTime} (${tz})`
@@ -280,10 +308,10 @@ export async function initializeBackgroundServices() {
           // 3. Automated Database Snapshot Rotation (at 03:00 local time)
           if (currentTime === '03:00') {
             const backupKey = `backup_${uid}_${localDateStr}`;
-            if (!lastDispatchedMinuteByUser.has(backupKey)) {
-              lastDispatchedMinuteByUser.set(backupKey, localDateStr);
+            if (!schedulerState.lastDispatchedMinuteByUser.has(backupKey)) {
+              schedulerState.lastDispatchedMinuteByUser.set(backupKey, localDateStr);
               logger.info('scheduler.backup', `Running scheduled backup rotation for user ${uid} at 03:00 (${tz})`);
-              runScheduledBackupRotation(uid);
+              runScheduledBackupRotation(uid, now);
             }
           }
         }
@@ -301,18 +329,18 @@ export async function initializeBackgroundServices() {
 
 export function getSchedulerStatus() {
   return {
-    schedulerStarted,
-    dailyDigestRunning: digestJob !== null && Boolean(digestJob.isRunning()),
+    schedulerStarted: schedulerState.schedulerStarted,
+    dailyDigestRunning: schedulerState.digestJob !== null && Boolean(schedulerState.digestJob.isRunning()),
     weeklySummaryRunning: false,
   };
 }
 
 export function stopBackgroundServices() {
-  if (digestJob) {
-    digestJob.stop();
-    digestJob = null;
+  if (schedulerState.digestJob) {
+    schedulerState.digestJob.stop();
+    schedulerState.digestJob = null;
   }
-  schedulerStarted = false;
-  lastDispatchedMinuteByUser.clear();
-  lastDispatchedDigestDateByChat.clear();
+  schedulerState.schedulerStarted = false;
+  schedulerState.lastDispatchedMinuteByUser.clear();
+  schedulerState.lastDispatchedDigestDateByChat.clear();
 }

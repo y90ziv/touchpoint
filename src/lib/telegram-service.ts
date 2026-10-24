@@ -315,25 +315,36 @@ function escapeHtml(str: string): string {
 /**
  * Outbound Long-Polling Telegram Bot Manager (Cloudflare & NAT friendly)
  */
-let activeBot: Bot | null = null;
-let lastDetectedChatId: { chatId: string; username?: string; firstName?: string } | null = null;
+interface GlobalTelegramState {
+  activeBot: Bot | null;
+  lastDetectedChatId: { chatId: string; username?: string; firstName?: string } | null;
+}
+
+const tgGlobal = globalThis as unknown as { __touchpoint_telegram__?: GlobalTelegramState };
+if (!tgGlobal.__touchpoint_telegram__) {
+  tgGlobal.__touchpoint_telegram__ = {
+    activeBot: null,
+    lastDetectedChatId: null,
+  };
+}
+const tgState = tgGlobal.__touchpoint_telegram__;
 
 export function getLastDetectedTelegramChat() {
-  return lastDetectedChatId;
+  return tgState.lastDetectedChatId;
 }
 
 export function isTelegramBotRunning(): boolean {
-  return activeBot !== null && Boolean(activeBot.isInited());
+  return tgState.activeBot !== null && Boolean(tgState.activeBot.isInited());
 }
 
 export async function stopTelegramBot(): Promise<void> {
-  if (activeBot) {
+  if (tgState.activeBot) {
     try {
-      await activeBot.stop();
+      await tgState.activeBot.stop();
     } catch {
       // ignore stop error
     }
-    activeBot = null;
+    tgState.activeBot = null;
   }
 }
 
@@ -366,13 +377,13 @@ export function findUserIdByTelegramChatId(chatId: string): number | null {
 }
 
 export async function startTelegramLongPolling(token: string) {
-  if (activeBot) {
+  if (tgState.activeBot) {
     try {
-      await activeBot.stop();
+      await tgState.activeBot.stop();
     } catch {
       // ignore stop error
     }
-    activeBot = null;
+    tgState.activeBot = null;
   }
 
   const bot = new Bot(token);
@@ -402,7 +413,7 @@ export async function startTelegramLongPolling(token: string) {
       }
     }
 
-    lastDetectedChatId = {
+    tgState.lastDetectedChatId = {
       chatId,
       username: ctx.from?.username,
       firstName: ctx.from?.first_name,
@@ -514,6 +525,6 @@ export async function startTelegramLongPolling(token: string) {
     },
   });
 
-  activeBot = bot;
+  tgState.activeBot = bot;
   return bot;
 }

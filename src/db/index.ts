@@ -57,7 +57,12 @@ CREATE TABLE IF NOT EXISTS settings (
   webhook_url TEXT,
   webhook_secret TEXT,
   cadence_fuzziness_enabled INTEGER NOT NULL DEFAULT 0,
-  cadence_fuzziness_percent INTEGER NOT NULL DEFAULT 15
+  cadence_fuzziness_percent INTEGER NOT NULL DEFAULT 15,
+  snapshot_schedule_mode TEXT NOT NULL DEFAULT 'scheduled',
+  snapshot_interval_unit TEXT NOT NULL DEFAULT 'days',
+  snapshot_interval_value INTEGER NOT NULL DEFAULT 1,
+  last_snapshot_at TEXT,
+  last_telegram_digest_date TEXT
 );
 
 CREATE TABLE IF NOT EXISTS contacts (
@@ -160,6 +165,8 @@ CREATE TABLE IF NOT EXISTS google_sync_tombstones (
   google_resource_name TEXT NOT NULL UNIQUE,
   reason TEXT NOT NULL DEFAULT 'merged',
   contact_name TEXT,
+  contact_phone TEXT,
+  contact_email TEXT,
   target_contact_id INTEGER REFERENCES contacts(id) ON DELETE SET NULL,
   created_at TEXT NOT NULL
 );
@@ -223,6 +230,11 @@ export function createDatabase(dbPath?: string): {
     ['google_calendar_push_time', "TEXT NOT NULL DEFAULT '08:00'"],
     ['google_calendar_push_advance_days', 'INTEGER NOT NULL DEFAULT 7'],
     ['last_google_calendar_push_at', 'TEXT'],
+    ['snapshot_schedule_mode', "TEXT NOT NULL DEFAULT 'scheduled'"],
+    ['snapshot_interval_unit', "TEXT NOT NULL DEFAULT 'days'"],
+    ['snapshot_interval_value', 'INTEGER NOT NULL DEFAULT 1'],
+    ['last_snapshot_at', 'TEXT'],
+    ['last_telegram_digest_date', 'TEXT'],
   ];
   for (const [col, def] of migrations) {
     if (!existingCols.includes(col)) {
@@ -271,6 +283,15 @@ export function createDatabase(dbPath?: string): {
   ).map((c) => c.name);
   if (!existingTombstoneCols.includes('contact_name')) {
     sqlite.exec('ALTER TABLE google_sync_tombstones ADD COLUMN contact_name TEXT');
+  }
+  if (!existingTombstoneCols.includes('contact_phone')) {
+    sqlite.exec('ALTER TABLE google_sync_tombstones ADD COLUMN contact_phone TEXT');
+  }
+  if (!existingTombstoneCols.includes('contact_email')) {
+    sqlite.exec('ALTER TABLE google_sync_tombstones ADD COLUMN contact_email TEXT');
+  }
+  if (!existingTombstoneCols.includes('target_contact_id')) {
+    sqlite.exec('ALTER TABLE google_sync_tombstones ADD COLUMN target_contact_id INTEGER');
   }
 
   const db = drizzle(sqlite, { schema });

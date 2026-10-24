@@ -264,6 +264,8 @@ export function deleteContact(id: number) {
     .select({
       googleResourceName: contacts.googleResourceName,
       fullName: contacts.fullName,
+      phone: contacts.phone,
+      email: contacts.email,
     })
     .from(contacts)
     .where(eq(contacts.id, id))
@@ -273,6 +275,8 @@ export function deleteContact(id: number) {
       .values({
         googleResourceName: existing.googleResourceName,
         contactName: existing.fullName || null,
+        contactPhone: existing.phone || null,
+        contactEmail: existing.email || null,
         reason: 'deleted',
         targetContactId: null,
         createdAt: new Date().toISOString(),
@@ -282,6 +286,8 @@ export function deleteContact(id: number) {
         set: {
           reason: 'deleted',
           contactName: existing.fullName || null,
+          contactPhone: existing.phone || null,
+          contactEmail: existing.email || null,
           targetContactId: null,
           createdAt: new Date().toISOString(),
         },
@@ -437,7 +443,12 @@ export function executeBulkContactOperation(input: {
     }
   } else if (action === 'delete') {
     const toDelete = db
-      .select({ googleResourceName: contacts.googleResourceName })
+      .select({
+        googleResourceName: contacts.googleResourceName,
+        fullName: contacts.fullName,
+        phone: contacts.phone,
+        email: contacts.email,
+      })
       .from(contacts)
       .where(inArray(contacts.id, contactIds))
       .all();
@@ -448,10 +459,23 @@ export function executeBulkContactOperation(input: {
           .values({
             googleResourceName: row.googleResourceName,
             reason: 'deleted',
+            contactName: row.fullName || null,
+            contactPhone: row.phone || null,
+            contactEmail: row.email || null,
             targetContactId: null,
             createdAt: now,
           })
-          .onConflictDoNothing()
+          .onConflictDoUpdate({
+            target: [googleSyncTombstones.googleResourceName],
+            set: {
+              reason: 'deleted',
+              contactName: row.fullName || null,
+              contactPhone: row.phone || null,
+              contactEmail: row.email || null,
+              targetContactId: null,
+              createdAt: now,
+            },
+          })
           .run();
       }
     }
@@ -578,10 +602,22 @@ export function mergeContacts(
           googleResourceName: secondary.googleResourceName,
           reason: 'merged',
           contactName: secondary.fullName || null,
+          contactPhone: secondary.phone || null,
+          contactEmail: secondary.email || null,
           targetContactId: primaryId,
           createdAt: new Date().toISOString(),
         })
-        .onConflictDoNothing()
+        .onConflictDoUpdate({
+          target: [googleSyncTombstones.googleResourceName],
+          set: {
+            reason: 'merged',
+            contactName: secondary.fullName || null,
+            contactPhone: secondary.phone || null,
+            contactEmail: secondary.email || null,
+            targetContactId: primaryId,
+            createdAt: new Date().toISOString(),
+          },
+        })
         .run();
     }
   }

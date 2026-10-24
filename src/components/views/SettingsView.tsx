@@ -110,6 +110,9 @@ export function SettingsView({
         googleCalendarPushDay: Number(settingsState.googleCalendarPushDay ?? 0),
         googleCalendarPushTime: settingsState.googleCalendarPushTime || '08:00',
         googleCalendarPushAdvanceDays: Number(settingsState.googleCalendarPushAdvanceDays ?? 7),
+        snapshotScheduleMode: settingsState.snapshotScheduleMode || 'scheduled',
+        snapshotIntervalUnit: settingsState.snapshotIntervalUnit || 'days',
+        snapshotIntervalValue: Number(settingsState.snapshotIntervalValue || 1),
       }),
     });
     if (res.ok) {
@@ -1524,6 +1527,83 @@ export function SettingsView({
                     <span>Create Snapshot</span>
                   </button>
                 </div>
+              </div>
+
+              {/* Snapshot Cadence & Mode Configuration */}
+              <div className="p-3 bg-well/50 border border-border rounded-lg space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div>
+                    <span className="text-xs font-semibold text-foreground">Snapshot Automation</span>
+                    <p className="text-[11px] text-muted">Choose whether to run automated snapshots or only take them on demand.</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 p-1 bg-background border border-border rounded-lg self-start sm:self-auto">
+                    <button
+                      type="button"
+                      onClick={() => setSettingsState({ ...settingsState, snapshotScheduleMode: 'scheduled' })}
+                      className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                        (settingsState.snapshotScheduleMode ?? 'scheduled') === 'scheduled'
+                          ? 'bg-primary text-primary-fg shadow-xs font-semibold'
+                          : 'text-muted hover:text-foreground'
+                      }`}
+                    >
+                      Scheduled
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSettingsState({ ...settingsState, snapshotScheduleMode: 'manual' })}
+                      className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                        settingsState.snapshotScheduleMode === 'manual'
+                          ? 'bg-primary text-primary-fg shadow-xs font-semibold'
+                          : 'text-muted hover:text-foreground'
+                      }`}
+                    >
+                      On-Demand Only
+                    </button>
+                  </div>
+                </div>
+
+                {(settingsState.snapshotScheduleMode ?? 'scheduled') === 'scheduled' && (
+                  <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-border/60">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-foreground font-medium">Take automated snapshot every:</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="365"
+                        value={settingsState.snapshotIntervalValue ?? 1}
+                        onChange={(e) =>
+                          setSettingsState({
+                            ...settingsState,
+                            snapshotIntervalValue: Math.max(1, parseInt(e.target.value, 10) || 1),
+                          })
+                        }
+                        className="w-16 px-2.5 py-1 text-xs font-mono bg-background border border-border rounded-md text-foreground focus:outline-hidden focus:border-primary text-center"
+                      />
+                      <select
+                        value={settingsState.snapshotIntervalUnit ?? 'days'}
+                        onChange={(e) =>
+                          setSettingsState({
+                            ...settingsState,
+                            snapshotIntervalUnit: e.target.value as 'days' | 'weeks' | 'months',
+                          })
+                        }
+                        className="px-2.5 py-1 text-xs bg-background border border-border rounded-md text-foreground focus:outline-hidden focus:border-primary"
+                      >
+                        <option value="days">Day(s)</option>
+                        <option value="weeks">Week(s)</option>
+                        <option value="months">Month(s)</option>
+                      </select>
+                    </div>
+                    <span className="text-[11px] text-muted">
+                      (Runs at 03:00 local time · Last taken: {settingsState.lastSnapshotAt ? new Date(settingsState.lastSnapshotAt).toLocaleDateString() : 'Never'})
+                    </span>
+                  </div>
+                )}
+                {settingsState.snapshotScheduleMode === 'manual' && (
+                  <p className="text-[11px] text-muted italic pt-1 border-t border-border/60">
+                    Automated snapshots are disabled. Snapshots will only be generated when you click &quot;Create Snapshot&quot;.
+                  </p>
+                )}
               </div>
 
               <div className="border border-border rounded-lg overflow-hidden bg-background">

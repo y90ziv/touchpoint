@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Features
+
+* **backup:** add configurable database snapshot automation with interval quantity and unit selection (every X days/weeks/months) and on-demand only mode in Settings
+
+### Bug Fixes
+
+* **scheduler:** prevent duplicate Telegram notifications by anchoring scheduler state on `globalThis` and enforcing an atomic SQLite database dispatch guard (`last_telegram_digest_date`)
+
 ### CI/CD & Distribution
 
 * **ci:** add GitHub Actions test workflow running strict TypeScript checks and full Vitest suite on pull requests

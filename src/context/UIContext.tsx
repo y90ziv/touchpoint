@@ -79,6 +79,8 @@ export interface UIContextValue {
   saveSettings: (newSettings: Partial<SettingsState>) => Promise<boolean>;
   loadGoogleTombstones: () => Promise<void>;
   unblockTombstone: (id: number) => Promise<boolean>;
+  unblockTombstones: (ids: number[]) => Promise<boolean>;
+  clearAllDeletedTombstones: () => Promise<boolean>;
   runGoogleSync: (fullRescan?: boolean) => Promise<boolean>;
   loadSnapshots: () => Promise<void>;
   createSnapshot: () => Promise<boolean>;
@@ -105,6 +107,10 @@ const DEFAULT_SETTINGS_STATE: SettingsState = {
   googleCalendarPushAdvanceDays: 7,
   logLevel: 'info',
   icalSecretToken: '',
+  snapshotScheduleMode: 'scheduled',
+  snapshotIntervalUnit: 'days',
+  snapshotIntervalValue: 1,
+  lastSnapshotAt: null,
   dashboardWidgets: {
     healthStrip: true,
     overdueDue: true,
@@ -247,6 +253,46 @@ export function UIProvider({ children }: { children: ReactNode }) {
     },
     [loadGoogleTombstones, notify]
   );
+
+  const unblockTombstones = useCallback(
+    async (ids: number[]): Promise<boolean> => {
+      if (ids.length === 0) return false;
+      try {
+        const res = await fetch('/api/google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'bulk_unblock_tombstones', tombstoneIds: ids }),
+        });
+        if (res.ok) {
+          await loadGoogleTombstones();
+          notify(`Unblocked ${ids.length} contacts from Google sync.`);
+          return true;
+        }
+      } catch {
+        // Handled gracefully
+      }
+      return false;
+    },
+    [loadGoogleTombstones, notify]
+  );
+
+  const clearAllDeletedTombstones = useCallback(async (): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'clear_deleted_tombstones' }),
+      });
+      if (res.ok) {
+        await loadGoogleTombstones();
+        notify('All deleted contacts unblocked from Google sync.');
+        return true;
+      }
+    } catch {
+      notify('Failed to unblock deleted tombstones.');
+    }
+    return false;
+  }, [loadGoogleTombstones, notify]);
 
   const runGoogleSync = useCallback(
     async (fullRescan: boolean = false): Promise<boolean> => {
@@ -397,6 +443,8 @@ export function UIProvider({ children }: { children: ReactNode }) {
       saveSettings,
       loadGoogleTombstones,
       unblockTombstone,
+      unblockTombstones,
+      clearAllDeletedTombstones,
       runGoogleSync,
       loadSnapshots,
       createSnapshot,
@@ -431,6 +479,8 @@ export function UIProvider({ children }: { children: ReactNode }) {
       saveSettings,
       loadGoogleTombstones,
       unblockTombstone,
+      unblockTombstones,
+      clearAllDeletedTombstones,
       runGoogleSync,
       loadSnapshots,
       createSnapshot,

@@ -44,6 +44,9 @@ const ALLOWED_SETTING_KEYS = [
   'webhookEnabled',
   'webhookUrl',
   'webhookSecret',
+  'snapshotScheduleMode',
+  'snapshotIntervalUnit',
+  'snapshotIntervalValue',
 ] as const;
 
 function ensureSettingsRow(userId: number) {
