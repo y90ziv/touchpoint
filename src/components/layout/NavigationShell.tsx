@@ -8,6 +8,7 @@ import {
   Network,
   Calendar as CalendarIcon,
   Settings as SettingsIcon,
+  Archive,
   BookOpen,
   Sun,
   Moon,
@@ -302,6 +303,7 @@ export function NavigationShell({
               <nav className="flex flex-col items-center space-y-1.5" aria-label="System Navigation">
                 {[
                   { id: 'settings', label: 'Settings', icon: SettingsIcon },
+                  { id: 'archived', label: 'Archived Contacts', icon: Archive, badge: ui.googleTombstones.length },
                   { id: 'help', label: 'Help & Guide', icon: BookOpen },
                 ].map((item) => {
                   const Icon = item.icon;
@@ -313,13 +315,18 @@ export function NavigationShell({
                       onClick={() => handleSelectTab(item.id as NavigationTab)}
                       title={item.label}
                       aria-label={item.label}
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+                      className={`relative w-10 h-10 rounded-xl flex items-center justify-center motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
                         isActive
                           ? 'bg-primary text-primary-fg'
                           : 'text-muted hover:text-foreground hover:bg-well'
                       }`}
                     >
                       <Icon className="w-4 h-4" aria-hidden="true" />
+                      {item.badge !== undefined && item.badge > 0 && (
+                        <span className="absolute -top-1 -right-1 text-[9px] px-1 py-0.2 rounded-full font-bold tabular-nums bg-well border border-border text-foreground">
+                          {item.badge}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -474,6 +481,7 @@ export function NavigationShell({
               <nav className="flex flex-col space-y-1" aria-label="System Navigation">
                 {[
                   { id: 'settings', label: 'Settings', icon: SettingsIcon },
+                  { id: 'archived', label: 'Archived Contacts', icon: Archive, badge: ui.googleTombstones.length },
                   { id: 'help', label: 'Help & Guide', icon: BookOpen },
                 ].map((item) => {
                   const Icon = item.icon;
@@ -495,6 +503,17 @@ export function NavigationShell({
                         <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
                         <span className="truncate">{item.label}</span>
                       </div>
+                      {item.badge !== undefined && item.badge > 0 && (
+                        <span
+                          className={`text-[10px] px-1.5 py-0.2 rounded-md font-bold tabular-nums shrink-0 ${
+                            isActive
+                              ? 'bg-primary-fg/20 text-primary-fg'
+                              : 'bg-well border border-border text-foreground'
+                          }`}
+                        >
+                          {item.badge}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -768,7 +787,8 @@ export function NavigationShell({
           <nav className="space-y-0.5 text-[13px]" aria-label="System Navigation">
             {[
               { id: 'settings', label: isSwiss ? '06 Settings' : 'Settings', icon: SettingsIcon },
-              { id: 'help', label: isSwiss ? '07 Reference' : 'Help & Guide', icon: BookOpen },
+              { id: 'archived', label: isSwiss ? '07 Archived' : 'Archived Contacts', icon: Archive, badge: ui.googleTombstones.length },
+              { id: 'help', label: isSwiss ? '08 Reference' : 'Help & Guide', icon: BookOpen },
             ].map((item) => {
               const Icon = item.icon;
               const isActive = currentTab === item.id;
@@ -792,6 +812,17 @@ export function NavigationShell({
                     />
                     <span>{item.label}</span>
                   </span>
+                  {item.badge !== undefined && item.badge > 0 && (
+                    <span
+                      className={`text-[11px] px-1.5 py-0.5 rounded-md font-semibold tabular-nums ${
+                        isActive
+                          ? 'bg-primary/20 text-foreground'
+                          : 'bg-well text-muted'
+                      }`}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
                 </button>
               );
             })}

@@ -15,6 +15,10 @@ import {
   Snowflake,
   Check,
   Link2,
+  Archive,
+  Phone,
+  Mail,
+  ArrowRight,
 } from 'lucide-react';
 import { CRON_PRESETS, GoogleTombstoneItem, SnapshotItem, ThemePreset } from '@/types/touchpoint';
 import { useUI } from '@/context/UIContext';
@@ -1321,7 +1325,17 @@ export function SettingsView({
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => ui.setActiveTab('archived')}
+                    className="px-2.5 py-1.5 rounded-lg bg-well hover:bg-card-hover border border-border text-[11px] font-semibold text-primary hover:text-primary flex items-center gap-1.5 motion-safe:transition-colors motion-safe:duration-160 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary whitespace-nowrap"
+                    title="Open full Archived Contacts screen with search and multi-select"
+                  >
+                    <Archive className="w-3.5 h-3.5" />
+                    <span>Open Archived Contacts</span>
+                    <ArrowRight className="w-3 h-3 text-muted" />
+                  </button>
                   {googleTombstones.some((t) => t.reason === 'deleted') && (
                     <button
                       type="button"
@@ -1335,9 +1349,9 @@ export function SettingsView({
                   <button
                     type="button"
                     onClick={() => setShowTombstoneManager((prev) => !prev)}
-                    className="px-2.5 py-1.5 rounded-lg bg-background border border-border text-[11px] font-semibold text-primary hover:bg-well flex items-center gap-1 motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 whitespace-nowrap"
+                    className="px-2.5 py-1.5 rounded-lg bg-background border border-border text-[11px] font-semibold text-foreground hover:bg-well flex items-center gap-1 motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 whitespace-nowrap"
                   >
-                    <span>{showTombstoneManager ? 'Hide Blocklist' : 'Manage Blocklist…'}</span>
+                    <span>{showTombstoneManager ? 'Hide Quick List' : 'Quick Preview…'}</span>
                   </button>
                 </div>
               </div>
@@ -1387,7 +1401,7 @@ export function SettingsView({
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-semibold text-foreground truncate">
-                                {t.contactName || t.googleResourceName}
+                                {t.contactName || 'Unnamed Contact'}
                               </span>
                               <span
                                 className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
@@ -1404,6 +1418,22 @@ export function SettingsView({
                                 </span>
                               )}
                             </div>
+                            {(t.contactPhone || t.contactEmail) && (
+                              <div className="flex items-center gap-3 text-[11px] text-muted mt-0.5 flex-wrap">
+                                {t.contactPhone && (
+                                  <span className="flex items-center gap-1 font-mono">
+                                    <Phone className="w-3 h-3 text-muted shrink-0" />
+                                    {t.contactPhone}
+                                  </span>
+                                )}
+                                {t.contactEmail && (
+                                  <span className="flex items-center gap-1">
+                                    <Mail className="w-3 h-3 text-muted shrink-0" />
+                                    {t.contactEmail}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                             <div className="text-muted text-[10px] mt-0.5 truncate">
                               Google ID: <span className="font-mono">{t.googleResourceName}</span> · Blocked {new Date(t.createdAt).toLocaleDateString()}
                             </div>

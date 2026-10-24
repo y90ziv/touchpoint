@@ -10,6 +10,7 @@ import {
   Network,
   Calendar as CalendarIcon,
   Settings as SettingsIcon,
+  Archive,
   BookOpen,
   Cake,
   Phone,
@@ -127,6 +128,13 @@ export function QuickSearchPalette() {
       desc: 'Configure sync, Telegram, webhooks, or wipe data',
       icon: SettingsIcon,
       keywords: 'settings config preferences wipe google telegram webhook danger zone',
+    },
+    {
+      id: 'archived',
+      label: 'Archived Contacts',
+      desc: 'Manage blocked or deleted Google contacts and tombstones',
+      icon: Archive,
+      keywords: 'archived archive blocked blocklist tombstones deleted merged google sync restore unblock',
     },
     {
       id: 'help',
