@@ -1,5 +1,5 @@
 # Multi-arch Raspberry Pi (ARM64) & AMD64 Single-Container Dockerfile
-FROM node:22-bookworm-slim AS builder
+FROM node:24-bookworm-slim AS builder
 
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -13,7 +13,7 @@ RUN npm ci
 COPY . .
 RUN npm rebuild better-sqlite3 && npm run build
 
-FROM node:22-bookworm-slim AS runner
+FROM node:24-bookworm-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
