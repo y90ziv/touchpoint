@@ -111,6 +111,13 @@ const DEFAULT_SETTINGS_STATE: SettingsState = {
   snapshotIntervalUnit: 'days',
   snapshotIntervalValue: 1,
   lastSnapshotAt: null,
+  defaultSnoozeDays: 3,
+  primaryOutreachChannel: 'whatsapp',
+  showSecondaryActions: true,
+  birthdayDigestEnabled: true,
+  birthdayDigestDay: 6,
+  birthdayDigestTime: '19:00',
+  lastBirthdayDigestDate: null,
   dashboardWidgets: {
     healthStrip: true,
     overdueDue: true,

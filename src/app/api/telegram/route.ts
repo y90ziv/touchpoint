@@ -8,6 +8,7 @@ import {
   startTelegramLongPolling,
   getLastDetectedTelegramChat,
   buildDailyDigestPayloads,
+  buildWeeklyBirthdayDigestPayload,
 } from '@/lib/telegram-service';
 import { logger } from '@/lib/logger';
 import { getRequestUserId } from '@/lib/auth';
@@ -82,30 +83,26 @@ export async function POST(request: Request) {
       if (body.action === 'send_digest_now') {
         const digest = buildDailyDigestPayloads();
         if (digest.reminders.length === 0 && digest.upcomingBirthdays.length === 0) {
-          if (!digest.skipEmpty) {
-            await bot.api.sendMessage(chatId, '🎉 <b>Touchpoint:</b> All caught up today!', {
-              parse_mode: 'HTML',
-            });
-          }
-          return NextResponse.json({ sentCount: 0, message: 'No contacts due today' });
+          await bot.api.sendMessage(chatId, digest.summaryText, {
+            parse_mode: 'HTML',
+          });
+          return NextResponse.json({ sentCount: 0, message: 'All caught up today!' });
         }
 
+        // 1. Send Morning Briefing Header
+        await bot.api.sendMessage(chatId, digest.summaryText, {
+          parse_mode: 'HTML',
+        });
+
+        // 2. Send per-contact interactive reminder cards
+        const sentContactIds = new Set<number>();
         for (const r of digest.reminders) {
+          if (sentContactIds.has(r.contactId)) continue;
+          sentContactIds.add(r.contactId);
+
           await bot.api.sendMessage(chatId, r.text, {
             parse_mode: 'HTML',
             reply_markup: r.keyboard,
-          });
-        }
-
-        if (digest.upcomingBirthdays.length > 0) {
-          const bdayText = digest.upcomingBirthdays
-            .map(
-              (b) =>
-                `🎂 <b>${b.contactName}</b> — ${b.label} (${b.date}) in <b>${b.daysAway} days</b>`
-            )
-            .join('\n');
-          await bot.api.sendMessage(chatId, `📅 <b>Upcoming Dates:</b>\n${bdayText}`, {
-            parse_mode: 'HTML',
           });
         }
 
@@ -114,6 +111,30 @@ export async function POST(request: Request) {
           userId,
         });
         return NextResponse.json({ sentCount: digest.reminders.length });
+      }
+
+      if (body.action === 'send_birthday_digest_now' || body.action === 'test_birthday_digest') {
+        const payload = buildWeeklyBirthdayDigestPayload(
+          new Date(),
+          cfg?.dateFormat || 'YYYY-MM-DD',
+          cfg?.defaultCountryCode || '+972',
+          cfg?.birthdayDigestDay ?? 6
+        );
+
+        await bot.api.sendMessage(chatId, payload.summaryText, {
+          parse_mode: 'HTML',
+          reply_markup: payload.keyboard,
+        });
+
+        logger.http('POST', '/api/telegram (test_birthday_digest)', 200, Date.now() - start, {
+          celebrationsCount: payload.celebrations.length,
+          userId,
+        });
+        return NextResponse.json({
+          sent: true,
+          celebrationsCount: payload.celebrations.length,
+          summary: payload.summaryText,
+        });
       }
 
       return NextResponse.json({ error: 'Unknown action' }, { status: 400 });

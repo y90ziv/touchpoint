@@ -47,6 +47,13 @@ const ALLOWED_SETTING_KEYS = [
   'snapshotScheduleMode',
   'snapshotIntervalUnit',
   'snapshotIntervalValue',
+  'defaultSnoozeDays',
+  'primaryOutreachChannel',
+  'showSecondaryActions',
+  'birthdayDigestEnabled',
+  'birthdayDigestDay',
+  'birthdayDigestTime',
+  'lastBirthdayDigestDate',
 ] as const;
 
 function ensureSettingsRow(userId: number) {
@@ -141,6 +148,12 @@ export async function PATCH(request: Request) {
           const match = updatePayload.dailyDigestTime.trim().match(/^(\d{1,2}):(\d{2})$/);
           if (match) {
             updatePayload.dailyDigestTime = `${match[1].padStart(2, '0')}:${match[2]}`;
+          }
+        }
+        if (typeof updatePayload.birthdayDigestTime === 'string') {
+          const match = updatePayload.birthdayDigestTime.trim().match(/^(\d{1,2}):(\d{2})$/);
+          if (match) {
+            updatePayload.birthdayDigestTime = `${match[1].padStart(2, '0')}:${match[2]}`;
           }
         }
 

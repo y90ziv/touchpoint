@@ -10,6 +10,7 @@ import {
   ContactMethod,
 } from '@/lib/touchpoints-service';
 import { applySmartSpreading, calculateRelationshipHealthScore } from '@/lib/cadence';
+import { formatDateByPattern } from '@/lib/formatters';
 import { logger } from '@/lib/logger';
 
 export function formatWhatsAppLink(phone: string | null | undefined, defaultCountryCode = '+972'): string | null {
@@ -38,6 +39,9 @@ export function buildContactReminderMessage(
 ): {
   contactId: number;
   contactName: string;
+  daysUntilDue?: number;
+  status?: string;
+  intervalDays?: number;
   text: string;
   keyboard: InlineKeyboard;
 } {
@@ -109,14 +113,21 @@ export function buildContactReminderMessage(
     lines.push(`\n${quickLinks.join('  ·  ')}`);
   }
 
-  // Step 1 Inline Buttons: Mark Contacted or Snooze 3d (Snooze 7d removed as requested)
+  // Step 1 Inline Buttons: Mark Contacted or Configured Snooze Duration
+  const db = getDb();
+  const cfg = db.select().from(settings).get();
+  const defaultSnoozeDays = cfg?.defaultSnoozeDays || 3;
+
   const keyboard = new InlineKeyboard()
     .text('✅ Mark Contacted', `tp:pick_method:${contact.id}`)
-    .text('💤 Snooze 3d', `tp:snooze:${contact.id}:3`);
+    .text(`💤 Snooze ${defaultSnoozeDays}d`, `tp:snooze:${contact.id}:${defaultSnoozeDays}`);
 
   return {
     contactId: contact.id,
     contactName: contact.fullName,
+    daysUntilDue: contact.cadence.daysUntilDue,
+    status: contact.cadence.status,
+    intervalDays: contact.cadence.effectiveIntervalDays,
     text: lines.join('\n'),
     keyboard,
   };
@@ -260,12 +271,64 @@ export function buildDailyDigestPayloads(referenceDate: Date = new Date()) {
   const advanceDays = cfg?.birthdayDaysAdvance ?? 7;
   const upcomingBirthdays = findUpcomingBirthdays(allContacts, referenceDate, advanceDays);
 
+  const summaryText = buildMorningBriefingSummaryText(reminders, upcomingBirthdays, referenceDate);
+
   return {
+    summaryText,
     reminders,
     upcomingBirthdays,
     deferredCount: deferredToTomorrow.length,
     skipEmpty: cfg?.skipEmptyDigest ?? true,
   };
+}
+
+export function buildMorningBriefingSummaryText(
+  reminders: Array<{ contactName: string; daysUntilDue?: number; status?: string; intervalDays?: number }>,
+  upcomingBirthdays: Array<{ contactName: string; date: string; daysAway: number; label: string }>,
+  referenceDate: Date = new Date()
+): string {
+  const dateFormatted = referenceDate.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+  });
+
+  const lines: string[] = [
+    `🌅 <b>Touchpoint Morning Briefing</b>`,
+    `📅 <i>${dateFormatted}</i>`,
+    `━━━━━━━━━━━━━━━━━━━━`,
+  ];
+
+  if (reminders.length > 0) {
+    lines.push(`⚡ <b>${reminders.length} Relationship${reminders.length === 1 ? '' : 's'} Due Today:</b>`);
+    for (const r of reminders) {
+      const isOverdue = (r.daysUntilDue ?? 0) < 0;
+      const statusIcon = isOverdue ? '🔴' : '🟡';
+      const cadenceNote = isOverdue
+        ? `-${Math.abs(r.daysUntilDue ?? 0)}d overdue`
+        : 'Due today';
+      const ruleNote = r.intervalDays ? ` (Every ${r.intervalDays}d)` : '';
+      lines.push(`${statusIcon} <b>${escapeHtml(r.contactName)}</b> — ${cadenceNote}${ruleNote}`);
+    }
+  } else {
+    lines.push(`🎉 <b>All caught up!</b> No pending cadence outreach required today.`);
+  }
+
+  if (upcomingBirthdays.length > 0) {
+    lines.push(``);
+    lines.push(`🎂 <b>Upcoming Celebrations:</b>`);
+    for (const b of upcomingBirthdays) {
+      const dayLabel = b.daysAway === 0 ? '🎉 <b>Today!</b>' : `in ${b.daysAway}d (${b.date})`;
+      lines.push(`• <b>${escapeHtml(b.contactName)}</b> — ${escapeHtml(b.label)}: ${dayLabel}`);
+    }
+  }
+
+  if (reminders.length > 0) {
+    lines.push(``);
+    lines.push(`<i>Action cards with 1-tap WhatsApp and logging below 👇</i>`);
+  }
+
+  return lines.join('\n');
 }
 
 export function findUpcomingBirthdays(
@@ -303,6 +366,268 @@ export function findUpcomingBirthdays(
   }
 
   return results.sort((a, b) => a.daysAway - b.daysAway);
+}
+
+export interface UpcomingCelebration {
+  contactId: number;
+  contactName: string;
+  type: 'birthday' | 'milestone';
+  label: string;
+  rawDate: string;
+  occurrenceDate: Date;
+  formattedDate: string;
+  weekdayName: string;
+  daysAway: number;
+  turningAge: number | null;
+  phone?: string | null;
+  email?: string | null;
+}
+
+/**
+ * Resolves all birthdays and milestones occurring in the upcoming calendar week (Sunday -> Saturday inclusive).
+ * When called on Saturday, the upcoming week is tomorrow Sunday (+1) through next Saturday (+7).
+ * Uses user's configured settings dateFormat for display.
+ */
+export function findUpcomingWeekCelebrations(
+  allContacts: ReturnType<typeof listContactsWithDetails>,
+  referenceDate: Date = new Date(),
+  dateFormat: string = 'YYYY-MM-DD',
+  targetDayOfWeek: number = 6
+): {
+  celebrations: UpcomingCelebration[];
+  weekStart: Date;
+  weekEnd: Date;
+  weekStartFormatted: string;
+  weekEndFormatted: string;
+} {
+  const refYear = referenceDate.getFullYear();
+  const refMonth = referenceDate.getMonth();
+  const refDay = referenceDate.getDate();
+  const currentDayOfWeek = referenceDate.getDay(); // 0 = Sun ... 6 = Sat
+
+  // Distance to upcoming Sunday
+  let daysToSunday = (7 - currentDayOfWeek) % 7;
+  if (daysToSunday === 0 && currentDayOfWeek !== 0) {
+    daysToSunday = 7;
+  }
+  if (currentDayOfWeek === 6) {
+    daysToSunday = 1;
+  }
+
+  const weekStart = new Date(refYear, refMonth, refDay + daysToSunday);
+  const weekEnd = new Date(refYear, refMonth, refDay + daysToSunday + 6);
+
+  const weekStartFormatted = formatDateByPattern(weekStart, dateFormat);
+  const weekEndFormatted = formatDateByPattern(weekEnd, dateFormat);
+
+  // Generate lookup for the 7 dates in the window
+  const windowDates: Array<{ date: Date; month: number; day: number; daysAway: number }> = [];
+  for (let offset = 0; offset < 7; offset++) {
+    const d = new Date(refYear, refMonth, refDay + daysToSunday + offset);
+    windowDates.push({
+      date: d,
+      month: d.getMonth() + 1,
+      day: d.getDate(),
+      daysAway: daysToSunday + offset,
+    });
+  }
+
+  const celebrations: UpcomingCelebration[] = [];
+
+  const parseDateParts = (raw: string): { year: number | null; month: number; day: number } | null => {
+    const parts = raw.trim().split('-').map(Number);
+    if (parts.length < 2 || parts.some(isNaN)) return null;
+    const hasYear = parts.length === 3 && parts[0] > 1900;
+    return {
+      year: hasYear ? parts[0] : null,
+      month: hasYear ? parts[1] : parts[0],
+      day: hasYear ? parts[2] : parts[1],
+    };
+  };
+
+  for (const c of allContacts) {
+    // 1. Birthday
+    if (c.birthday) {
+      const parsed = parseDateParts(c.birthday);
+      if (parsed) {
+        for (const w of windowDates) {
+          if (w.month === parsed.month && w.day === parsed.day) {
+            const turningAge = parsed.year ? w.date.getFullYear() - parsed.year : null;
+            celebrations.push({
+              contactId: c.id,
+              contactName: c.fullName,
+              type: 'birthday',
+              label: 'Birthday',
+              rawDate: c.birthday,
+              occurrenceDate: w.date,
+              formattedDate: formatDateByPattern(w.date, dateFormat),
+              weekdayName: w.date.toLocaleDateString('en-US', { weekday: 'long' }),
+              daysAway: w.daysAway,
+              turningAge,
+              phone: c.phone,
+              email: c.email,
+            });
+          }
+        }
+      }
+    }
+
+    // 2. Significant Date
+    if (c.significantDate) {
+      const parsed = parseDateParts(c.significantDate);
+      if (parsed) {
+        for (const w of windowDates) {
+          if (w.month === parsed.month && w.day === parsed.day) {
+            const turningAge = parsed.year ? w.date.getFullYear() - parsed.year : null;
+            celebrations.push({
+              contactId: c.id,
+              contactName: c.fullName,
+              type: 'milestone',
+              label: c.significantDateLabel || 'Anniversary',
+              rawDate: c.significantDate,
+              occurrenceDate: w.date,
+              formattedDate: formatDateByPattern(w.date, dateFormat),
+              weekdayName: w.date.toLocaleDateString('en-US', { weekday: 'long' }),
+              daysAway: w.daysAway,
+              turningAge,
+              phone: c.phone,
+              email: c.email,
+            });
+          }
+        }
+      }
+    }
+
+    // 3. Important Dates
+    if (c.importantDates && c.importantDates.length > 0) {
+      for (const imp of c.importantDates) {
+        const parsed = parseDateParts(imp.date);
+        if (parsed) {
+          for (const w of windowDates) {
+            if (w.month === parsed.month && w.day === parsed.day) {
+              const turningAge = parsed.year ? w.date.getFullYear() - parsed.year : null;
+              celebrations.push({
+                contactId: c.id,
+                contactName: c.fullName,
+                type: 'milestone',
+                label: imp.label || 'Special Occasion',
+                rawDate: imp.date,
+                occurrenceDate: w.date,
+                formattedDate: formatDateByPattern(w.date, dateFormat),
+                weekdayName: w.date.toLocaleDateString('en-US', { weekday: 'long' }),
+                daysAway: w.daysAway,
+                turningAge,
+                phone: c.phone,
+                email: c.email,
+              });
+            }
+          }
+        }
+      }
+    }
+  }
+
+  celebrations.sort((a, b) => {
+    const diff = a.occurrenceDate.getTime() - b.occurrenceDate.getTime();
+    if (diff !== 0) return diff;
+    return a.contactName.localeCompare(b.contactName);
+  });
+
+  return {
+    celebrations,
+    weekStart,
+    weekEnd,
+    weekStartFormatted,
+    weekEndFormatted,
+  };
+}
+
+/**
+ * Formats the Weekly Birthday & Milestone Briefing for Telegram dispatch.
+ */
+export function buildWeeklyBirthdayDigestPayload(
+  referenceDate: Date = new Date(),
+  dateFormat: string = 'YYYY-MM-DD',
+  defaultCountryCode: string = '+972',
+  targetDayOfWeek: number = 6
+): {
+  summaryText: string;
+  celebrations: UpcomingCelebration[];
+  keyboard?: InlineKeyboard;
+} {
+  const allContacts = listContactsWithDetails(referenceDate);
+  const {
+    celebrations,
+    weekStartFormatted,
+    weekEndFormatted,
+  } = findUpcomingWeekCelebrations(allContacts, referenceDate, dateFormat, targetDayOfWeek);
+
+  const lines: string[] = [
+    `🎂 <b>Weekly Birthday &amp; Milestone Briefing</b>`,
+    `📅 <i>Upcoming Week: Sun ${weekStartFormatted} – Sat ${weekEndFormatted}</i>`,
+    `━━━━━━━━━━━━━━━━━━━━`,
+  ];
+
+  if (celebrations.length === 0) {
+    lines.push(
+      `🎉 <b>All quiet this week!</b> No birthdays or important dates recorded in your network for the upcoming week (Sun ${weekStartFormatted} – Sat ${weekEndFormatted}).`
+    );
+    return {
+      summaryText: lines.join('\n'),
+      celebrations: [],
+    };
+  }
+
+  // Group by date / weekday
+  const groupedByDay = new Map<string, UpcomingCelebration[]>();
+  for (const c of celebrations) {
+    const key = `${c.weekdayName}, ${c.formattedDate}`;
+    if (!groupedByDay.has(key)) {
+      groupedByDay.set(key, []);
+    }
+    groupedByDay.get(key)!.push(c);
+  }
+
+  for (const [dayHeader, items] of groupedByDay.entries()) {
+    lines.push(``);
+    lines.push(`🗓️ <b>${dayHeader}:</b>`);
+    for (const item of items) {
+      const ageStr = item.turningAge ? ` (Turning ${item.turningAge})` : '';
+      const icon = item.type === 'birthday' ? '🎂' : '💍';
+      lines.push(`• <b>${escapeHtml(item.contactName)}</b> — ${icon} ${escapeHtml(item.label)}${ageStr}`);
+    }
+  }
+
+  lines.push(``);
+  lines.push(`━━━━━━━━━━━━━━━━━━━━`);
+  lines.push(
+    `<i>${celebrations.length} celebration${celebrations.length === 1 ? '' : 's'} to prepare for this week!</i>`
+  );
+
+  const keyboard = new InlineKeyboard();
+  const actionable = celebrations.filter((c) => Boolean(c.phone));
+  const seenIds = new Set<number>();
+  let buttonsAdded = 0;
+
+  for (const item of actionable) {
+    if (seenIds.has(item.contactId)) continue;
+    seenIds.add(item.contactId);
+
+    const waLink = formatWhatsAppLink(item.phone, defaultCountryCode);
+    if (waLink && buttonsAdded < 4) {
+      keyboard.url(`💬 ${item.contactName.split(' ')[0]} (WhatsApp)`, waLink);
+      buttonsAdded++;
+      if (buttonsAdded % 2 === 0) {
+        keyboard.row();
+      }
+    }
+  }
+
+  return {
+    summaryText: lines.join('\n'),
+    celebrations,
+    keyboard: buttonsAdded > 0 ? keyboard : undefined,
+  };
 }
 
 function escapeHtml(str: string): string {

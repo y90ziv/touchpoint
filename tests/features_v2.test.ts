@@ -327,7 +327,14 @@ describe('Advanced Features V2 Test Suite', () => {
           snapshot_interval_unit TEXT NOT NULL DEFAULT 'days',
           snapshot_interval_value INTEGER NOT NULL DEFAULT 1,
           last_snapshot_at TEXT,
-          last_telegram_digest_date TEXT
+          last_telegram_digest_date TEXT,
+          default_snooze_days INTEGER NOT NULL DEFAULT 3,
+          primary_outreach_channel TEXT NOT NULL DEFAULT 'whatsapp',
+          show_secondary_actions INTEGER NOT NULL DEFAULT 1,
+          birthday_digest_enabled INTEGER NOT NULL DEFAULT 1,
+          birthday_digest_day INTEGER NOT NULL DEFAULT 6,
+          birthday_digest_time TEXT NOT NULL DEFAULT '19:00',
+          last_birthday_digest_date TEXT
         );
         CREATE TABLE contacts (
           id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -4,6 +4,7 @@ import { getAuthDb, getUserDb, getDb, runWithUser } from '@/db';
 import { settings, users } from '@/db/schema';
 import {
   buildDailyDigestPayloads,
+  buildWeeklyBirthdayDigestPayload,
   startTelegramLongPolling,
 } from '@/lib/telegram-service';
 import { dispatchOutgoingWebhook } from '@/lib/webhook-service';
@@ -153,33 +154,25 @@ export async function runDailyDigestForUser(userId: number, now: Date = new Date
           const digest = buildDailyDigestPayloads(localRefDate);
           const bot = new Bot(currentCfg.telegramBotToken);
 
-          const sentContactIds = new Set<number>();
-          for (const r of digest.reminders) {
-            if (sentContactIds.has(r.contactId)) continue;
-            sentContactIds.add(r.contactId);
-
-            await bot.api.sendMessage(currentCfg.telegramChatId, r.text, {
-              parse_mode: 'HTML',
-              reply_markup: r.keyboard,
-            });
-          }
-
-          if (digest.upcomingBirthdays.length > 0) {
-            const bdayLines = digest.upcomingBirthdays.map((b) => {
-              const dayLabel = b.daysAway === 0 ? '🎉 <b>Today!</b>' : `in ${b.daysAway}d (${b.date})`;
-              return `• <b>${b.contactName}</b> — ${b.label}: ${dayLabel}`;
-            });
-            await bot.api.sendMessage(
-              currentCfg.telegramChatId,
-              `🎂 <b>Upcoming Dates & Birthdays:</b>\n\n${bdayLines.join('\n')}`,
-              { parse_mode: 'HTML' }
-            );
-          }
-
-          if (digest.reminders.length === 0 && digest.upcomingBirthdays.length === 0 && !digest.skipEmpty) {
-            await bot.api.sendMessage(currentCfg.telegramChatId, '🎉 <b>Touchpoint:</b> All caught up today!', {
+          if (digest.reminders.length === 0 && digest.upcomingBirthdays.length === 0 && digest.skipEmpty) {
+            logger.info('scheduler.digest.telegram', 'Zero due contacts and birthdays, skipEmptyDigest is true');
+          } else {
+            // 1. Send the Consolidated Morning Briefing Header
+            await bot.api.sendMessage(currentCfg.telegramChatId, digest.summaryText, {
               parse_mode: 'HTML',
             });
+
+            // 2. Dispatch interactive per-contact action cards
+            const sentContactIds = new Set<number>();
+            for (const r of digest.reminders) {
+              if (sentContactIds.has(r.contactId)) continue;
+              sentContactIds.add(r.contactId);
+
+              await bot.api.sendMessage(currentCfg.telegramChatId, r.text, {
+                parse_mode: 'HTML',
+                reply_markup: r.keyboard,
+              });
+            }
           }
         } catch (tgErr) {
           logger.error('scheduler.digest.telegram', 'Telegram digest dispatch failed', tgErr);
@@ -193,6 +186,82 @@ export async function runDailyDigestForUser(userId: number, now: Date = new Date
         await dispatchOutgoingWebhook(localRefDate, false);
       } catch (whErr) {
         logger.error('scheduler.digest.webhook', 'Webhook digest dispatch failed', whErr);
+      }
+    }
+  });
+}
+
+/**
+ * Dispatches the centralized Weekly Birthday & Milestone Briefing for a given user across enabled channels.
+ */
+export async function runWeeklyBirthdayDigestForUser(userId: number, now: Date = new Date()) {
+  return runWithUser(userId, async () => {
+    const uDb = getUserDb(userId).db;
+    const currentCfg = uDb.select().from(settings).get();
+    if (!currentCfg || currentCfg.birthdayDigestEnabled === false) return;
+
+    const tz = resolveEffectiveTimezone(currentCfg.timezone, currentCfg.defaultCountryCode);
+    const localRefDate = getLocalDateInTimezone(tz, now);
+    const localDateStr = localRefDate.toISOString().slice(0, 10);
+
+    // Dedup guard check
+    const bdayDispatchKey = `${currentCfg.telegramChatId || 'user'}_bday_${localDateStr}`;
+    if (
+      schedulerState.lastDispatchedDigestDateByChat.has(bdayDispatchKey) ||
+      currentCfg.lastBirthdayDigestDate === localDateStr
+    ) {
+      logger.info(
+        'scheduler.birthday',
+        `Weekly Birthday Briefing already dispatched for ${localDateStr}, skipping duplicate`
+      );
+      return;
+    }
+
+    schedulerState.lastDispatchedDigestDateByChat.set(bdayDispatchKey, localDateStr);
+
+    try {
+      uDb
+        .update(settings)
+        .set({ lastBirthdayDigestDate: localDateStr })
+        .where(eq(settings.id, currentCfg.id))
+        .run();
+    } catch (dbErr) {
+      logger.warn('scheduler.birthday', 'Failed to update lastBirthdayDigestDate', { error: String(dbErr) });
+    }
+
+    // Channel 1: Telegram Bot
+    if (currentCfg.telegramBotToken && currentCfg.telegramChatId) {
+      try {
+        const payload = buildWeeklyBirthdayDigestPayload(
+          localRefDate,
+          currentCfg.dateFormat || 'YYYY-MM-DD',
+          currentCfg.defaultCountryCode || '+972',
+          currentCfg.birthdayDigestDay ?? 6
+        );
+
+        const bot = new Bot(currentCfg.telegramBotToken);
+        await bot.api.sendMessage(currentCfg.telegramChatId, payload.summaryText, {
+          parse_mode: 'HTML',
+          reply_markup: payload.keyboard,
+        });
+      } catch (tgErr) {
+        logger.error('scheduler.birthday.telegram', 'Telegram birthday digest dispatch failed', tgErr);
+      }
+    }
+
+    // Channel 2: Outgoing Webhook
+    if (currentCfg.webhookEnabled && currentCfg.webhookUrl) {
+      try {
+        const payload = buildWeeklyBirthdayDigestPayload(
+          localRefDate,
+          currentCfg.dateFormat || 'YYYY-MM-DD',
+          currentCfg.defaultCountryCode || '+972',
+          currentCfg.birthdayDigestDay ?? 6
+        );
+        const { dispatchOutgoingWebhook } = await import('@/lib/webhook-service');
+        await dispatchOutgoingWebhook(localRefDate, false);
+      } catch (whErr) {
+        logger.error('scheduler.birthday.webhook', 'Webhook birthday digest dispatch failed', whErr);
       }
     }
   });
@@ -312,6 +381,25 @@ export async function initializeBackgroundServices() {
               schedulerState.lastDispatchedMinuteByUser.set(backupKey, localDateStr);
               logger.info('scheduler.backup', `Running scheduled backup rotation for user ${uid} at 03:00 (${tz})`);
               runScheduledBackupRotation(uid, now);
+            }
+          }
+
+          // 4. Centralized Weekly Birthday & Milestone Briefing
+          if (currentCfg.birthdayDigestEnabled !== false) {
+            const targetDay = currentCfg.birthdayDigestDay ?? 6; // 6 = Saturday
+            const targetTime = (currentCfg.birthdayDigestTime || '19:00').trim().padStart(5, '0');
+            const localDayOfWeek = getLocalDayOfWeekInTimezone(tz, now);
+
+            if (localDayOfWeek === targetDay && currentTime === targetTime) {
+              const bdayKey = `bday_${uid}_${localDateStr}_${targetTime}`;
+              if (!schedulerState.lastDispatchedMinuteByUser.has(bdayKey)) {
+                schedulerState.lastDispatchedMinuteByUser.set(bdayKey, localDateStr);
+                logger.info(
+                  'scheduler.birthday',
+                  `Running scheduled Weekly Birthday Briefing for user ${uid} at ${currentTime} (${tz})`
+                );
+                await runWeeklyBirthdayDigestForUser(uid, now);
+              }
             }
           }
         }

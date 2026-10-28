@@ -61,6 +61,15 @@ export const settings = sqliteTable('settings', {
   snapshotIntervalValue: integer('snapshot_interval_value').notNull().default(1),
   lastSnapshotAt: text('last_snapshot_at'),
   lastTelegramDigestDate: text('last_telegram_digest_date'),
+  defaultSnoozeDays: integer('default_snooze_days').notNull().default(3),
+  primaryOutreachChannel: text('primary_outreach_channel').notNull().default('whatsapp'),
+  showSecondaryActions: integer('show_secondary_actions', { mode: 'boolean' }).notNull().default(true),
+  birthdayDigestEnabled: integer('birthday_digest_enabled', { mode: 'boolean' })
+    .notNull()
+    .default(true),
+  birthdayDigestDay: integer('birthday_digest_day').notNull().default(6), // 6 = Saturday
+  birthdayDigestTime: text('birthday_digest_time').notNull().default('19:00'),
+  lastBirthdayDigestDate: text('last_birthday_digest_date'),
 });
 
 export const contacts = sqliteTable(

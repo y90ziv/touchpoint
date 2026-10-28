@@ -26,7 +26,7 @@ export interface WebhookContactItem {
 }
 
 export interface WebhookDigestPayload {
-  event: 'daily_digest' | 'test_webhook';
+  event: 'daily_digest' | 'test_webhook' | 'birthday_digest';
   timestamp: string;
   text: string;
   content: string;

@@ -19,6 +19,11 @@ import {
   Phone,
   Mail,
   ArrowRight,
+  MessageCircle,
+  MessageSquare,
+  Clock,
+  Sparkles,
+  Cake,
 } from 'lucide-react';
 import { CRON_PRESETS, GoogleTombstoneItem, SnapshotItem, ThemePreset } from '@/types/touchpoint';
 import { useUI } from '@/context/UIContext';
@@ -480,6 +485,101 @@ export function SettingsView({
                   </button>
                 </div>
               </div>
+
+              {/* 1-Click Outreach Channels & Snooze Preferences */}
+              <div className="p-4 rounded-xl bg-well border border-border space-y-3.5">
+                <div className="flex items-center justify-between border-b border-border/70 pb-2.5">
+                  <div className="space-y-0.5">
+                    <div className="font-semibold text-xs text-foreground flex items-center gap-1.5">
+                      <MessageCircle className="w-4 h-4 text-primary" />
+                      <span>1-Click Outreach &amp; Snooze Preferences</span>
+                    </div>
+                    <p className="text-[11px] text-muted">
+                      Customize which communication channel is prioritized in Action Dispatch cards and your default snooze duration.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                  <div>
+                    <label className="block text-xs font-medium text-foreground mb-1.5">
+                      Primary Outreach Channel
+                    </label>
+                    <select
+                      value={settingsState.primaryOutreachChannel || 'whatsapp'}
+                      onChange={(e) =>
+                        setSettingsState({
+                          ...settingsState,
+                          primaryOutreachChannel: e.target.value as any,
+                        })
+                      }
+                      className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground font-medium text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="whatsapp">WhatsApp (wa.me)</option>
+                      <option value="phone">Phone Call (tel:)</option>
+                      <option value="sms">SMS / iMessage (sms:)</option>
+                      <option value="email">Email (mailto:)</option>
+                      <option value="telegram">Telegram (t.me)</option>
+                    </select>
+                    <p className="text-[11px] text-muted mt-1">
+                      Rendered as the prominent main action baton on due contact cards.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-foreground mb-1.5">
+                      Default Snooze Duration
+                    </label>
+                    <select
+                      value={Number(settingsState.defaultSnoozeDays || 3)}
+                      onChange={(e) =>
+                        setSettingsState({
+                          ...settingsState,
+                          defaultSnoozeDays: Number(e.target.value),
+                        })
+                      }
+                      className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground font-medium text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value={3}>3 Days (Quick delay)</option>
+                      <option value={7}>7 Days (1 Week)</option>
+                      <option value={14}>14 Days (2 Weeks)</option>
+                      <option value={30}>30 Days (1 Month)</option>
+                    </select>
+                    <p className="text-[11px] text-muted mt-1">
+                      Duration applied when clicking the snooze button in Action Dispatch and Telegram bot.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-border/70 flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-medium text-foreground">
+                      Display secondary quick-action buttons
+                    </span>
+                    <p className="text-[11px] text-muted">
+                      Shows phone dial alongside WhatsApp so you always have an instant fallback.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={settingsState.showSecondaryActions !== false}
+                    onClick={() =>
+                      setSettingsState({
+                        ...settingsState,
+                        showSecondaryActions: settingsState.showSecondaryActions === false,
+                      })
+                    }
+                    className={`w-10 h-6 flex items-center rounded-full p-1 cursor-pointer motion-safe:transition-colors motion-safe:duration-160 ${
+                      settingsState.showSecondaryActions !== false
+                        ? 'bg-primary justify-end'
+                        : 'bg-muted/30 justify-start'
+                    }`}
+                  >
+                    <div className="bg-white w-4 h-4 rounded-full shadow-md" />
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
@@ -499,6 +599,9 @@ export function SettingsView({
                       cadenceFuzzinessEnabled: Boolean(settingsState.cadenceFuzzinessEnabled),
                       cadenceFuzzinessPercent: Number(settingsState.cadenceFuzzinessPercent || 15),
                       dailyDigestTime: settingsState.dailyDigestTime || '09:00',
+                      defaultSnoozeDays: Number(settingsState.defaultSnoozeDays || 3),
+                      primaryOutreachChannel: settingsState.primaryOutreachChannel || 'whatsapp',
+                      showSecondaryActions: settingsState.showSecondaryActions !== false,
                     }),
                   });
                   await refreshData();
@@ -506,7 +609,7 @@ export function SettingsView({
                 }}
                 className="px-3.5 py-2 rounded-lg bg-primary text-primary-fg font-semibold motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 whitespace-nowrap"
               >
-                <span>Save Appearance Settings</span>
+                <span>Save Appearance &amp; Cadence Settings</span>
               </button>
             </div>
 
@@ -646,7 +749,7 @@ export function SettingsView({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-medium text-muted mb-1.5">
-                        Daily Notification Time (Local Time)
+                        Daily Morning Briefing Time (Local Time)
                       </label>
                       <input
                         type="time"
@@ -656,8 +759,32 @@ export function SettingsView({
                         }
                         className="w-full px-3 py-2 rounded-lg bg-well border border-border text-foreground font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                       />
-                      <p className="text-[11px] text-muted mt-1">
-                        Touchpoint evaluates due contacts and dispatches your digest at this exact local hour:minute.
+                      <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                        <span className="text-[11px] text-muted">Presets:</span>
+                        {[
+                          { time: '07:00', label: '07:00 Early' },
+                          { time: '08:00', label: '08:00 Morning' },
+                          { time: '09:00', label: '09:00 Default' },
+                          { time: '10:00', label: '10:00 Late' },
+                        ].map((p) => (
+                          <button
+                            key={p.time}
+                            type="button"
+                            onClick={() =>
+                              setSettingsState({ ...settingsState, dailyDigestTime: p.time })
+                            }
+                            className={`px-2 py-0.5 rounded text-[11px] font-mono font-medium border transition-colors ${
+                              settingsState.dailyDigestTime === p.time
+                                ? 'bg-primary text-primary-fg border-primary'
+                                : 'bg-background hover:bg-well border-border text-foreground'
+                            }`}
+                          >
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[11px] text-muted mt-1.5">
+                        Touchpoint summarizes due contacts and dispatches your morning action digest via Telegram and webhook at this exact local time.
                       </p>
                     </div>
 
@@ -764,6 +891,166 @@ export function SettingsView({
               );
             })()}
 
+            {/* Weekly Birthday & Milestone Briefing Card */}
+            <div className="bg-background border border-border rounded-lg p-4 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                    <Cake className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground text-sm">
+                      Weekly Birthday &amp; Milestone Briefing
+                    </h3>
+                    <p className="text-[11px] text-muted">
+                      Consolidated weekly briefing covering birthdays and milestone dates (anniversaries, weddings) for the upcoming week (Sunday through Saturday).
+                    </p>
+                  </div>
+                </div>
+                <div className="shrink-0 text-left sm:text-right">
+                  <span className="text-[10px] text-muted block">Scheduled trigger:</span>
+                  <span className="font-semibold text-primary text-xs font-mono">
+                    {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][Number(settingsState.birthdayDigestDay ?? 6)]} at {settingsState.birthdayDigestTime || '19:00'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-border/50">
+                <div>
+                  <label className="block text-muted text-xs mb-1">Dispatch Day of Week</label>
+                  <select
+                    value={Number(settingsState.birthdayDigestDay ?? 6)}
+                    onChange={(e) =>
+                      setSettingsState({
+                        ...settingsState,
+                        birthdayDigestDay: Number(e.target.value),
+                      })
+                    }
+                    className="w-full px-3 py-1.5 rounded-lg bg-well border border-border text-foreground text-xs focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+                  >
+                    <option value={6}>Saturday (Recommended — preps you for Sunday-Saturday)</option>
+                    <option value={0}>Sunday</option>
+                    <option value={1}>Monday</option>
+                    <option value={2}>Tuesday</option>
+                    <option value={3}>Wednesday</option>
+                    <option value={4}>Thursday</option>
+                    <option value={5}>Friday</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-muted text-xs mb-1">Dispatch Time (24h)</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="time"
+                      value={settingsState.birthdayDigestTime || '19:00'}
+                      onChange={(e) =>
+                        setSettingsState({
+                          ...settingsState,
+                          birthdayDigestTime: e.target.value,
+                        })
+                      }
+                      className="px-3 py-1.5 rounded-lg bg-well border border-border text-foreground text-xs font-mono focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+                    />
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {[
+                        { label: '19:00 (7 PM)', time: '19:00' },
+                        { label: '09:00 (9 AM)', time: '09:00' },
+                        { label: '12:00 (Noon)', time: '12:00' },
+                      ].map((preset) => (
+                        <button
+                          key={preset.time}
+                          type="button"
+                          onClick={() =>
+                            setSettingsState({
+                              ...settingsState,
+                              birthdayDigestTime: preset.time,
+                            })
+                          }
+                          className={`px-2 py-1 rounded text-[10px] font-mono border active:scale-[0.97] motion-safe:transition-colors focus-visible:outline-2 focus-visible:outline-primary ${
+                            settingsState.birthdayDigestTime === preset.time
+                              ? 'bg-primary text-primary-fg border-primary font-semibold'
+                              : 'bg-well text-muted hover:text-foreground border-border'
+                          }`}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-border/50">
+                <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={settingsState.birthdayDigestEnabled !== false}
+                    onChange={(e) =>
+                      setSettingsState({
+                        ...settingsState,
+                        birthdayDigestEnabled: e.target.checked,
+                      })
+                    }
+                    className="rounded border-border text-primary focus:ring-primary w-4 h-4"
+                  />
+                  <span>Enable Weekly Birthday &amp; Milestone Briefing</span>
+                </label>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  {settingsState.telegramBotToken && settingsState.telegramChatId && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const res = await fetch('/api/telegram', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            action: 'test_birthday_digest',
+                            botToken: settingsState.telegramBotToken,
+                            chatId: settingsState.telegramChatId,
+                          }),
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        notify(
+                          res.ok
+                            ? `Test Birthday Briefing sent to Telegram! (${data.celebrationsCount ?? 0} celebration${data.celebrationsCount === 1 ? '' : 's'})`
+                            : data.error || 'Failed to dispatch test birthday briefing'
+                        );
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-well hover:bg-card-hover border border-border text-foreground font-semibold text-xs flex items-center gap-1.5 motion-safe:transition-colors active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+                      title="Dispatch a test preview to Telegram immediately"
+                    >
+                      <Cake className="w-3.5 h-3.5 text-primary" />
+                      <span>Send Test Briefing</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await fetch('/api/settings', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          birthdayDigestEnabled: settingsState.birthdayDigestEnabled !== false,
+                          birthdayDigestDay: Number(settingsState.birthdayDigestDay ?? 6),
+                          birthdayDigestTime: settingsState.birthdayDigestTime || '19:00',
+                        }),
+                      });
+                      await refreshData();
+                      notify(
+                        `Saved Weekly Birthday Schedule (${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][Number(settingsState.birthdayDigestDay ?? 6)]} at ${settingsState.birthdayDigestTime || '19:00'}).`
+                      );
+                    }}
+                    className="px-3.5 py-1.5 rounded-lg bg-primary text-primary-fg font-semibold text-xs motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out hover:opacity-90 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 whitespace-nowrap"
+                  >
+                    <span>Save Schedule</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
             {/* Channel A: Telegram Bot */}
             <div className="bg-background border border-border rounded-lg p-4 space-y-3">
               <div className="flex items-center justify-between">
@@ -869,6 +1156,58 @@ export function SettingsView({
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>Send Test Message</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const res = await fetch('/api/telegram', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        action: 'send_digest_now',
+                        botToken: settingsState.telegramBotToken,
+                        chatId: settingsState.telegramChatId,
+                      }),
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    notify(
+                      res.ok
+                        ? `Morning Briefing sent! (${data.sentCount ?? 0} contact cards dispatched)`
+                        : data.error || 'Failed to dispatch morning briefing'
+                    );
+                  }}
+                  className="px-3 py-2 rounded-lg bg-well border border-border flex items-center gap-1.5 motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 whitespace-nowrap"
+                  title="Dispatch today's morning briefing immediately to Telegram"
+                >
+                  <Sun className="w-3.5 h-3.5 text-warning" />
+                  <span>Send Morning Briefing Now</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const res = await fetch('/api/telegram', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        action: 'send_birthday_digest_now',
+                        botToken: settingsState.telegramBotToken,
+                        chatId: settingsState.telegramChatId,
+                      }),
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    notify(
+                      res.ok
+                        ? `Weekly Birthday Briefing sent! (${data.celebrationsCount ?? 0} celebration${data.celebrationsCount === 1 ? '' : 's'})`
+                        : data.error || 'Failed to dispatch birthday briefing'
+                    );
+                  }}
+                  className="px-3 py-2 rounded-lg bg-well border border-border flex items-center gap-1.5 motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 whitespace-nowrap"
+                  title="Dispatch upcoming week's birthday briefing immediately to Telegram"
+                >
+                  <Cake className="w-3.5 h-3.5 text-primary" />
+                  <span>Send Birthday Briefing Now</span>
                 </button>
               </div>
 

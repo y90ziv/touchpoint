@@ -22,6 +22,9 @@ import {
   Target,
   FileText,
   Flame,
+  Mail,
+  Send,
+  MessageSquare,
 } from 'lucide-react';
 import { ContactItem, NavigationTab } from '@/types/touchpoint';
 import { ProgressRingAvatar } from '@/components/ProgressRingAvatar';
@@ -452,7 +455,7 @@ export function RadarDashboard({
           className={`grid gap-3.5 ${
             isFull
               ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
-              : 'grid-cols-1 sm:grid-cols-2'
+              : 'grid-cols-1'
           }`}
         >
           {attentionContacts.map((c) => {
@@ -461,7 +464,7 @@ export function RadarDashboard({
             return (
               <div
                 key={c.id}
-                className="group relative p-3.5 rounded-xl bg-card border border-border hover:border-primary/50 motion-safe:transition-colors motion-safe:duration-160 flex flex-col justify-between"
+                className="group relative p-3.5 rounded-xl bg-card border border-border hover:border-primary/50 motion-safe:transition-colors motion-safe:duration-160 flex flex-col justify-between overflow-hidden"
               >
                 <div className="space-y-3">
                   <div className="flex items-start justify-between gap-2">
@@ -508,44 +511,131 @@ export function RadarDashboard({
                 </div>
 
                 {/* 1-Click Action Buttons */}
-                <div className="pt-3 border-t border-border mt-3 flex items-center gap-1.5">
-                  {c.phone && (
-                    <a
-                      href={`https://wa.me/${dialPhone.replace('+', '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 py-1.5 px-2 rounded-lg bg-emerald-600/10 text-emerald-600 hover:bg-emerald-600 hover:text-white text-xs font-semibold flex items-center justify-center gap-1 motion-safe:transition-colors motion-safe:duration-160 focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
-                      title="Chat on WhatsApp"
-                    >
-                      <MessageCircle className="w-3.5 h-3.5" aria-hidden="true" /> WhatsApp
-                    </a>
-                  )}
-                  {c.phone && (
-                    <a
-                      href={`tel:${dialPhone}`}
-                      className="py-1.5 px-2 rounded-lg bg-well text-foreground hover:bg-card-hover text-xs font-semibold flex items-center justify-center gap-1 motion-safe:transition-colors motion-safe:duration-160 focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
-                      title="Dial phone"
-                    >
-                      <Phone className="w-3.5 h-3.5" aria-hidden="true" />
-                    </a>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLog(c, 'call')}
-                    className="flex-1 py-1.5 px-2 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-primary-fg text-xs font-semibold flex items-center justify-center gap-1 motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Mark as contacted today"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" /> Logged
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSnooze(c, 3)}
-                    className="py-1.5 px-2 rounded-lg bg-well text-muted hover:text-foreground text-xs font-semibold flex items-center justify-center gap-1 motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Snooze 3 days"
-                  >
-                    <Clock className="w-3.5 h-3.5" aria-hidden="true" /> 3d
-                  </button>
-                </div>
+                {(() => {
+                  const primaryChannel = ui.settingsState.primaryOutreachChannel || 'whatsapp';
+                  const defaultSnoozeDays = Number(ui.settingsState.defaultSnoozeDays || 3);
+                  const showSecondary = ui.settingsState.showSecondaryActions !== false;
+
+                  return (
+                    <div className="pt-3 border-t border-border mt-3 flex items-center flex-wrap gap-1.5">
+                      {/* Primary Outreach Channel */}
+                      {primaryChannel === 'whatsapp' && c.phone && (
+                        <a
+                          href={`https://wa.me/${dialPhone.replace('+', '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 min-w-[84px] py-1.5 px-2 rounded-lg bg-emerald-600/10 text-emerald-600 hover:bg-emerald-600 hover:text-white text-xs font-semibold flex items-center justify-center gap-1 motion-safe:transition-colors motion-safe:duration-160 focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+                          title="Chat on WhatsApp"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                          <span className="truncate">WhatsApp</span>
+                        </a>
+                      )}
+
+                      {primaryChannel === 'phone' && c.phone && (
+                        <a
+                          href={`tel:${dialPhone}`}
+                          className="flex-1 min-w-[84px] py-1.5 px-2 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-primary-fg text-xs font-semibold flex items-center justify-center gap-1 motion-safe:transition-colors motion-safe:duration-160 focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+                          title="Dial phone"
+                        >
+                          <Phone className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                          <span className="truncate">Call</span>
+                        </a>
+                      )}
+
+                      {primaryChannel === 'sms' && c.phone && (
+                        <a
+                          href={`sms:${dialPhone}`}
+                          className="flex-1 min-w-[84px] py-1.5 px-2 rounded-lg bg-sky-600/10 text-sky-600 hover:bg-sky-600 hover:text-white text-xs font-semibold flex items-center justify-center gap-1 motion-safe:transition-colors motion-safe:duration-160 focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+                          title="Send SMS"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                          <span className="truncate">SMS</span>
+                        </a>
+                      )}
+
+                      {primaryChannel === 'email' && c.email && (
+                        <a
+                          href={`mailto:${c.email}`}
+                          className="flex-1 min-w-[84px] py-1.5 px-2 rounded-lg bg-purple-600/10 text-purple-600 hover:bg-purple-600 hover:text-white text-xs font-semibold flex items-center justify-center gap-1 motion-safe:transition-colors motion-safe:duration-160 focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+                          title="Send Email"
+                        >
+                          <Mail className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                          <span className="truncate">Email</span>
+                        </a>
+                      )}
+
+                      {primaryChannel === 'telegram' && (
+                        <a
+                          href={`https://t.me/${dialPhone.replace('+', '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 min-w-[84px] py-1.5 px-2 rounded-lg bg-sky-500/10 text-sky-500 hover:bg-sky-500 hover:text-white text-xs font-semibold flex items-center justify-center gap-1 motion-safe:transition-colors motion-safe:duration-160 focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+                          title="Chat on Telegram"
+                        >
+                          <Send className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                          <span className="truncate">Telegram</span>
+                        </a>
+                      )}
+
+                      {/* Fallback if contact lacks phone/email for primary channel */}
+                      {((primaryChannel === 'whatsapp' || primaryChannel === 'sms' || primaryChannel === 'phone') && !c.phone && c.email) && (
+                        <a
+                          href={`mailto:${c.email}`}
+                          className="flex-1 min-w-[84px] py-1.5 px-2 rounded-lg bg-purple-600/10 text-purple-600 hover:bg-purple-600 hover:text-white text-xs font-semibold flex items-center justify-center gap-1 motion-safe:transition-colors motion-safe:duration-160"
+                          title="Send Email"
+                        >
+                          <Mail className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                          <span className="truncate">Email</span>
+                        </a>
+                      )}
+
+                      {/* Secondary Quick Action Button */}
+                      {showSecondary && primaryChannel !== 'phone' && c.phone && (
+                        <a
+                          href={`tel:${dialPhone}`}
+                          className="py-1.5 px-2 rounded-lg bg-well text-foreground hover:bg-card-hover text-xs font-semibold flex items-center justify-center gap-1 shrink-0 motion-safe:transition-colors motion-safe:duration-160 focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+                          title="Dial phone"
+                        >
+                          <Phone className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                        </a>
+                      )}
+                      {showSecondary && primaryChannel === 'phone' && c.phone && (
+                        <a
+                          href={`https://wa.me/${dialPhone.replace('+', '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="py-1.5 px-2 rounded-lg bg-emerald-600/10 text-emerald-600 hover:bg-emerald-600 hover:text-white text-xs font-semibold flex items-center justify-center gap-1 shrink-0 motion-safe:transition-colors motion-safe:duration-160 focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+                          title="Chat on WhatsApp"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                        </a>
+                      )}
+
+                      {/* Quick Log Contacted Today */}
+                      <button
+                        type="button"
+                        onClick={() => handleQuickLog(c, 'call')}
+                        className="flex-1 min-w-[76px] py-1.5 px-2 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-primary-fg text-xs font-semibold flex items-center justify-center gap-1 motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Mark as contacted today"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                        <span className="truncate">Logged</span>
+                      </button>
+
+                      {/* Dynamic Snooze with Configured Duration */}
+                      <button
+                        type="button"
+                        onClick={() => handleSnooze(c, defaultSnoozeDays)}
+                        className="py-1.5 px-2 rounded-lg bg-well text-muted hover:text-foreground text-xs font-semibold flex items-center justify-center gap-1 shrink-0 motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={`Snooze ${defaultSnoozeDays} days`}
+                      >
+                        <Clock className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                        <span>{defaultSnoozeDays}d</span>
+                      </button>
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}

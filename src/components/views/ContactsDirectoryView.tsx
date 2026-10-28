@@ -267,10 +267,32 @@ export function ContactsDirectoryView({
     }
   };
 
-  const handleToggleContactSelect = (id: number) => {
-    setSelectedContactIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
+  const lastSelectedContactIdRef = useRef<number | null>(null);
+
+  const handleToggleContactSelect = (id: number, shiftKey: boolean = false) => {
+    setSelectedContactIds((prev) => {
+      const isCurrentlySelected = prev.includes(id);
+
+      if (shiftKey && lastSelectedContactIdRef.current !== null && lastSelectedContactIdRef.current !== id) {
+        const lastIndex = paginatedContacts.findIndex((c) => c.id === lastSelectedContactIdRef.current);
+        const currentIndex = paginatedContacts.findIndex((c) => c.id === id);
+
+        if (lastIndex !== -1 && currentIndex !== -1) {
+          const start = Math.min(lastIndex, currentIndex);
+          const end = Math.max(lastIndex, currentIndex);
+          const rangeIds = paginatedContacts.slice(start, end + 1).map((c) => c.id);
+
+          if (isCurrentlySelected) {
+            return prev.filter((item) => !rangeIds.includes(item));
+          } else {
+            return Array.from(new Set([...prev, ...rangeIds]));
+          }
+        }
+      }
+
+      lastSelectedContactIdRef.current = id;
+      return isCurrentlySelected ? prev.filter((i) => i !== id) : [...prev, id];
+    });
   };
 
   const clickCountRef = useRef<{ [id: number]: number }>({});
@@ -284,7 +306,7 @@ export function ContactsDirectoryView({
 
   const handleRowClick = (c: ContactItem, e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (target.closest('input, a, button, [role="button"]')) return;
+    if (target.closest('[data-selection-cell="true"], input, a, button, [role="button"]')) return;
 
     const currentCount = (clickCountRef.current[c.id] || 0) + 1;
     clickCountRef.current[c.id] = currentCount;
@@ -678,17 +700,19 @@ export function ContactsDirectoryView({
           <table className="w-full text-left border-collapse text-[13px]">
             <thead>
               <tr className="border-b border-border bg-well text-muted font-medium text-[12px] select-none">
-                <th className="p-3 w-10 text-center">
-                  <input
-                    type="checkbox"
-                    checked={
-                      paginatedContacts.length > 0 &&
-                      paginatedContacts.every((c) => selectedContactIds.includes(c.id))
-                    }
-                    onChange={handleSelectAll}
-                    aria-label="Select all contacts on current page"
-                    className="rounded border-border text-primary focus:ring-0"
-                  />
+                <th className="p-0 w-12 text-center border-r border-border/60 bg-well/70 select-none">
+                  <div className="w-full h-full min-h-[44px] flex items-center justify-center p-3">
+                    <input
+                      type="checkbox"
+                      checked={
+                        paginatedContacts.length > 0 &&
+                        paginatedContacts.every((c) => selectedContactIds.includes(c.id))
+                      }
+                      onChange={handleSelectAll}
+                      aria-label="Select all contacts on current page"
+                      className="w-4 h-4 rounded border-border text-primary focus:ring-0 cursor-pointer"
+                    />
+                  </div>
                 </th>
 
                 {effectiveActiveColumns.map((colId) => {
@@ -749,14 +773,33 @@ export function ContactsDirectoryView({
                         isSelected ? 'bg-primary/5' : ''
                       }`}
                     >
-                      <td className="p-3 text-center">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => handleToggleContactSelect(c.id)}
-                          aria-label={`Select ${c.fullName}`}
-                          className="rounded border-border text-primary focus:ring-0"
-                        />
+                      <td
+                        data-selection-cell="true"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleContactSelect(c.id, e.shiftKey);
+                        }}
+                        className={`p-0 w-12 text-center border-r border-border/60 cursor-pointer transition-colors select-none ${
+                          isSelected
+                            ? 'bg-primary/15 hover:bg-primary/20'
+                            : 'bg-well/30 hover:bg-well/80'
+                        }`}
+                        title="Click to select contact (Shift+Click to select range)"
+                      >
+                        <div className="w-full h-full min-h-[44px] flex items-center justify-center p-3">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              const nativeEvent = e.nativeEvent as MouseEvent;
+                              handleToggleContactSelect(c.id, nativeEvent?.shiftKey || false);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            aria-label={`Select ${c.fullName}`}
+                            className="w-4 h-4 rounded border-border text-primary focus:ring-0 cursor-pointer"
+                          />
+                        </div>
                       </td>
 
                       {effectiveActiveColumns.map((colId) => {

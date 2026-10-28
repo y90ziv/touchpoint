@@ -273,6 +273,13 @@ export interface SettingsState {
   snapshotIntervalUnit?: 'days' | 'weeks' | 'months';
   snapshotIntervalValue?: number;
   lastSnapshotAt?: string | null;
+  defaultSnoozeDays?: number;
+  primaryOutreachChannel?: 'whatsapp' | 'phone' | 'sms' | 'email' | 'telegram';
+  showSecondaryActions?: boolean;
+  birthdayDigestEnabled?: boolean;
+  birthdayDigestDay?: number;
+  birthdayDigestTime?: string;
+  lastBirthdayDigestDate?: string | null;
   dashboardWidgets?: Record<string, boolean>;
   [key: string]: any;
 }
