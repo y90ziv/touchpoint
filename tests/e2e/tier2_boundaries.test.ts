@@ -540,7 +540,7 @@ describe('Tier 2: Boundary & Corner Cases (Opaque-Box E2E)', () => {
 
     it('7.5 escapes HTML special characters (<, >, &, \") in contact reminders to prevent injection', () => {
       const c = createContact({
-        fullName: 'Hacker <script>alert(1)</script>',
+        fullName: 'Hacker AT&T <script>alert(1)</script>',
         company: 'AT&T & "Co"',
         jobTitle: 'Lead > Architect',
       });
@@ -557,7 +557,8 @@ describe('Tier 2: Boundary & Corner Cases (Opaque-Box E2E)', () => {
       const c = createContact({ fullName: 'Minimal Contact', keepInTouch: true });
       const msg = buildContactReminderMessage(c.id);
       expect(msg.text).toContain('Touchpoint Reminder: Minimal Contact');
-      expect(msg.text).toContain('<b>Group:</b> Personal');
+      expect(msg.text).not.toContain('Group:');
+      expect(msg.text).not.toContain('Work & Life:');
       expect(msg.keyboard).toBeDefined();
     });
   });

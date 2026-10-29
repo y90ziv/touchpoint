@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getDb, runWithUser } from '@/db';
-import { settings } from '@/db/schema';
+import { settings, users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { logger, setLogLevel, LogLevel, extractRequestId } from '@/lib/logger';
 import { getRequestUserId } from '@/lib/auth';
@@ -60,9 +60,10 @@ function ensureSettingsRow(userId: number) {
   const db = getDb(userId);
   let row = db.select().from(settings).get();
   if (!row) {
+    const userExists = db.select().from(users).where(eq(users.id, userId)).get();
     db.insert(settings)
       .values({
-        ownerUserId: userId,
+        ownerUserId: userExists ? userId : null,
         timezone: resolveEffectiveTimezone(process.env.TZ, '+972'),
         icalSecretToken: crypto.randomBytes(24).toString('hex'),
         telegramBindingToken: crypto.randomBytes(16).toString('hex'),

@@ -157,12 +157,15 @@ export async function runDailyDigestForUser(userId: number, now: Date = new Date
           if (digest.reminders.length === 0 && digest.upcomingBirthdays.length === 0 && digest.skipEmpty) {
             logger.info('scheduler.digest.telegram', 'Zero due contacts and birthdays, skipEmptyDigest is true');
           } else {
-            // 1. Send the Consolidated Morning Briefing Header
-            await bot.api.sendMessage(currentCfg.telegramChatId, digest.summaryText, {
-              parse_mode: 'HTML',
-            });
+            // When there are no reminders (e.g., only birthdays or non-empty caught-up digest), send the summary text.
+            // When sending reminders, the summary header is omitted to prevent duplicate notifications.
+            if (digest.reminders.length === 0) {
+              await bot.api.sendMessage(currentCfg.telegramChatId, digest.summaryText, {
+                parse_mode: 'HTML',
+              });
+            }
 
-            // 2. Dispatch interactive per-contact action cards
+            // Dispatch interactive per-contact action cards
             const sentContactIds = new Set<number>();
             for (const r of digest.reminders) {
               if (sentContactIds.has(r.contactId)) continue;

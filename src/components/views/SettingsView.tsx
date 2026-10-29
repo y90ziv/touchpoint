@@ -24,6 +24,8 @@ import {
   Clock,
   Sparkles,
   Cake,
+  Upload,
+  RotateCcw,
 } from 'lucide-react';
 import { CRON_PRESETS, GoogleTombstoneItem, SnapshotItem, ThemePreset } from '@/types/touchpoint';
 import { useUI } from '@/context/UIContext';
@@ -122,6 +124,15 @@ export function SettingsView({
         snapshotScheduleMode: settingsState.snapshotScheduleMode || 'scheduled',
         snapshotIntervalUnit: settingsState.snapshotIntervalUnit || 'days',
         snapshotIntervalValue: Number(settingsState.snapshotIntervalValue || 1),
+        dailyDigestEnabled: settingsState.dailyDigestEnabled !== false,
+        dailyDigestTime: settingsState.dailyDigestTime || '09:00',
+        skipEmptyDigest: settingsState.skipEmptyDigest !== false,
+        birthdayDigestEnabled: settingsState.birthdayDigestEnabled !== false,
+        birthdayDigestDay: Number(settingsState.birthdayDigestDay ?? 6),
+        birthdayDigestTime: settingsState.birthdayDigestTime || '19:00',
+        primaryOutreachChannel: settingsState.primaryOutreachChannel || 'whatsapp',
+        defaultSnoozeDays: Number(settingsState.defaultSnoozeDays || 3),
+        showSecondaryActions: settingsState.showSecondaryActions !== false,
       }),
     });
     if (res.ok) {
@@ -213,6 +224,74 @@ export function SettingsView({
 
   const [showCleanSnapshotsWarning, setShowCleanSnapshotsWarning] = useState(false);
   const [cleaningSnapshots, setCleaningSnapshots] = useState(false);
+  const [importingBackup, setImportingBackup] = useState(false);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const isDb =
+      file.name.endsWith('.db') || file.name.endsWith('.sqlite') || file.name.endsWith('.sqlite3');
+    const isJson = file.name.endsWith('.json');
+    if (isDb || isJson) {
+      const confirmed = window.confirm(
+        `Importing "${file.name}" will overwrite your current contacts, groups, and settings with the imported database contents. Proceed?`
+      );
+      if (!confirmed) {
+        e.target.value = '';
+        return;
+      }
+    }
+    setImportingBackup(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/backup', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok) {
+        notify(
+          `Backup imported successfully (${data.restoredContacts ?? data.imported ?? 0} contacts restored).`
+        );
+        await refreshData();
+        await contactsCtx.loadContacts();
+        await groupsCtx.loadGroups();
+      } else {
+        notify(data.error || 'Failed to import backup file');
+      }
+    } catch {
+      notify('Failed to import backup file');
+    } finally {
+      setImportingBackup(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleRestoreSnapshot = async (filename: string) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to restore snapshot "${filename}"? This will overwrite your current contacts and settings with this snapshot.`
+    );
+    if (!confirmed) return;
+    try {
+      const res = await fetch('/api/backup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ snapshotFilename: filename }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        notify(`Restored snapshot successfully (${data.restoredContacts ?? 0} contacts restored).`);
+        await refreshData();
+        await contactsCtx.loadContacts();
+        await groupsCtx.loadGroups();
+      } else {
+        notify(data.error || 'Failed to restore snapshot');
+      }
+    } catch {
+      notify('Failed to restore snapshot');
+    }
+  };
 
   const handleCreateSnapshot = async () => {
     const success = await ui.createSnapshot();
@@ -748,10 +827,16 @@ export function SettingsView({
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-medium text-muted mb-1.5">
-                        Daily Morning Briefing Time (Local Time)
-                      </label>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label htmlFor="daily-digest-time" className="block text-xs font-medium text-muted">
+                          Daily Morning Briefing Time (Local Time)
+                        </label>
+                        <span className="text-[11px] font-mono text-primary font-medium">
+                          {settingsState.dailyDigestTime || '09:00'}
+                        </span>
+                      </div>
                       <input
+                        id="daily-digest-time"
                         type="time"
                         value={settingsState.dailyDigestTime || '09:00'}
                         onChange={(e) =>
@@ -775,16 +860,46 @@ export function SettingsView({
                             }
                             className={`px-2 py-0.5 rounded text-[11px] font-mono font-medium border transition-colors ${
                               settingsState.dailyDigestTime === p.time
-                                ? 'bg-primary text-primary-fg border-primary'
+                                ? 'bg-primary text-primary-fg border-primary font-semibold'
                                 : 'bg-background hover:bg-well border-border text-foreground'
                             }`}
                           >
                             {p.label}
                           </button>
                         ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const input = document.getElementById('daily-digest-time') as HTMLInputElement;
+                            if (input) {
+                              input.focus();
+                              if (typeof input.showPicker === 'function') {
+                                try {
+                                  input.showPicker();
+                                } catch {
+                                  // ignore
+                                }
+                              }
+                            }
+                          }}
+                          className={`px-2 py-0.5 rounded text-[11px] font-mono font-medium border transition-colors ${
+                            !['07:00', '08:00', '09:00', '10:00'].includes(
+                              settingsState.dailyDigestTime || '09:00'
+                            )
+                              ? 'bg-primary text-primary-fg border-primary font-semibold'
+                              : 'bg-background hover:bg-well border-border text-foreground'
+                          }`}
+                        >
+                          Custom{' '}
+                          {!['07:00', '08:00', '09:00', '10:00'].includes(
+                            settingsState.dailyDigestTime || '09:00'
+                          )
+                            ? `(${settingsState.dailyDigestTime})`
+                            : ''}
+                        </button>
                       </div>
                       <p className="text-[11px] text-muted mt-1.5">
-                        Touchpoint summarizes due contacts and dispatches your morning action digest via Telegram and webhook at this exact local time.
+                        Touchpoint summarizes due contacts and dispatches your morning action digest via Telegram and webhook at this exact local time. Pick a preset or choose any custom briefing time.
                       </p>
                     </div>
 
@@ -1845,11 +1960,22 @@ export function SettingsView({
                 </select>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="px-3 py-2 rounded-lg bg-well border border-border flex items-center gap-1.5 hover:bg-card-hover text-foreground font-medium motion-safe:transition-colors motion-safe:duration-160 whitespace-nowrap cursor-pointer text-xs">
+                  <Upload className="w-3.5 h-3.5 text-primary" />
+                  <span>{importingBackup ? 'Importing…' : 'Import Backup (.db, .json, .vcf)'}</span>
+                  <input
+                    type="file"
+                    accept=".db,.sqlite,.sqlite3,.json,.vcf"
+                    className="hidden"
+                    disabled={importingBackup}
+                    onChange={handleFileUpload}
+                  />
+                </label>
                 <a
                   href="/api/backup?format=json"
                   download="touchpoint-backup.json"
-                  className="px-3 py-2 rounded-lg bg-background border border-border flex items-center gap-1.5 hover:bg-well motion-safe:transition-colors motion-safe:duration-160 whitespace-nowrap"
+                  className="px-3 py-2 rounded-lg bg-background border border-border flex items-center gap-1.5 hover:bg-well motion-safe:transition-colors motion-safe:duration-160 whitespace-nowrap text-xs text-foreground"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>Export JSON Backup</span>
@@ -1857,7 +1983,7 @@ export function SettingsView({
                 <a
                   href="/api/backup?format=vcf"
                   download="touchpoint-contacts.vcf"
-                  className="px-3 py-2 rounded-lg bg-background border border-border flex items-center gap-1.5 hover:bg-well motion-safe:transition-colors motion-safe:duration-160 whitespace-nowrap"
+                  className="px-3 py-2 rounded-lg bg-background border border-border flex items-center gap-1.5 hover:bg-well motion-safe:transition-colors motion-safe:duration-160 whitespace-nowrap text-xs text-foreground"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>Export .vcf</span>
@@ -2014,7 +2140,16 @@ export function SettingsView({
                           <td className="p-2.5 text-muted font-mono">
                             {new Date(snap.createdAt).toLocaleString()}
                           </td>
-                          <td className="p-2.5 text-right">
+                          <td className="p-2.5 text-right flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleRestoreSnapshot(snap.filename)}
+                              className="px-2.5 py-1 rounded bg-well border border-border hover:bg-well text-foreground font-medium text-[11px] inline-flex items-center gap-1 motion-safe:transition-colors motion-safe:duration-160 whitespace-nowrap"
+                              title={`Restore database to snapshot ${snap.filename}`}
+                            >
+                              <RotateCcw className="w-3 h-3 text-muted" />
+                              <span>Restore</span>
+                            </button>
                             <a
                               href={`/api/backup/snapshots/${encodeURIComponent(snap.filename)}`}
                               download={snap.filename}

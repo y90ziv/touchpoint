@@ -202,8 +202,9 @@ describe('Phase 4: Google Additive-Only Sync, Telegram Bot & Outgoing Webhook', 
 
     const reminder = buildContactReminderMessage(dan.id, '+972', refDate);
     expect(reminder.text).toContain('Dan Cohen');
-    expect(reminder.text).toContain('Product Manager @ Acme');
-    expect(reminder.text).toContain('Barnaby (Golden Retriever)');
+    expect(reminder.text).not.toContain('Product Manager @ Acme');
+    expect(reminder.text).not.toContain('Barnaby (Golden Retriever)');
+    expect(reminder.text).not.toContain('Group:');
     expect(reminder.text).toContain('Spouse / Partner: Sarah Cohen');
     expect(reminder.text).toContain('Ask about the kitchen renovation');
     expect(reminder.text).toContain('https://wa.me/972541234567');
