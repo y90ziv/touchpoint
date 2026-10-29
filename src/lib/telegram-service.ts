@@ -51,7 +51,6 @@ export function buildContactReminderMessage(
   }
 
   const rels = getRelationshipsForContact(contactId);
-  const groupNames = contact.groups.map((g) => g.name).join(', ') || 'Personal';
   const statusLabel =
     contact.cadence.status === 'overdue'
       ? `Overdue (${contact.cadence.daysSinceContact}d since last contact)`
@@ -59,25 +58,8 @@ export function buildContactReminderMessage(
 
   const lines: string[] = [
     `🔔 <b>Touchpoint Reminder: ${escapeHtml(contact.fullName)}</b>`,
-    `🏷️ <b>Group:</b> ${escapeHtml(groupNames)} (Every ${contact.cadence.effectiveIntervalDays}d) — <b>${statusLabel}</b>`,
+    `(Every ${contact.cadence.effectiveIntervalDays}d) — <b>${statusLabel}</b>`,
   ];
-
-  // Work & Pets
-  const workParts: string[] = [];
-  if (contact.jobTitle || contact.company) {
-    workParts.push(
-      [contact.jobTitle, contact.company]
-        .filter((x): x is string => Boolean(x))
-        .map(escapeHtml)
-        .join(' @ ')
-    );
-  }
-  if (contact.pets.length > 0) {
-    workParts.push(`🐾 ${contact.pets.map(escapeHtml).join(', ')}`);
-  }
-  if (workParts.length > 0) {
-    lines.push(`💼 <b>Work & Life:</b> ${workParts.join(' · ')}`);
-  }
 
   // Relationship Context (Feature #1)
   if (rels.length > 0) {

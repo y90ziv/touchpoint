@@ -12,6 +12,7 @@ import { guessCountryDialCode } from '@/lib/geo-data';
 
 export interface TouchpointProviderProps {
   children: ReactNode;
+  initialOpenSettingsSection?: number | null;
 }
 
 /**
@@ -233,11 +234,14 @@ function TouchpointEffects({ children }: { children: ReactNode }) {
  * Root Touchpoint PRM domain provider composing all context hierarchies:
  * Auth -> Theme -> UI -> Groups -> Contacts -> Touchpoints
  */
-export function TouchpointProvider({ children }: TouchpointProviderProps) {
+export function TouchpointProvider({
+  children,
+  initialOpenSettingsSection,
+}: TouchpointProviderProps) {
   return (
     <AuthProvider>
       <ThemeProvider>
-        <UIProvider>
+        <UIProvider initialOpenSettingsSection={initialOpenSettingsSection}>
           <GroupsProvider>
             <ContactsProvider>
               <TouchpointsProvider>

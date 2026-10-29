@@ -222,11 +222,12 @@ describe('Tier 4: Real-World Multi-Step Lifecycle Scenarios', () => {
     expect(spread.surfacedToday.length).toBe(1);
     expect(spread.surfacedToday[0].contactId).toBe(contact.id);
 
-    // 4. Telegram Reminder formatting
+    // 4. Telegram Reminder formatting (minimal card omitting work/life and group data)
     const reminderMsg = buildContactReminderMessage(contact.id, '+972', refDate);
     expect(reminderMsg.text).toContain('Touchpoint Reminder: Prof. Albus Dumbledore');
-    expect(reminderMsg.text).toContain('Hogwarts Academy');
-    expect(reminderMsg.text).toContain('Fawkes (Phoenix)');
+    expect(reminderMsg.text).not.toContain('Hogwarts Academy');
+    expect(reminderMsg.text).not.toContain('Fawkes (Phoenix)');
+    expect(reminderMsg.text).not.toContain('Group:');
     expect(reminderMsg.text).toContain('Elder Wand');
     expect(reminderMsg.text).toContain('Overdue');
 

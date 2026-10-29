@@ -772,7 +772,7 @@ describe('Tier 1: Feature Coverage (Opaque-Box E2E)', () => {
       expect(formatWhatsAppLink('')).toBeNull();
     });
 
-    it('7.2 builds a rich HTML reminder card with group, status, work info, pets, relationships, and topics', () => {
+    it('7.2 builds a minimal HTML reminder card omitting group and work/life data while keeping status, relationships, and topics', () => {
       const grp = createGroup({ name: 'Close Circle', intervalDays: 14 });
       const c = createContact({
         fullName: 'Elena Rostova',
@@ -787,8 +787,9 @@ describe('Tier 1: Feature Coverage (Opaque-Box E2E)', () => {
 
       const msg = buildContactReminderMessage(c.id, '+972');
       expect(msg.text).toContain('Touchpoint Reminder: Elena Rostova');
-      expect(msg.text).toContain('Stark Industries');
-      expect(msg.text).toContain('Rocket (Raccoon)');
+      expect(msg.text).not.toContain('Stark Industries');
+      expect(msg.text).not.toContain('Rocket (Raccoon)');
+      expect(msg.text).not.toContain('Group:');
       expect(msg.text).toContain('Ask about arc reactor design');
       expect(msg.text).toContain('wa.me/972549999999');
       expect(msg.keyboard).toBeDefined();

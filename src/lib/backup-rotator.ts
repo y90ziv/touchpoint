@@ -45,7 +45,7 @@ export function isSnapshotOwnedByUser(filename: string, userId: number): boolean
   return false;
 }
 
-function getBackupsDirectory(): string {
+export function getBackupsDirectory(): string {
   const dbPath = process.env.DATABASE_PATH || path.join(process.cwd(), 'data', 'touchpoint.db');
   const dir = path.join(path.dirname(dbPath), BACKUP_DIR_NAME);
   if (!fs.existsSync(dir)) {

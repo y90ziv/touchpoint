@@ -128,8 +128,38 @@ const DEFAULT_SETTINGS_STATE: SettingsState = {
   },
 };
 
-export function UIProvider({ children }: { children: ReactNode }) {
-  const [activeTab, setActiveTab] = useState<NavigationTab>('dashboard');
+const VALID_NAVIGATION_TABS: NavigationTab[] = [
+  'dashboard',
+  'contacts',
+  'groups',
+  'map',
+  'calendar',
+  'settings',
+  'archived',
+  'help',
+];
+
+export function UIProvider({
+  children,
+  initialOpenSettingsSection = null,
+}: {
+  children: ReactNode;
+  initialOpenSettingsSection?: number | null;
+}) {
+  const [activeTab, setActiveTab] = useState<NavigationTab>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const tab = params.get('tab');
+        if (tab && (VALID_NAVIGATION_TABS as string[]).includes(tab)) {
+          return tab as NavigationTab;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return 'dashboard';
+  });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -165,7 +195,9 @@ export function UIProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const [openHelpSection, setOpenHelpSection] = useState<number | null>(null);
-  const [openSettingsSection, setOpenSettingsSection] = useState<number | null>(null);
+  const [openSettingsSection, setOpenSettingsSection] = useState<number | null>(
+    initialOpenSettingsSection
+  );
 
   const [statusToast, setStatusToast] = useState<string | null>(null);
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -176,6 +208,41 @@ export function UIProvider({ children }: { children: ReactNode }) {
     toastTimeoutRef.current = setTimeout(() => {
       setStatusToast(null);
     }, 3500);
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        const tab = params.get('tab');
+        if (tab && (VALID_NAVIGATION_TABS as string[]).includes(tab)) {
+          setActiveTab(tab as NavigationTab);
+          if (tab === 'settings' && params.get('google') === 'connected') {
+            setOpenSettingsSection(3);
+            notify('Google account connected successfully.');
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [notify]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handlePopState = () => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const tab = params.get('tab');
+        if (tab && (VALID_NAVIGATION_TABS as string[]).includes(tab)) {
+          setActiveTab(tab as NavigationTab);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   const [settingsState, setSettingsState] = useState<SettingsState>(DEFAULT_SETTINGS_STATE);

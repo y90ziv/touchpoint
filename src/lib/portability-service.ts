@@ -1,5 +1,12 @@
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import Database from 'better-sqlite3';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { eq } from 'drizzle-orm';
 import ical from 'ical-generator';
 import { getDb, getAuthDb, getUserDb } from '@/db';
+import * as schema from '@/db/schema';
 import {
   contacts,
   groups,
@@ -159,9 +166,11 @@ export function exportContactsToVCard(): string {
  */
 export function exportFullBackupJson() {
   const db = getDb();
+  const currentSettings = db.select().from(settings).get();
   const payload = {
     version: 1,
     exportedAt: new Date().toISOString(),
+    settings: currentSettings ? [currentSettings] : [],
     contacts: db.select().from(contacts).all(),
     groups: db.select().from(groups).all(),
     contactGroups: db.select().from(contactGroups).all(),
@@ -178,16 +187,29 @@ export function exportFullBackupJson() {
     contacts: payload.contacts.length,
     groups: payload.groups.length,
     touchpoints: payload.touchpoints.length,
+    hasSettings: Boolean(currentSettings),
   });
 
   return payload;
 }
 
-export function restoreFromBackupJson(
-  payload: ReturnType<typeof exportFullBackupJson> & {
-    googleSyncTombstones?: Array<typeof googleSyncTombstones.$inferInsert>;
-  }
-) {
+export type FullBackupJsonPayload = {
+  version?: number;
+  exportedAt?: string;
+  settings?: Array<typeof settings.$inferInsert> | typeof settings.$inferInsert;
+  contacts?: Array<typeof contacts.$inferInsert>;
+  groups?: Array<typeof groups.$inferInsert>;
+  contactGroups?: Array<typeof contactGroups.$inferInsert>;
+  relationships?: Array<typeof relationships.$inferInsert>;
+  topics?: Array<typeof topics.$inferInsert>;
+  importantDates?: Array<typeof importantDates.$inferInsert>;
+  customFieldTemplates?: Array<typeof customFieldTemplates.$inferInsert>;
+  contactCustomFields?: Array<typeof contactCustomFields.$inferInsert>;
+  touchpoints?: Array<typeof touchpoints.$inferInsert>;
+  googleSyncTombstones?: Array<typeof googleSyncTombstones.$inferInsert>;
+};
+
+export function restoreFromBackupJson(payload: FullBackupJsonPayload) {
   const db = getDb();
 
   db.delete(googleSyncTombstones).run();
@@ -215,11 +237,163 @@ export function restoreFromBackupJson(
   if (payload.googleSyncTombstones?.length)
     db.insert(googleSyncTombstones).values(payload.googleSyncTombstones).run();
 
+  if (payload.settings) {
+    const rawSettings = Array.isArray(payload.settings) ? payload.settings[0] : payload.settings;
+    if (rawSettings && typeof rawSettings === 'object') {
+      const existingSettings = db.select().from(settings).get();
+      const { id: _id, ownerUserId: _ownerUserId, ...settingsToUpdate } = rawSettings as any;
+      if (existingSettings) {
+        db.update(settings).set(settingsToUpdate).where(eq(settings.id, existingSettings.id)).run();
+      } else {
+        db.insert(settings).values(rawSettings).run();
+      }
+    }
+  }
+
   logger.info('backup.restore', 'Restored Touchpoint database from JSON backup', {
     contacts: payload.contacts?.length || 0,
+    hasSettings: Boolean(payload.settings),
   });
 
   return { restoredContacts: payload.contacts?.length || 0 };
+}
+
+function snakeToCamel(str: string): string {
+  return str.replace(/_([a-z0-9])/g, (_, letter) => letter.toUpperCase());
+}
+
+function mapRowToCamel(row: Record<string, any>): Record<string, any> {
+  const result: Record<string, any> = {};
+  for (const [k, v] of Object.entries(row)) {
+    result[snakeToCamel(k)] = v;
+  }
+  return result;
+}
+
+function readTableRows(sqlite: Database.Database, tableName: string): any[] {
+  try {
+    const rawRows = sqlite.prepare(`SELECT * FROM ${tableName}`).all() as Array<Record<string, any>>;
+    return rawRows.map(mapRowToCamel);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Imports an SQLite database (.db) file from a Buffer or filesystem path.
+ * Validates integrity, inspects schema tables, converts rows, and restores atomically.
+ */
+export function importSqliteDatabase(input: Buffer | string): {
+  restoredContacts: number;
+  importedTables: string[];
+} {
+  let tempFilePath: string | null = null;
+  let filePath: string;
+
+  if (typeof input === 'string') {
+    filePath = input;
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`SQLite database file not found at: ${filePath}`);
+    }
+  } else if (Buffer.isBuffer(input)) {
+    if (
+      input.length < 16 ||
+      !input.subarray(0, 16).equals(Buffer.from('SQLite format 3\0', 'utf8'))
+    ) {
+      throw new Error('Invalid SQLite database file: header does not match SQLite format 3');
+    }
+    const tempFileName = `touchpoint_import_${Date.now()}_${Math.random().toString(36).slice(2, 9)}.db`;
+    tempFilePath = path.join(os.tmpdir(), tempFileName);
+    fs.writeFileSync(tempFilePath, input);
+    filePath = tempFilePath;
+  } else {
+    throw new Error('importSqliteDatabase requires a Buffer or string file path');
+  }
+
+  let sourceSqlite: Database.Database | null = null;
+  try {
+    sourceSqlite = new Database(filePath, { readonly: true, fileMustExist: true });
+
+    const quickCheck = sourceSqlite.pragma('quick_check') as Array<{ quick_check: string }>;
+    if (!quickCheck || quickCheck[0]?.quick_check !== 'ok') {
+      throw new Error('SQLite database integrity check failed');
+    }
+
+    const tables = sourceSqlite
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+      .all() as Array<{ name: string }>;
+    const tableNames = new Set(tables.map((t) => t.name));
+
+    const contactsRows = (tableNames.has('contacts') ? readTableRows(sourceSqlite, 'contacts') : []).map(
+      (c) => ({
+        ...c,
+        keepInTouch: c.keepInTouch !== undefined ? Boolean(c.keepInTouch) : true,
+        source: c.source || 'local',
+        createdAt: c.createdAt || new Date().toISOString(),
+        updatedAt: c.updatedAt || new Date().toISOString(),
+      })
+    );
+
+    const payload = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      contacts: contactsRows,
+      groups: tableNames.has('groups') ? readTableRows(sourceSqlite, 'groups') : [],
+      contactGroups: tableNames.has('contact_groups')
+        ? readTableRows(sourceSqlite, 'contact_groups')
+        : [],
+      relationships: tableNames.has('relationships')
+        ? readTableRows(sourceSqlite, 'relationships')
+        : [],
+      topics: tableNames.has('topics') ? readTableRows(sourceSqlite, 'topics') : [],
+      importantDates: tableNames.has('important_dates')
+        ? readTableRows(sourceSqlite, 'important_dates')
+        : [],
+      customFieldTemplates: tableNames.has('custom_field_templates')
+        ? readTableRows(sourceSqlite, 'custom_field_templates')
+        : [],
+      contactCustomFields: tableNames.has('contact_custom_fields')
+        ? readTableRows(sourceSqlite, 'contact_custom_fields')
+        : [],
+      touchpoints: tableNames.has('touchpoints')
+        ? readTableRows(sourceSqlite, 'touchpoints')
+        : [],
+      googleSyncTombstones: tableNames.has('google_sync_tombstones')
+        ? readTableRows(sourceSqlite, 'google_sync_tombstones')
+        : [],
+      settings: tableNames.has('settings') ? readTableRows(sourceSqlite, 'settings') : [],
+    };
+
+    sourceSqlite.close();
+    sourceSqlite = null;
+
+    const restoreResult = restoreFromBackupJson(payload);
+
+    logger.info('backup.import_sqlite', 'Imported SQLite database successfully', {
+      restoredContacts: restoreResult.restoredContacts,
+      importedTables: Array.from(tableNames),
+    });
+
+    return {
+      restoredContacts: restoreResult.restoredContacts,
+      importedTables: Array.from(tableNames),
+    };
+  } finally {
+    if (sourceSqlite) {
+      try {
+        sourceSqlite.close();
+      } catch {
+        // ignore
+      }
+    }
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      try {
+        fs.unlinkSync(tempFilePath);
+      } catch {
+        // ignore
+      }
+    }
+  }
 }
 
 export function findUserIdByIcalToken(token: string): number | null {

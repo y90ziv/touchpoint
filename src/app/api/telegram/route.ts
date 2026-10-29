@@ -82,19 +82,14 @@ export async function POST(request: Request) {
 
       if (body.action === 'send_digest_now') {
         const digest = buildDailyDigestPayloads();
-        if (digest.reminders.length === 0 && digest.upcomingBirthdays.length === 0) {
+        if (digest.reminders.length === 0) {
           await bot.api.sendMessage(chatId, digest.summaryText, {
             parse_mode: 'HTML',
           });
           return NextResponse.json({ sentCount: 0, message: 'All caught up today!' });
         }
 
-        // 1. Send Morning Briefing Header
-        await bot.api.sendMessage(chatId, digest.summaryText, {
-          parse_mode: 'HTML',
-        });
-
-        // 2. Send per-contact interactive reminder cards
+        // Send per-contact interactive reminder cards (summary header omitted when sending reminders)
         const sentContactIds = new Set<number>();
         for (const r of digest.reminders) {
           if (sentContactIds.has(r.contactId)) continue;
