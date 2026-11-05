@@ -11,6 +11,7 @@ import { NavigationShell } from '@/components/layout/NavigationShell';
 import {
   DashboardView,
   ContactsDirectoryView,
+  QuickFilterView,
   GroupsView,
   SettingsView,
   ArchivedContactsView,
@@ -64,6 +65,7 @@ function TouchpointWorkspace() {
       >
         {ui.activeTab === 'dashboard' && <DashboardView />}
         {ui.activeTab === 'contacts' && <ContactsDirectoryView />}
+        {ui.activeTab === 'quick-filter' && <QuickFilterView />}
         {ui.activeTab === 'groups' && <GroupsView />}
         {ui.activeTab === 'map' && <RelationshipMapView />}
         {ui.activeTab === 'calendar' && <CalendarScheduleView />}

@@ -4,6 +4,9 @@ export type { DashboardViewProps } from './DashboardView';
 export { ContactsDirectoryView } from './ContactsDirectoryView';
 export type { ContactsDirectoryViewProps } from './ContactsDirectoryView';
 
+export { QuickFilterView } from './QuickFilterView';
+export type { QuickFilterViewProps } from './QuickFilterView';
+
 export { GroupsView } from './GroupsView';
 export type { GroupsViewProps } from './GroupsView';
 

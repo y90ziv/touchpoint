@@ -23,6 +23,7 @@ import {
   MessageSquarePlus,
   PanelLeftClose,
   PanelLeftOpen,
+  Sparkles,
 } from 'lucide-react';
 import { NavigationTab } from '@/types/touchpoint';
 import { useAuth } from '@/context/AuthContext';
@@ -192,8 +193,8 @@ export function NavigationShell({
   const triggerLogTouchpoint = () => {
     if (onOpenLogTouchpoint) {
       onOpenLogTouchpoint();
-    } else if (contacts.length > 0) {
-      contactsCtx.openContactDrawer(contacts[0]);
+    } else {
+      ui.setShowQuickSearchModal(true);
     }
   };
 
@@ -263,6 +264,7 @@ export function NavigationShell({
                 {[
                   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: attentionCount, urgent: attentionCount > 0 },
                   { id: 'contacts', label: 'Contacts', icon: Users, badge: contacts.length },
+                  { id: 'quick-filter', label: 'Quick Filtering', icon: Sparkles },
                   { id: 'groups', label: 'Groups', icon: FolderKanban, badge: groups.length },
                   { id: 'map', label: 'Relationships', icon: Network },
                   { id: 'calendar', label: 'Calendar', icon: CalendarIcon },
@@ -431,6 +433,7 @@ export function NavigationShell({
                 {[
                   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: attentionCount, urgent: attentionCount > 0 },
                   { id: 'contacts', label: 'Contacts', icon: Users, badge: contacts.length },
+                  { id: 'quick-filter', label: 'Quick Filtering', icon: Sparkles },
                   { id: 'groups', label: 'Groups', icon: FolderKanban, badge: groups.length },
                   { id: 'map', label: 'Relationships', icon: Network },
                   { id: 'calendar', label: 'Calendar', icon: CalendarIcon },
@@ -529,7 +532,7 @@ export function NavigationShell({
                 <button
                   type="button"
                   onClick={() => handleSelectTab('settings')}
-                  className="text-[10px] text-primary hover:underline font-normal lowercase focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+                  className="text-[10px] text-primary hover:underline font-normal lowercase active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
                 >
                   manage
                 </button>
@@ -726,6 +729,11 @@ export function NavigationShell({
                 badge: contacts.length,
               },
               {
+                id: 'quick-filter',
+                label: 'Quick Filtering',
+                icon: Sparkles,
+              },
+              {
                 id: 'groups',
                 label: isSwiss ? '03 Groups' : isStudio ? 'Relationship Circles' : 'Groups',
                 icon: FolderKanban,
@@ -873,7 +881,7 @@ export function NavigationShell({
               <button
                 type="button"
                 onClick={() => handleSelectTab('settings')}
-                className="text-[10px] text-primary hover:underline font-normal focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="text-[10px] text-primary hover:underline font-normal active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 manage
               </button>

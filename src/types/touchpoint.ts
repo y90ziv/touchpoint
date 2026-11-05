@@ -197,6 +197,7 @@ export type ThemeMode = 'dark' | 'light';
 export type NavigationTab =
   | 'dashboard'
   | 'contacts'
+  | 'quick-filter'
   | 'groups'
   | 'map'
   | 'calendar'

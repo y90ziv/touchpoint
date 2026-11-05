@@ -131,6 +131,7 @@ const DEFAULT_SETTINGS_STATE: SettingsState = {
 const VALID_NAVIGATION_TABS: NavigationTab[] = [
   'dashboard',
   'contacts',
+  'quick-filter',
   'groups',
   'map',
   'calendar',
