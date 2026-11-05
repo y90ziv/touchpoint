@@ -21,7 +21,6 @@ import {
   Maximize2,
   Target,
   FileText,
-  Flame,
   Mail,
   Send,
   MessageSquare,
@@ -32,11 +31,9 @@ import { cleanPhoneForDial } from '@/lib/formatters';
 import { useTouchpoints } from '@/context/TouchpointsContext';
 import { useContacts } from '@/context/ContactsContext';
 import { useUI } from '@/context/UIContext';
-import CalendarHeatmap from 'react-calendar-heatmap';
 
 export type RadarWidgetId =
   | 'actionDispatch'
-  | 'activityHeatmap'
   | 'upcomingWeek'
   | 'cadenceHealth'
   | 'weeklyPace'
@@ -58,13 +55,6 @@ const ALL_WIDGETS: WidgetDef[] = [
     title: "Today's action dispatch",
     subtitle: 'High-velocity 1-click outreach for overdue and due today contacts',
     icon: Activity,
-    defaultWidth: 'full',
-  },
-  {
-    id: 'activityHeatmap',
-    title: 'Activity velocity heatmap',
-    subtitle: 'Daily touchpoint intensity and outreach streaks across 16 weeks',
-    icon: Flame,
     defaultWidth: 'full',
   },
   {
@@ -113,7 +103,6 @@ const ALL_WIDGETS: WidgetDef[] = [
 
 const DEFAULT_WIDGET_ORDER: RadarWidgetId[] = [
   'actionDispatch',
-  'activityHeatmap',
   'upcomingWeek',
   'cadenceHealth',
   'weeklyPace',
@@ -124,7 +113,6 @@ const DEFAULT_WIDGET_ORDER: RadarWidgetId[] = [
 
 const DEFAULT_WIDGET_WIDTHS: Record<RadarWidgetId, 'half' | 'full'> = {
   actionDispatch: 'full',
-  activityHeatmap: 'full',
   upcomingWeek: 'half',
   cadenceHealth: 'half',
   weeklyPace: 'half',
@@ -363,65 +351,6 @@ export function RadarDashboard({
   const weeklyPaceGoal = Math.max(5, (Number(ui.settingsState.maxDailyDue) || 3) * 3);
   const weeklyPacePercent = Math.min(100, Math.round((contactedThisWeek / weeklyPaceGoal) * 100));
 
-  // Heatmap Data (~32 weeks continuous landscape for GitHub/Linear density)
-  const heatmapData = useMemo(() => {
-    const totalWeeks = 32;
-    const daysToShow = totalWeeks * 7;
-    const activityCounts: Record<string, number> = {};
-
-    contacts.forEach((c) => {
-      if (c.lastContactedAt) {
-        const d = c.lastContactedAt.split('T')[0];
-        activityCounts[d] = (activityCounts[d] || 0) + 1;
-      }
-    });
-
-    const now = new Date();
-    const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startDate = new Date(endDate);
-    startDate.setDate(endDate.getDate() - (daysToShow - 1));
-
-    const values: Array<{ date: string; count: number }> = [];
-    const daysList: Array<{ date: string; count: number }> = [];
-
-    for (let i = daysToShow - 1; i >= 0; i--) {
-      const d = new Date(endDate);
-      d.setDate(endDate.getDate() - i);
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      const dateStr = `${yyyy}-${mm}-${dd}`;
-      const count = activityCounts[dateStr] || 0;
-      values.push({ date: dateStr, count });
-      daysList.push({ date: dateStr, count });
-    }
-
-    const totalLogged = Object.values(activityCounts).reduce((a, b) => a + b, 0);
-    const activeDaysCount = daysList.filter((d) => d.count > 0).length;
-
-    let currentStreak = 0;
-    for (let i = daysList.length - 1; i >= 0; i--) {
-      if (daysList[i].count > 0) {
-        currentStreak++;
-      } else {
-        break;
-      }
-    }
-
-    let maxStreak = 0;
-    let temp = 0;
-    for (const day of daysList) {
-      if (day.count > 0) {
-        temp++;
-        if (temp > maxStreak) maxStreak = temp;
-      } else {
-        temp = 0;
-      }
-    }
-
-    return { startDate, endDate, values, totalLogged, activeDaysCount, currentStreak, maxStreak };
-  }, [contacts]);
-
   const upcomingBirthdays = useMemo(() => {
     const today = new Date();
     const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -464,7 +393,7 @@ export function RadarDashboard({
             return (
               <div
                 key={c.id}
-                className="group relative p-3.5 rounded-xl bg-card border border-border hover:border-primary/50 motion-safe:transition-colors motion-safe:duration-160 flex flex-col justify-between overflow-hidden"
+                className="group relative p-3.5 rounded-xl bg-well border border-border hover:border-primary/50 motion-safe:transition-colors motion-safe:duration-160 flex flex-col justify-between overflow-hidden"
               >
                 <div className="space-y-3">
                   <div className="flex items-start justify-between gap-2">
@@ -477,6 +406,7 @@ export function RadarDashboard({
                         progressPercent={c.cadence.progressPercent}
                         status={c.cadence.status}
                         size="md"
+                        hideRedStatus
                       />
                       <div className="min-w-0">
                         <h4 className="font-bold text-sm text-foreground truncate group-hover:text-primary motion-safe:transition-colors motion-safe:duration-160">
@@ -488,15 +418,15 @@ export function RadarDashboard({
                       </div>
                     </div>
                     <span
-                      className={`text-[11px] font-semibold px-2 py-0.5 rounded-md tabular-nums shrink-0 ${
-                        isOverdue ? 'bg-overdue text-white' : 'bg-warning/20 text-warning'
+                      className={`text-xs font-bold px-3.5 py-1.5 rounded-lg tabular-nums shrink-0 ${
+                        isOverdue ? 'bg-red-600/15 text-overdue' : 'bg-warning/20 text-warning'
                       }`}
                     >
                       {isOverdue ? `-${Math.abs(c.cadence.daysUntilDue)}d overdue` : 'Due today'}
                     </span>
                   </div>
 
-                  <div className="p-2.5 rounded-lg bg-well text-xs space-y-1">
+                  <div className="p-2.5 rounded-lg bg-background text-xs space-y-1">
                     <div className="flex items-center justify-between text-muted">
                       <span>Last contacted:</span>
                       <span className="font-medium text-foreground">
@@ -517,7 +447,7 @@ export function RadarDashboard({
                   const showSecondary = ui.settingsState.showSecondaryActions !== false;
 
                   return (
-                    <div className="pt-3 border-t border-border mt-3 flex items-center flex-wrap gap-1.5">
+                    <div className="pt-1 mt-2 flex items-center flex-wrap gap-1.5">
                       {/* Primary Outreach Channel */}
                       {primaryChannel === 'whatsapp' && c.phone && (
                         <a
@@ -535,7 +465,7 @@ export function RadarDashboard({
                       {primaryChannel === 'phone' && c.phone && (
                         <a
                           href={`tel:${dialPhone}`}
-                          className="flex-1 min-w-[84px] py-1.5 px-2 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-primary-fg text-xs font-semibold flex items-center justify-center gap-1 motion-safe:transition-colors motion-safe:duration-160 focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+                          className="flex-1 min-w-[84px] py-1.5 px-2 rounded-lg bg-blue-600/15 text-primary hover:bg-primary hover:text-primary-fg text-xs font-semibold flex items-center justify-center gap-1 motion-safe:transition-colors motion-safe:duration-160 focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
                           title="Dial phone"
                         >
                           <Phone className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -594,7 +524,7 @@ export function RadarDashboard({
                       {showSecondary && primaryChannel !== 'phone' && c.phone && (
                         <a
                           href={`tel:${dialPhone}`}
-                          className="py-1.5 px-2 rounded-lg bg-well text-foreground hover:bg-card-hover text-xs font-semibold flex items-center justify-center gap-1 shrink-0 motion-safe:transition-colors motion-safe:duration-160 focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+                          className="py-1.5 px-2 rounded-lg bg-background text-foreground hover:bg-card-hover text-xs font-semibold flex items-center justify-center gap-1 shrink-0 motion-safe:transition-colors motion-safe:duration-160 focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
                           title="Dial phone"
                         >
                           <Phone className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -616,18 +546,18 @@ export function RadarDashboard({
                       <button
                         type="button"
                         onClick={() => handleQuickLog(c, 'call')}
-                        className="flex-1 min-w-[76px] py-1.5 px-2 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-primary-fg text-xs font-semibold flex items-center justify-center gap-1 motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 min-w-[76px] py-1.5 px-2 rounded-lg bg-blue-600/15 text-primary hover:bg-primary hover:text-primary-fg text-xs font-semibold flex items-center justify-center gap-1 motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Mark as contacted today"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                        <span className="truncate">Logged</span>
+                        <span className="truncate">Log</span>
                       </button>
 
                       {/* Dynamic Snooze with Configured Duration */}
                       <button
                         type="button"
                         onClick={() => handleSnooze(c, defaultSnoozeDays)}
-                        className="py-1.5 px-2 rounded-lg bg-well text-muted hover:text-foreground text-xs font-semibold flex items-center justify-center gap-1 shrink-0 motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="py-1.5 px-2 rounded-lg bg-background text-muted hover:text-foreground text-xs font-semibold flex items-center justify-center gap-1 shrink-0 motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         title={`Snooze ${defaultSnoozeDays} days`}
                       >
                         <Clock className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -641,7 +571,7 @@ export function RadarDashboard({
           })}
         </div>
       ) : (
-        <div className="p-8 rounded-xl bg-card border border-border text-center space-y-2">
+        <div className="p-8 rounded-xl bg-well border border-border text-center space-y-2">
           <div className="w-10 h-10 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
           </div>
@@ -653,81 +583,6 @@ export function RadarDashboard({
       )}
     </div>
   );
-
-  const renderActivityHeatmap = () => {
-    return (
-      <div className="space-y-3.5">
-        {/* Heatmap Metrics Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
-          <div className="p-2.5 rounded-lg bg-well border border-border">
-            <div className="text-muted text-[11px]">Recent touchpoints</div>
-            <div className="font-bold text-foreground text-sm tabular-nums mt-0.5">
-              {heatmapData.totalLogged} logged
-            </div>
-          </div>
-          <div className="p-2.5 rounded-lg bg-well border border-border">
-            <div className="text-muted text-[11px]">Active outreach days</div>
-            <div className="font-bold text-foreground text-sm tabular-nums mt-0.5">
-              {heatmapData.activeDaysCount} days
-            </div>
-          </div>
-          <div className="p-2.5 rounded-lg bg-well border border-border">
-            <div className="text-muted text-[11px]">Current streak</div>
-            <div className="font-bold text-foreground text-sm tabular-nums mt-0.5 flex items-center gap-1">
-              <Flame className="w-3.5 h-3.5 text-warning" aria-hidden="true" />
-              {heatmapData.currentStreak} day{heatmapData.currentStreak === 1 ? '' : 's'}
-            </div>
-          </div>
-          <div className="p-2.5 rounded-lg bg-well border border-border">
-            <div className="text-muted text-[11px]">Longest rhythm</div>
-            <div className="font-bold text-foreground text-sm tabular-nums mt-0.5">
-              {heatmapData.maxStreak} day{heatmapData.maxStreak === 1 ? '' : 's'}
-            </div>
-          </div>
-        </div>
-
-        {/* Heatmap Calendar Matrix using react-calendar-heatmap */}
-        <div className="p-3.5 rounded-xl bg-well/60 border border-border space-y-2">
-          <div className="touchpoint-heatmap overflow-x-auto py-1">
-            <div className="min-w-[620px]">
-              <CalendarHeatmap
-                startDate={heatmapData.startDate}
-                endDate={heatmapData.endDate}
-                values={heatmapData.values}
-                gutterSize={2.5}
-                showWeekdayLabels
-                classForValue={(value) => {
-                  if (!value || value.count === 0) return 'color-empty';
-                  if (value.count === 1) return 'color-scale-1';
-                  if (value.count === 2) return 'color-scale-2';
-                  if (value.count === 3) return 'color-scale-3';
-                  return 'color-scale-4';
-                }}
-                titleForValue={(value) => {
-                  if (!value || !value.date) return 'No touchpoints';
-                  return `${value.date}: ${value.count || 0} touchpoint${value.count === 1 ? '' : 's'}`;
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Legend Row */}
-          <div className="pt-2 border-t border-border/50 flex items-center justify-between text-[11px] text-muted">
-            <span>Cadence activity intensity timeline</span>
-            <div className="flex items-center gap-1.5">
-              <span>Less</span>
-              <div className="w-2.5 h-2.5 rounded-xs bg-well border border-border/40 opacity-70" />
-              <div className="w-2.5 h-2.5 rounded-xs bg-success/35 border border-success/40" />
-              <div className="w-2.5 h-2.5 rounded-xs bg-success/60 border border-success/60" />
-              <div className="w-2.5 h-2.5 rounded-xs bg-success/85 border border-success/85" />
-              <div className="w-2.5 h-2.5 rounded-xs bg-success border border-success shadow-xs" />
-              <span>More</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   const renderUpcomingWeek = (isFull: boolean) => (
     <div className={`space-y-2.5 ${isFull ? 'grid grid-cols-1 sm:grid-cols-2 gap-2.5 space-y-0' : ''}`}>
@@ -743,6 +598,7 @@ export function RadarDashboard({
               progressPercent={c.cadence.progressPercent}
               status={c.cadence.status}
               size="sm"
+              hideRedStatus
             />
             <div className="min-w-0">
               <div className="truncate text-xs font-bold text-foreground">{c.fullName}</div>
@@ -834,7 +690,7 @@ export function RadarDashboard({
           className="flex items-center justify-between p-2.5 rounded-lg bg-well hover:bg-card-hover cursor-pointer motion-safe:transition-colors motion-safe:duration-160"
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-card border border-border flex items-center justify-center text-primary font-bold text-[11px] shrink-0">
+            <div className="w-7 h-7 rounded-lg bg-background border border-border flex items-center justify-center text-muted font-bold text-[11px] shrink-0">
               {c.fullName.slice(0, 2).toUpperCase()}
             </div>
             <div className="min-w-0">
@@ -919,8 +775,6 @@ export function RadarDashboard({
     switch (id) {
       case 'actionDispatch':
         return renderActionDispatch(isFull);
-      case 'activityHeatmap':
-        return renderActivityHeatmap();
       case 'upcomingWeek':
         return renderUpcomingWeek(isFull);
       case 'cadenceHealth':
@@ -942,20 +796,10 @@ export function RadarDashboard({
   const getWidgetBadge = (id: RadarWidgetId) => {
     switch (id) {
       case 'actionDispatch':
-        return attentionContacts.length > 0 ? (
-          <span className="text-xs px-2 py-0.5 rounded-md bg-overdue text-white font-semibold tabular-nums">
-            {attentionContacts.length}
-          </span>
-        ) : null;
-      case 'activityHeatmap':
-        return (
-          <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 font-semibold tabular-nums">
-            {heatmapData.totalLogged}
-          </span>
-        );
+        return null;
       case 'upcomingWeek':
         return (
-          <span className="text-xs px-2 py-0.5 rounded-full bg-well text-foreground font-semibold tabular-nums border border-border">
+          <span className="text-xs px-2 py-0.5 rounded-full bg-well text-foreground font-semibold tabular-nums">
             {upcomingWeekContacts.length}
           </span>
         );
@@ -987,8 +831,8 @@ export function RadarDashboard({
       {/* 1. Header Pulse Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-card border border-border">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold">
-            <Activity className="w-5 h-5 text-primary" aria-hidden="true" />
+          <div className="w-10 h-10 rounded-lg bg-well/50 border border-border/50 flex items-center justify-center text-muted/60 font-bold">
+            <Activity className="w-5 h-5" aria-hidden="true" />
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -1009,19 +853,12 @@ export function RadarDashboard({
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
-            onClick={onOpenNewContact}
-            className="px-3 py-1.5 rounded-lg bg-primary text-primary-fg text-xs font-semibold hover:opacity-95 flex items-center gap-1.5 motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Plus className="w-3.5 h-3.5" aria-hidden="true" /> New contact
-          </button>
-          <button
-            type="button"
             onClick={() => setShowCustomizer(true)}
             className="px-3 py-1.5 rounded-lg border border-border bg-well text-xs font-medium hover:bg-card-hover text-foreground flex items-center gap-1.5 motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
             title="Configure and restore dashboard widgets"
             aria-label="Customize dashboard widgets"
           >
-            <SlidersHorizontal className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
+            <SlidersHorizontal className="w-3.5 h-3.5 text-muted/70" aria-hidden="true" />
             Widgets ({activeWidgets.length}/{ALL_WIDGETS.length})
           </button>
           <button
@@ -1030,6 +867,13 @@ export function RadarDashboard({
             className="px-3 py-1.5 rounded-lg border border-border bg-well text-xs font-medium hover:bg-card-hover text-foreground motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Directory ({contacts.length})
+          </button>
+          <button
+            type="button"
+            onClick={onOpenNewContact}
+            className="px-3 py-1.5 rounded-lg bg-primary text-primary-fg text-xs font-semibold hover:opacity-95 flex items-center gap-1.5 motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Plus className="w-3.5 h-3.5" aria-hidden="true" /> New contact
           </button>
         </div>
       </div>
@@ -1053,7 +897,7 @@ export function RadarDashboard({
 
       {/* 2. Responsive 2-Column Draggable & Width-Adjustable Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-        {activeWidgets.map((widgetId, index) => {
+        {activeWidgets.map((widgetId) => {
           const def = ALL_WIDGETS.find((w) => w.id === widgetId);
           if (!def) return null;
           const Icon = def.icon;
@@ -1078,22 +922,19 @@ export function RadarDashboard({
               aria-label={def.title}
             >
               {/* Widget Header with Drag Handle, Width Toggle & Close X */}
-              <div className="flex items-center justify-between border-b border-border/60 pb-3">
+              <div className="flex items-center justify-between pb-1">
                 <div className="flex items-center gap-2 min-w-0">
                   {/* Drag Handle */}
                   <div
-                    className="cursor-grab active:cursor-grabbing p-1 rounded-md hover:bg-well text-muted hover:text-foreground flex items-center gap-1.5 shrink-0 select-none"
+                    className="cursor-grab active:cursor-grabbing p-1 rounded-md hover:bg-well text-muted hover:text-foreground flex items-center shrink-0 select-none"
                     title="Drag to reorder widget on dashboard"
                     aria-label="Drag to reorder"
                   >
                     <GripVertical className="w-3.5 h-3.5 text-muted/80" aria-hidden="true" />
-                    <span className="text-[11px] font-mono text-muted/70">
-                      0{index + 1}
-                    </span>
                   </div>
 
                   <div className="flex items-center gap-2 min-w-0">
-                    <Icon className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
+                    <Icon className="w-4 h-4 text-muted/50 shrink-0" aria-hidden="true" />
                     <h2 className="text-xs font-bold text-foreground truncate">
                       {def.title}
                     </h2>
@@ -1166,7 +1007,7 @@ export function RadarDashboard({
               <button
                 type="button"
                 onClick={() => setShowCustomizer(true)}
-                className="px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-well text-foreground font-semibold flex items-center gap-1.5 motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                className="px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-well text-foreground font-semibold flex items-center gap-1.5 motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
               >
                 <Plus className="w-3.5 h-3.5 text-primary" aria-hidden="true" /> Add hidden widgets
               </button>
@@ -1184,9 +1025,9 @@ export function RadarDashboard({
           className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-150"
         >
           <div className="w-full max-w-lg rounded-2xl bg-card border border-border p-5 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-border">
+            <div className="flex items-center justify-between pb-1">
               <div className="flex items-center gap-2">
-                <SlidersHorizontal className="w-4 h-4 text-primary" aria-hidden="true" />
+                <SlidersHorizontal className="w-4 h-4 text-muted/60" aria-hidden="true" />
                 <h3 id="customizer-modal-title" className="font-bold text-sm text-foreground">
                   Customize dashboard widgets
                 </h3>
@@ -1219,7 +1060,7 @@ export function RadarDashboard({
                     className="flex items-center justify-between p-3 rounded-xl bg-well border border-border gap-3"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center text-primary shrink-0">
+                      <div className="w-8 h-8 rounded-lg bg-well/40 border border-border/50 flex items-center justify-center text-muted/60 shrink-0">
                         <Icon className="w-4 h-4" aria-hidden="true" />
                       </div>
                       <div className="min-w-0">
@@ -1238,7 +1079,7 @@ export function RadarDashboard({
                         <button
                           type="button"
                           onClick={() => toggleWidgetWidth(widget.id)}
-                          className="px-2 py-1 rounded-md border border-border bg-card text-[11px] font-semibold text-muted hover:text-foreground motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="px-2 py-1 rounded-md border border-border bg-background text-[11px] font-semibold text-muted hover:text-foreground motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Toggle between 50% and 100% width"
                           aria-label={`Toggle width for ${widget.title}`}
                         >
@@ -1251,7 +1092,7 @@ export function RadarDashboard({
                         <button
                           type="button"
                           onClick={() => handleRemoveWidget(widget.id)}
-                          className="px-2.5 py-1.5 rounded-lg border border-border bg-card hover:bg-overdue/10 hover:border-overdue hover:text-overdue text-xs font-semibold text-muted flex items-center gap-1 motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="px-2.5 py-1.5 rounded-lg border border-border bg-background hover:bg-overdue/10 hover:border-overdue hover:text-overdue text-xs font-semibold text-muted flex items-center gap-1 motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                           title={`Remove ${widget.title}`}
                           aria-label={`Remove ${widget.title}`}
                         >
@@ -1275,7 +1116,7 @@ export function RadarDashboard({
             </div>
 
             {/* Modal Actions */}
-            <div className="pt-3 border-t border-border flex items-center justify-between">
+            <div className="pt-2 flex items-center justify-between">
               <button
                 type="button"
                 onClick={handleResetLayout}

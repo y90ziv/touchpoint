@@ -6,6 +6,8 @@ interface ProgressRingAvatarProps {
   progress?: number;
   status?: 'overdue' | 'due_today' | 'due_soon' | 'on_track' | 'paused' | 'snoozed' | 'untracked';
   size?: 'sm' | 'md' | 'lg' | number;
+  hideRedStatus?: boolean;
+  neutralOverdue?: boolean;
 }
 
 export function getInitials(fullName: string = ''): string {
@@ -21,6 +23,8 @@ export function ProgressRingAvatar({
   progress,
   status = 'on_track',
   size = 'md',
+  hideRedStatus = false,
+  neutralOverdue = false,
 }: ProgressRingAvatarProps) {
   const effectiveProgress = progressPercent ?? progress ?? 0;
   const dimensions =
@@ -39,7 +43,7 @@ export function ProgressRingAvatar({
 
   let strokeColor = 'var(--tp-success)';
   if (status === 'overdue' || status === 'due_today') {
-    strokeColor = 'var(--tp-overdue)';
+    strokeColor = hideRedStatus || neutralOverdue ? 'var(--tp-primary)' : 'var(--tp-overdue)';
   } else if (status === 'due_soon') {
     strokeColor = 'var(--tp-warning)';
   } else if (status === 'untracked' || status === 'paused') {

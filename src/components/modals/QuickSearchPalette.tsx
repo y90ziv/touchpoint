@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Search,
   X,
@@ -15,6 +15,7 @@ import {
   Cake,
   Phone,
   MessageSquare,
+  Sparkles,
 } from 'lucide-react';
 import { useUI } from '@/context/UIContext';
 import { useContacts } from '@/context/ContactsContext';
@@ -28,6 +29,12 @@ export function QuickSearchPalette() {
   const contactsCtx = useContacts();
   const groupsCtx = useGroups();
   const tpCtx = useTouchpoints();
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const itemRefs = useRef<Array<HTMLDivElement | null>>([]);
+
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [ui.searchQuery, ui.searchFilterTab, ui.searchFilterGroup, ui.showQuickSearchModal]);
 
   if (!ui.showQuickSearchModal) return null;
 
@@ -102,6 +109,13 @@ export function QuickSearchPalette() {
       keywords: 'contacts directory people address book',
     },
     {
+      id: 'quick-filter',
+      label: 'Quick Filtering',
+      desc: 'Tinder-style swipe deck to triage contacts',
+      icon: Sparkles,
+      keywords: 'quick filter swipe deck tinder triage unreviewed',
+    },
+    {
       id: 'groups',
       label: 'Groups & Circles',
       desc: 'Manage circles and cadence intervals',
@@ -154,6 +168,52 @@ export function QuickSearchPalette() {
     );
   });
 
+  const activeIndex =
+    filteredContacts.length > 0
+      ? Math.min(selectedIndex, filteredContacts.length - 1)
+      : 0;
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      ui.setShowQuickSearchModal(false);
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (filteredContacts.length > 0) {
+        const next = (activeIndex + 1) % filteredContacts.length;
+        setSelectedIndex(next);
+        itemRefs.current[next]?.scrollIntoView({ block: 'nearest' });
+      }
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (filteredContacts.length > 0) {
+        const prev = (activeIndex - 1 + filteredContacts.length) % filteredContacts.length;
+        setSelectedIndex(prev);
+        itemRefs.current[prev]?.scrollIntoView({ block: 'nearest' });
+      }
+      return;
+    }
+    if (e.key === 'Enter') {
+      if (filteredContacts.length > 0) {
+        e.preventDefault();
+        const target = filteredContacts[activeIndex];
+        if (target) {
+          ui.setShowQuickSearchModal(false);
+          contactsCtx.openContactDrawer(target);
+        }
+      } else if (matchingNavs.length > 0) {
+        e.preventDefault();
+        ui.setActiveTab(matchingNavs[0].id);
+        ui.setShowQuickSearchModal(false);
+        setSearchQuery('');
+      }
+    }
+  };
+
   // Emil Kowalski frequency rule: keyboard-invoked command palette opens/closes instantaneously (0ms)
   return (
     <div
@@ -162,6 +222,7 @@ export function QuickSearchPalette() {
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={handleKeyDown}
         role="dialog"
         aria-modal="true"
         aria-label="Quick Search and Command Palette"
@@ -304,14 +365,26 @@ export function QuickSearchPalette() {
               </button>
             </div>
           ) : (
-            filteredContacts.map((c) => (
+            filteredContacts.map((c, idx) => {
+              const isSelected = idx === activeIndex;
+              return (
               <div
                 key={c.id}
+                ref={(el) => {
+                  itemRefs.current[idx] = el;
+                }}
+                role="option"
+                aria-selected={isSelected}
+                onMouseEnter={() => setSelectedIndex(idx)}
                 onClick={() => {
                   ui.setShowQuickSearchModal(false);
                   contactsCtx.openContactDrawer(c);
                 }}
-                className="py-2.5 px-2 hover:bg-card-hover rounded-lg flex items-center justify-between gap-3 cursor-pointer motion-safe:transition-colors"
+                className={`py-2.5 px-2 rounded-lg flex items-center justify-between gap-3 cursor-pointer motion-safe:transition-colors ${
+                  isSelected
+                    ? 'bg-well ring-1 ring-primary/40'
+                    : 'hover:bg-card-hover'
+                }`}
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <ProgressRingAvatar
@@ -367,13 +440,14 @@ export function QuickSearchPalette() {
                   </button>
                 </div>
               </div>
-            ))
+              );
+            })
           )}
         </div>
 
         <div className="flex items-center justify-between pt-2 border-t border-border text-[11px] text-muted">
           <span>{filteredContacts.length} contacts found</span>
-          <span>Tip: Press ⌘K anywhere to toggle this search palette</span>
+          <span>↑↓ Navigate · ↵ Open contact · ⌘K Toggle</span>
         </div>
       </div>
     </div>

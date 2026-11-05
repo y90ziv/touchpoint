@@ -253,7 +253,7 @@ export function DashboardView({
             <button
               type="button"
               onClick={() => navigateTab('settings')}
-              className="text-primary hover:underline font-medium focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="text-primary hover:underline font-medium active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {weekDayNames[firstDayOfWeek] || 'Sunday'}
             </button>
@@ -266,7 +266,7 @@ export function DashboardView({
             onClick={() => ui.setShowDashboardCustomizer((prev) => !prev)}
             className="px-3.5 py-2 rounded-xl bg-well hover:bg-card-hover border border-border font-medium flex items-center gap-2 text-muted hover:text-foreground motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <SlidersHorizontal className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
+            <SlidersHorizontal className="w-3.5 h-3.5 text-muted/60" aria-hidden="true" />
             <span>Customize Widgets</span>
           </button>
           <button
@@ -282,16 +282,16 @@ export function DashboardView({
       {/* Dashboard Customizer Panel */}
       {showDashboardCustomizer && (
         <div className="bg-card border border-primary/40 rounded-2xl p-5 space-y-3 text-xs shadow-xs animate-in fade-in duration-150">
-          <div className="flex items-center justify-between pb-2 border-b border-border">
+          <div className="flex items-center justify-between pb-1">
             <div className="font-semibold text-foreground flex items-center gap-2">
-              <SlidersHorizontal className="w-4 h-4 text-primary" aria-hidden="true" />
+              <SlidersHorizontal className="w-4 h-4 text-muted/60" aria-hidden="true" />
               <span>Customize Dashboard Widgets</span>
             </div>
             <button
               type="button"
               onClick={() => ui.setShowDashboardCustomizer(false)}
               aria-label="Close widget customizer"
-              className="text-muted hover:text-foreground text-xs p-1 focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="text-muted hover:text-foreground text-xs p-1 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <X className="w-3.5 h-3.5" aria-hidden="true" />
             </button>
@@ -334,7 +334,7 @@ export function DashboardView({
             className="bg-card hover:bg-card-hover border border-border rounded-2xl p-5 flex flex-col justify-between shadow-xs motion-safe:transition-colors motion-safe:duration-160 motion-safe:ease-snappy-out active:scale-[0.97] cursor-pointer"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/15 text-primary flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-full bg-well/60 text-muted/60 flex items-center justify-center shrink-0">
                 <Users className="w-5 h-5" aria-hidden="true" />
               </div>
               <span className="text-xs font-medium text-muted">Total Contacts</span>
@@ -362,7 +362,7 @@ export function DashboardView({
           {/* KPI 2: Needs Attention Today */}
           <div className="bg-card border border-border rounded-2xl p-5 flex flex-col justify-between shadow-xs">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-overdue/15 text-overdue flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-full bg-well/60 text-muted/60 flex items-center justify-center shrink-0">
                 <Phone className="w-5 h-5" aria-hidden="true" />
               </div>
               <span className="text-xs font-medium text-muted">Due &amp; Overdue Today</span>
@@ -387,7 +387,7 @@ export function DashboardView({
           {/* KPI 3: Talked to Recently (30d) */}
           <div className="bg-card border border-border rounded-2xl p-5 flex flex-col justify-between shadow-xs">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-success/15 text-success flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-full bg-well/60 text-muted/60 flex items-center justify-center shrink-0">
                 <UserCheck className="w-5 h-5" aria-hidden="true" />
               </div>
               <span className="text-xs font-medium text-muted">Connected (Last 30d)</span>
@@ -407,7 +407,7 @@ export function DashboardView({
           <div className="bg-card border border-border rounded-2xl p-5 flex items-center justify-between shadow-xs">
             <div className="flex flex-col justify-between h-full">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/15 text-primary flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-full bg-well/60 text-muted/60 flex items-center justify-center shrink-0">
                   <Heart className="w-5 h-5" aria-hidden="true" />
                 </div>
                 <span className="text-xs font-medium text-muted">Relationship Health</span>
@@ -427,6 +427,7 @@ export function DashboardView({
               progressPercent={health.scorePercent}
               status={health.overdueCount > 0 ? 'due_soon' : 'on_track'}
               size="lg"
+              hideRedStatus
             />
           </div>
         </div>
@@ -447,7 +448,7 @@ export function DashboardView({
             <button
               type="button"
               onClick={() => navigateTab('contacts')}
-              className="text-xs text-primary hover:underline font-medium focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="text-xs text-primary hover:underline font-medium active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               View directory
             </button>
@@ -517,9 +518,6 @@ export function DashboardView({
             <div>
               <h2 className="text-base font-bold text-foreground flex items-center gap-2">
                 <span>Overdue &amp; Due Today</span>
-                <span className="text-xs px-2.5 py-0.5 rounded-full bg-overdue/15 text-overdue border border-overdue/30">
-                  {attentionContacts.length}
-                </span>
               </h2>
               <p className="text-xs text-muted mt-0.5">Priority touchpoints surfaced for today</p>
             </div>
@@ -529,7 +527,7 @@ export function DashboardView({
                 ui.setSearchFilterTab('due');
                 navigateTab('contacts');
               }}
-              className="text-xs text-primary hover:underline font-medium focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="text-xs text-primary hover:underline font-medium active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               View all
             </button>
@@ -555,6 +553,7 @@ export function DashboardView({
                         name={c.fullName}
                         progressPercent={c.cadence.progressPercent}
                         status={c.cadence.status}
+                        hideRedStatus
                       />
                       <div>
                         <div className="font-semibold text-sm hover:text-primary transition-colors">
@@ -570,7 +569,7 @@ export function DashboardView({
                         )}
                       </div>
                     </div>
-                    <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-overdue/15 text-overdue border border-overdue/30 shrink-0">
+                    <span className="text-xs font-bold px-3.5 py-1.5 rounded-lg bg-red-600/15 text-overdue shrink-0">
                       {c.cadence.daysSinceContact}d ago · {c.cadence.effectiveIntervalDays}d
                     </span>
                   </div>
@@ -585,7 +584,7 @@ export function DashboardView({
                     </div>
                   )}
 
-                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border text-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <button
                         type="button"
@@ -639,7 +638,7 @@ export function DashboardView({
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-base font-bold text-foreground flex items-center gap-2">
-                    <Cake className="w-4 h-4 text-primary" aria-hidden="true" />
+                    <Cake className="w-4 h-4 text-muted/60" aria-hidden="true" />
                     <span>Incoming Birthdays (Next {birthdayWindowDays}d)</span>
                     <span className="text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary">
                       {upcomingBirthdays.length}
@@ -671,6 +670,7 @@ export function DashboardView({
                           progressPercent={c.cadence.progressPercent}
                           status={c.cadence.status}
                           size="sm"
+                          hideRedStatus
                         />
                         <div>
                           <div className="text-sm font-semibold hover:text-primary flex items-center gap-1.5 transition-colors">
@@ -722,7 +722,7 @@ export function DashboardView({
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-base font-bold text-foreground flex items-center gap-2">
-                    <Phone className="w-4 h-4 text-primary" aria-hidden="true" />
+                    <Phone className="w-4 h-4 text-muted/60" aria-hidden="true" />
                     <span>Upcoming Calls (Next 7d)</span>
                     <span className="text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary">
                       {upcomingWeekContacts.length}
@@ -753,6 +753,7 @@ export function DashboardView({
                           progressPercent={c.cadence.progressPercent}
                           status={c.cadence.status}
                           size="sm"
+                          hideRedStatus
                         />
                         <div>
                           <div className="text-sm font-semibold hover:text-primary transition-colors">
@@ -801,7 +802,7 @@ export function DashboardView({
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-base font-bold text-foreground flex items-center gap-2">
-                <UserCheck className="w-4 h-4 text-success" aria-hidden="true" />
+                <UserCheck className="w-4 h-4 text-muted/60" aria-hidden="true" />
                 <span>Talked to in the Last 30 Days</span>
                 <span className="text-xs px-2 py-0.5 rounded-full bg-success/15 text-success">
                   {recent30DaysContacts.length}
@@ -847,6 +848,7 @@ export function DashboardView({
                         progressPercent={c.cadence.progressPercent}
                         status={c.cadence.status}
                         size="sm"
+                        hideRedStatus
                       />
                       <div className="min-w-0">
                         <div className="text-sm font-semibold truncate">{c.fullName}</div>
@@ -895,6 +897,7 @@ export function DashboardView({
                     progressPercent={c.cadence.progressPercent}
                     status={c.cadence.status}
                     size="sm"
+                    hideRedStatus
                   />
                   <div>
                     <div className="text-sm font-semibold">{c.fullName}</div>
