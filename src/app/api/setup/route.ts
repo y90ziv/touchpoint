@@ -6,6 +6,7 @@ import {
   createSessionToken,
   SESSION_COOKIE_NAME,
 } from '@/lib/auth';
+import { getSessionCookieOptions } from '@/lib/session';
 import { checkRateLimit, recordFailedAttempt, resetRateLimit, getClientIp } from '@/lib/rate-limiter';
 import { logger } from '@/lib/logger';
 
@@ -87,20 +88,16 @@ export async function POST(request: Request) {
       },
     });
 
-    response.cookies.set(SESSION_COOKIE_NAME, token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 30 * 24 * 60 * 60,
-    });
+    response.cookies.set(
+      SESSION_COOKIE_NAME,
+      token,
+      getSessionCookieOptions(request, 30 * 24 * 60 * 60)
+    );
 
     logger.http('POST', '/api/setup', 201, Date.now() - start, { userId: user.id });
     return response;
   } catch (err) {
     logger.error('api.setup', 'Setup registration failed', err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to complete setup' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to complete setup' }, { status: 500 });
   }
 }

@@ -20,9 +20,9 @@ export async function GET() {
     userDb.run(sql`SELECT 1`);
     dbLatencyMs = Date.now() - dbStart;
     dbOk = true;
-  } catch (err) {
+  } catch {
     dbOk = false;
-    errorDetail = err instanceof Error ? err.message : String(err);
+    errorDetail = 'Database check failed';
   }
 
   const mem = process.memoryUsage();

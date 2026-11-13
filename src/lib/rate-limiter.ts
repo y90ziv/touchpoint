@@ -85,3 +85,20 @@ export function resetRateLimit(ip: string, action: string = 'auth'): void {
 export function clearAllRateLimits(): void {
   attemptsMap.clear();
 }
+
+/**
+ * Checks rate limit for an action and records the attempt if allowed.
+ */
+export function consumeRateLimit(
+  request: Request,
+  action: string,
+  maxAttempts: number,
+  windowMs: number
+): { allowed: boolean; remaining: number; retryAfterSeconds: number } {
+  const ip = getClientIp(request);
+  const result = checkRateLimit(ip, action, maxAttempts, windowMs);
+  if (result.allowed) {
+    recordFailedAttempt(ip, action);
+  }
+  return result;
+}

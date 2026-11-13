@@ -10,6 +10,32 @@ const PUBLIC_PREFIXES = [
   '/api/health',
 ];
 
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+function isCrossSiteRequest(request: NextRequest): boolean {
+  const secFetchSite = request.headers.get('sec-fetch-site');
+  if (secFetchSite === 'cross-site') {
+    return true;
+  }
+
+  const origin = request.headers.get('origin');
+  if (!origin) {
+    return false;
+  }
+
+  const expectedHost =
+    request.headers.get('x-forwarded-host')?.split(',')[0].trim() ||
+    request.headers.get('host') ||
+    request.nextUrl.host;
+
+  try {
+    const originHost = new URL(origin).host;
+    return originHost !== expectedHost;
+  } catch {
+    return true;
+  }
+}
+
 export async function middleware(request: NextRequest) {
   const requestId =
     request.headers.get('x-request-id') ||
@@ -34,6 +60,18 @@ export async function middleware(request: NextRequest) {
   }
 
   const { pathname } = request.nextUrl;
+
+  // Lightweight CSRF protection for mutating browser API requests using cookie auth
+  if (
+    pathname.startsWith('/api/') &&
+    MUTATING_METHODS.has(request.method.toUpperCase()) &&
+    !request.headers.get('authorization')?.startsWith('Bearer ') &&
+    isCrossSiteRequest(request)
+  ) {
+    return applyResponseHeaders(
+      NextResponse.json({ error: 'Forbidden: Cross-site request blocked', requestId }, { status: 403 })
+    );
+  }
 
   // Allow static assets, public auth endpoints, and tokenized calendar feed
   if (PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {

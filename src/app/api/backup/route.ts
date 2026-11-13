@@ -8,10 +8,43 @@ import {
   importSqliteDatabase,
   wipeAllData,
 } from '@/lib/portability-service';
-import { getBackupsDirectory } from '@/lib/backup-rotator';
+import { getBackupsDirectory, isSnapshotOwnedByUser } from '@/lib/backup-rotator';
 import { logger } from '@/lib/logger';
 import { getRequestUserId } from '@/lib/auth';
 import { runWithUser } from '@/db';
+import { checkRateLimit, recordFailedAttempt, getClientIp } from '@/lib/rate-limiter';
+
+const MAX_BACKUP_UPLOAD_BYTES = 50 * 1024 * 1024; // 50 MB
+const ALLOWED_UPLOAD_EXTENSIONS = ['.db', '.sqlite', '.sqlite3', '.vcf', '.json'];
+
+function resolveOwnedSnapshotPath(
+  filename: string,
+  userId: number
+): { ok: true; fullPath: string } | { ok: false; status: number; error: string } {
+  if (
+    !filename ||
+    typeof filename !== 'string' ||
+    !filename.endsWith('.db') ||
+    filename.includes('..') ||
+    filename.includes('/') ||
+    filename.includes('\\')
+  ) {
+    return { ok: false, status: 400, error: 'Invalid snapshot filename' };
+  }
+
+  if (!isSnapshotOwnedByUser(filename, userId)) {
+    logger.warn('api.backup.snapshot_access', `User ${userId} attempted unauthorized snapshot restore: ${filename}`);
+    return { ok: false, status: 403, error: 'Access denied: You do not own this snapshot' };
+  }
+
+  const backupDir = path.resolve(getBackupsDirectory());
+  const fullPath = path.resolve(backupDir, filename);
+  if (!fullPath.startsWith(backupDir + path.sep)) {
+    return { ok: false, status: 400, error: 'Invalid snapshot path' };
+  }
+
+  return { ok: true, fullPath };
+}
 
 export async function GET(request: Request) {
   const start = Date.now();
@@ -41,6 +74,17 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const start = Date.now();
   const userId = getRequestUserId(request);
+  const ip = getClientIp(request);
+
+  const rate = checkRateLimit(ip, 'backup_write', 20, 15 * 60 * 1000);
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: `Too many backup requests. Try again in ${rate.retryAfterSeconds} seconds.` },
+      { status: 429, headers: { 'Retry-After': String(rate.retryAfterSeconds) } }
+    );
+  }
+  recordFailedAttempt(ip, 'backup_write');
+
   try {
     const contentType = request.headers.get('content-type') || '';
 
@@ -52,8 +96,28 @@ export async function POST(request: Request) {
       }
 
       const fileName = file.name.toLowerCase();
+      if (!ALLOWED_UPLOAD_EXTENSIONS.some((ext) => fileName.endsWith(ext))) {
+        return NextResponse.json(
+          { error: 'Unsupported file type. Allowed extensions: .db, .sqlite, .sqlite3, .vcf, .json' },
+          { status: 400 }
+        );
+      }
+
+      if (file.size > MAX_BACKUP_UPLOAD_BYTES) {
+        return NextResponse.json(
+          { error: 'File exceeds maximum allowed upload size of 50 MB' },
+          { status: 413 }
+        );
+      }
+
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
+      if (buffer.byteLength > MAX_BACKUP_UPLOAD_BYTES) {
+        return NextResponse.json(
+          { error: 'File exceeds maximum allowed upload size of 50 MB' },
+          { status: 413 }
+        );
+      }
 
       return runWithUser(userId, () => {
         if (
@@ -95,13 +159,14 @@ export async function POST(request: Request) {
         let input: Buffer | string;
         if (body.data) {
           input = Buffer.from(body.data, 'base64');
-        } else if (body.filePath) {
-          input = body.filePath;
         } else if (body.snapshotFilename) {
-          const backupDir = getBackupsDirectory();
-          input = path.join(backupDir, body.snapshotFilename);
+          const resolved = resolveOwnedSnapshotPath(body.snapshotFilename, userId);
+          if (!resolved.ok) {
+            return NextResponse.json({ error: resolved.error }, { status: resolved.status });
+          }
+          input = resolved.fullPath;
         } else {
-          return NextResponse.json({ error: 'Missing sqlite data, filePath, or snapshotFilename' }, { status: 400 });
+          return NextResponse.json({ error: 'Missing sqlite data or snapshotFilename' }, { status: 400 });
         }
         const res = importSqliteDatabase(input);
         logger.http('POST', '/api/backup (sqlite_import)', 200, Date.now() - start, { ...res, userId });
@@ -109,9 +174,11 @@ export async function POST(request: Request) {
       }
 
       if (body.snapshotFilename) {
-        const backupDir = getBackupsDirectory();
-        const fullPath = path.join(backupDir, body.snapshotFilename);
-        const res = importSqliteDatabase(fullPath);
+        const resolved = resolveOwnedSnapshotPath(body.snapshotFilename, userId);
+        if (!resolved.ok) {
+          return NextResponse.json({ error: resolved.error }, { status: resolved.status });
+        }
+        const res = importSqliteDatabase(resolved.fullPath);
         logger.http('POST', '/api/backup (snapshot_restore)', 200, Date.now() - start, { ...res, userId });
         return NextResponse.json(res);
       }
@@ -122,16 +189,24 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     logger.error('api.backup.post', 'Backup/import operation failed', err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Operation failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Backup/import operation failed' }, { status: 500 });
   }
 }
 
 export async function DELETE(request: Request) {
   const start = Date.now();
   const userId = getRequestUserId(request);
+  const ip = getClientIp(request);
+
+  const rate = checkRateLimit(ip, 'backup_delete', 5, 15 * 60 * 1000);
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: `Too many requests. Try again in ${rate.retryAfterSeconds} seconds.` },
+      { status: 429, headers: { 'Retry-After': String(rate.retryAfterSeconds) } }
+    );
+  }
+  recordFailedAttempt(ip, 'backup_delete');
+
   try {
     const body = await request.json();
     if (body.confirmation !== 'DELETE') {
@@ -148,9 +223,6 @@ export async function DELETE(request: Request) {
     });
   } catch (err) {
     logger.error('api.backup.delete', 'Failed to wipe database', err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to wipe database' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to wipe database' }, { status: 500 });
   }
 }

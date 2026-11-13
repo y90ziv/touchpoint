@@ -16,6 +16,7 @@ import { settings } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { logger } from '@/lib/logger';
 import { getRequestUserId } from '@/lib/auth';
+import { consumeRateLimit } from '@/lib/rate-limiter';
 
 function resolveRedirectUri(request: Request, override?: string | null): string {
   const url = new URL(request.url);
@@ -113,6 +114,13 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const start = Date.now();
+  const rate = consumeRateLimit(request, 'google_sync', 15, 5 * 60 * 1000);
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: `Too many Google sync requests. Try again in ${rate.retryAfterSeconds} seconds.` },
+      { status: 429, headers: { 'Retry-After': String(rate.retryAfterSeconds) } }
+    );
+  }
   const userId = getRequestUserId(request);
   const requestId =
     request.headers.get('x-request-id') ||

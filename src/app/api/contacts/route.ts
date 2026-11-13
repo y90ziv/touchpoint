@@ -87,9 +87,6 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     logger.error('api.contacts.post', 'Failed contact operation', err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Operation failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Operation failed' }, { status: 500 });
   }
 }
