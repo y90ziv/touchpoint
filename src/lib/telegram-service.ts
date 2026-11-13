@@ -102,7 +102,9 @@ export function buildContactReminderMessage(
 
   const keyboard = new InlineKeyboard()
     .text('✅ Mark Contacted', `tp:pick_method:${contact.id}`)
-    .text(`💤 Snooze ${defaultSnoozeDays}d`, `tp:snooze:${contact.id}:${defaultSnoozeDays}`);
+    .row()
+    .text(`💤 Snooze ${defaultSnoozeDays}d`, `tp:snooze:${contact.id}:${defaultSnoozeDays}`)
+    .text(`⏭️ Skip (${contact.cadence.effectiveIntervalDays}d)`, `tp:skip:${contact.id}`);
 
   return {
     contactId: contact.id,
@@ -141,7 +143,7 @@ export function processTelegramCallbackData(
   referenceDate: Date = new Date()
 ): {
   authorized: boolean;
-  action: 'show_methods' | 'logged' | 'snoozed' | 'back' | 'ignored';
+  action: 'show_methods' | 'logged' | 'snoozed' | 'skipped' | 'back' | 'ignored';
   confirmationText?: string;
   keyboard?: InlineKeyboard;
 } {
@@ -184,6 +186,20 @@ export function processTelegramCallbackData(
       authorized: true,
       action: 'snoozed',
       confirmationText: `💤 Snoozed ${updated.fullName} for ${days} days (next due ${updated.cadence.nextDueDate}).`,
+    };
+  }
+
+  if (step === 'skip') {
+    const contact = getContactById(contactId, referenceDate);
+    if (!contact) {
+      return { authorized: true, action: 'ignored' };
+    }
+    const skipDays = Math.max(1, contact.cadence.effectiveIntervalDays || 1);
+    const updated = snoozeContact(contactId, skipDays, referenceDate);
+    return {
+      authorized: true,
+      action: 'skipped',
+      confirmationText: `⏭️ Skipped ${updated.fullName} — next due in ${skipDays} days (${updated.cadence.nextDueDate}).`,
     };
   }
 
@@ -813,7 +829,7 @@ export async function startTelegramLongPolling(token: string) {
       if (result.action === 'show_methods' || result.action === 'back') {
         await ctx.editMessageReplyMarkup({ reply_markup: result.keyboard });
         await ctx.answerCallbackQuery();
-      } else if (result.action === 'logged' || result.action === 'snoozed') {
+      } else if (result.action === 'logged' || result.action === 'snoozed' || result.action === 'skipped') {
         const originalText = ctx.callbackQuery.message?.text || '';
         await ctx.editMessageText(`${originalText}\n\n${result.confirmationText}`, {
           reply_markup: undefined,

@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createDatabase, setTestDb, closeAllDbs } from '@/db';
 import { applySmartSpreading, EvaluatedContactCadence } from '@/lib/cadence';
-import { createContact, rebalanceContactSchedule, listContactsWithDetails } from '@/lib/contacts-service';
+import { createContact, rebalanceContactSchedule, listContactsWithDetails, getContactById } from '@/lib/contacts-service';
+import { buildContactReminderMessage, processTelegramCallbackData } from '@/lib/telegram-service';
 
 describe('Cadence Strict Daily Cap & Schedule Rebalance', () => {
   beforeEach(() => {
@@ -47,5 +48,29 @@ describe('Cadence Strict Daily Cap & Schedule Rebalance', () => {
     const all = listContactsWithDetails(refDate);
     const dueDates = new Set(all.map((c) => c.cadence.nextDueDate));
     expect(dueDates.size).toBe(15);
+  });
+
+  it('Telegram Skip button defers contact by effectiveIntervalDays without logging a touchpoint', () => {
+    const refDate = new Date('2026-11-13T00:00:00Z');
+    const contact = createContact({
+      fullName: 'Skip Target',
+      keepInTouch: true,
+      customIntervalDays: 30,
+    });
+
+    const reminder = buildContactReminderMessage(contact.id, '+972', refDate);
+    const allButtons = reminder.keyboard.inline_keyboard.flat();
+    const skipBtn = allButtons.find((b) => 'callback_data' in b && b.callback_data === `tp:skip:${contact.id}`);
+    expect(skipBtn).toBeDefined();
+    expect(skipBtn?.text).toContain('Skip (30d)');
+
+    const res = processTelegramCallbackData(`tp:skip:${contact.id}`, '12345', '12345', refDate);
+    expect(res.authorized).toBe(true);
+    expect(res.action).toBe('skipped');
+    expect(res.confirmationText).toContain('2026-12-13');
+
+    const updated = getContactById(contact.id, refDate)!;
+    expect(updated.lastContactedAt).toBeNull();
+    expect(updated.cadence.nextDueDate).toBe('2026-12-13');
   });
 });
