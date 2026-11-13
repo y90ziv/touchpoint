@@ -12,6 +12,7 @@ import {
 } from '@/lib/telegram-service';
 import { logger } from '@/lib/logger';
 import { getRequestUserId } from '@/lib/auth';
+import { consumeRateLimit } from '@/lib/rate-limiter';
 
 export async function GET(request: Request) {
   const start = Date.now();
@@ -23,6 +24,13 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const start = Date.now();
+  const rate = consumeRateLimit(request, 'telegram_action', 20, 5 * 60 * 1000);
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: `Too many Telegram requests. Try again in ${rate.retryAfterSeconds} seconds.` },
+      { status: 429, headers: { 'Retry-After': String(rate.retryAfterSeconds) } }
+    );
+  }
   const userId = getRequestUserId(request);
   try {
     const body = await request.json();
@@ -136,9 +144,6 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     logger.error('api.telegram.post', 'Telegram API action failed', err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Telegram error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Telegram action failed' }, { status: 500 });
   }
 }

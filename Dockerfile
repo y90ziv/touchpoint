@@ -8,10 +8,10 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 COPY . .
-RUN npm rebuild better-sqlite3 && npm run build
+RUN npm run build
 
 FROM node:24-bookworm-slim AS runner
 WORKDIR /app

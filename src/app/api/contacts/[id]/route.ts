@@ -47,7 +47,6 @@ export async function PATCH(
       return NextResponse.json(
         {
           error: 'Failed to update contact',
-          message: err instanceof Error ? err.message : 'Unknown error',
           requestId,
         },
         { status: 500, headers: { 'x-request-id': requestId } }
@@ -76,7 +75,6 @@ export async function DELETE(
       return NextResponse.json(
         {
           error: 'Failed to delete contact',
-          message: err instanceof Error ? err.message : 'Unknown error',
           requestId,
         },
         { status: 500, headers: { 'x-request-id': requestId } }

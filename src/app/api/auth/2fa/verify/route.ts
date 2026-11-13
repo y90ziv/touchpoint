@@ -3,7 +3,7 @@ import { getAuthDb } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { verifyTotp, verifyAndConsumeBackupCode } from '@/lib/totp';
-import { createSessionToken, verifySessionToken, SESSION_COOKIE_NAME } from '@/lib/session';
+import { createSessionToken, verifySessionToken, SESSION_COOKIE_NAME, getSessionCookieOptions } from '@/lib/session';
 import { checkRateLimit, recordFailedAttempt, resetRateLimit, getClientIp } from '@/lib/rate-limiter';
 import { logger } from '@/lib/logger';
 
@@ -89,12 +89,11 @@ export async function POST(request: Request) {
       user: { id: user.id, email: user.email, username: user.username },
     });
 
-    response.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/',
-      maxAge: ttlDays * 24 * 60 * 60,
-    });
+    response.cookies.set(
+      SESSION_COOKIE_NAME,
+      sessionToken,
+      getSessionCookieOptions(request, ttlDays * 24 * 60 * 60)
+    );
 
     logger.http('POST', '/api/auth/2fa/verify', 200, Date.now() - start, { userId: user.id });
     return response;

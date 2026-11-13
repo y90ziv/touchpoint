@@ -99,10 +99,7 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     logger.error('api.touchpoints.post', 'Touchpoint action failed', err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Action failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Action failed' }, { status: 500 });
   }
 }
 
@@ -135,7 +132,7 @@ export async function DELETE(request: Request) {
     } catch (err) {
       logger.error('api.touchpoints.delete', 'Failed to delete touchpoint', err, { requestId });
       return NextResponse.json(
-        { error: err instanceof Error ? err.message : 'Failed to delete touchpoint', requestId },
+        { error: 'Failed to delete touchpoint', requestId },
         { status: 500, headers: { 'x-request-id': requestId } }
       );
     }
@@ -167,7 +164,7 @@ export async function PATCH(request: Request) {
     } catch (err) {
       logger.error('api.touchpoints.patch', 'Failed to update touchpoint', err, { requestId });
       return NextResponse.json(
-        { error: err instanceof Error ? err.message : 'Failed to update touchpoint', requestId },
+        { error: 'Failed to update touchpoint', requestId },
         { status: 500, headers: { 'x-request-id': requestId } }
       );
     }

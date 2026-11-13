@@ -4,6 +4,7 @@ import {
   createSessionToken,
   SESSION_COOKIE_NAME,
 } from '@/lib/auth';
+import { getSessionCookieOptions } from '@/lib/session';
 import { checkRateLimit, recordFailedAttempt, resetRateLimit, getClientIp } from '@/lib/rate-limiter';
 import { logger } from '@/lib/logger';
 
@@ -87,12 +88,11 @@ export async function POST(request: Request) {
       user: { id: user.id, email: user.email, username: user.username },
     });
 
-    response.cookies.set(SESSION_COOKIE_NAME, token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/',
-      maxAge: ttlDays * 24 * 60 * 60,
-    });
+    response.cookies.set(
+      SESSION_COOKIE_NAME,
+      token,
+      getSessionCookieOptions(request, ttlDays * 24 * 60 * 60)
+    );
 
     logger.http('POST', '/api/auth/login', 200, Date.now() - start, { userId: user.id });
     return response;
