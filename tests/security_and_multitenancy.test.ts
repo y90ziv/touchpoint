@@ -57,6 +57,7 @@ describe('Security & Multi-Tenancy Features', () => {
         first_day_of_week INTEGER NOT NULL DEFAULT 0,
         birthday_days_advance INTEGER NOT NULL DEFAULT 7,
         max_daily_due INTEGER NOT NULL DEFAULT 3,
+        strict_daily_cap INTEGER NOT NULL DEFAULT 0,
         global_paused_until TEXT,
         ical_secret_token TEXT NOT NULL,
         google_client_id TEXT,

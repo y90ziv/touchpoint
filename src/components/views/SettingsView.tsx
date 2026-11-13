@@ -102,6 +102,7 @@ export function SettingsView({
         firstDayOfWeek: Number(settingsState.firstDayOfWeek ?? 0),
         birthdayDaysAdvance: Number(settingsState.birthdayDaysAdvance || 7),
         maxDailyDue: Number(settingsState.maxDailyDue || 3),
+        strictDailyCap: Boolean(settingsState.strictDailyCap),
         cadenceFuzzinessEnabled: Boolean(settingsState.cadenceFuzzinessEnabled),
         cadenceFuzzinessPercent: Number(settingsState.cadenceFuzzinessPercent || 15),
         logLevel: settingsState.logLevel || 'info',
@@ -507,6 +508,60 @@ export function SettingsView({
                   <option value={5}>Max 5 per day</option>
                   <option value={10}>Max 10 per day</option>
                 </select>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-well border border-border flex flex-wrap items-center justify-between gap-3">
+                <div className="space-y-0.5 max-w-lg">
+                  <div className="font-semibold text-xs text-foreground">
+                    Strict Daily Cap (Include Overdue)
+                  </div>
+                  <p className="text-[11px] text-muted">
+                    When enabled, total surfaced contacts (overdue + due today) never exceed your Daily Due Cap so backlogs never flood you.
+                  </p>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(settingsState.strictDailyCap)}
+                    onChange={(e) =>
+                      setSettingsState({
+                        ...settingsState,
+                        strictDailyCap: e.target.checked,
+                      })
+                    }
+                    className="w-4 h-4 accent-primary rounded"
+                  />
+                  <span className="text-xs font-medium text-foreground">
+                    {settingsState.strictDailyCap ? 'Strict' : 'Standard'}
+                  </span>
+                </label>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-well border border-border flex flex-wrap items-center justify-between gap-3">
+                <div className="space-y-0.5 max-w-lg">
+                  <div className="font-semibold text-xs text-foreground">
+                    Rebalance / Stagger Schedule
+                  </div>
+                  <p className="text-[11px] text-muted">
+                    Evenly spread uncontacted tracked contacts across their cadence window so bulk-enabled contacts do not land on the same day.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const res = await fetch('/api/contacts', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ operation: 'rebalance_schedule', onlyUncontacted: true }),
+                    });
+                    if (res.ok && onRefreshAllData) {
+                      await onRefreshAllData();
+                    }
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-background border border-border hover:border-primary/40 text-xs font-semibold text-foreground transition-colors"
+                >
+                  Stagger Uncontacted
+                </button>
               </div>
 
               <div className="p-3.5 rounded-xl bg-well border border-border flex flex-wrap items-center justify-between gap-3">

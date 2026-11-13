@@ -194,7 +194,8 @@ export function evaluateContactCadence(
  */
 export function applySmartSpreading(
   evaluated: EvaluatedContactCadence[],
-  maxDailyDue: number
+  maxDailyDue: number,
+  options?: { strictCap?: boolean }
 ): {
   surfacedToday: EvaluatedContactCadence[];
   deferredToTomorrow: EvaluatedContactCadence[];
@@ -206,6 +207,16 @@ export function applySmartSpreading(
   const dueToday = evaluated
     .filter((c) => c.status === 'due_today')
     .sort((a, b) => b.daysSinceContact - a.daysSinceContact);
+
+  const safeCap = Math.max(1, maxDailyDue || 3);
+
+  if (options?.strictCap) {
+    const combined = [...overdue, ...dueToday];
+    return {
+      surfacedToday: combined.slice(0, safeCap),
+      deferredToTomorrow: combined.slice(safeCap),
+    };
+  }
 
   const remainingSlots = Math.max(0, maxDailyDue - overdue.length);
   const acceptedDueToday = dueToday.slice(0, remainingSlots);

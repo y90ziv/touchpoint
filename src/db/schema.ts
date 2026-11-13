@@ -32,6 +32,7 @@ export const settings = sqliteTable('settings', {
   firstDayOfWeek: integer('first_day_of_week').notNull().default(0), // 0 = Sunday, 1 = Monday, 6 = Saturday
   birthdayDaysAdvance: integer('birthday_days_advance').notNull().default(7),
   maxDailyDue: integer('max_daily_due').notNull().default(3),
+  strictDailyCap: integer('strict_daily_cap', { mode: 'boolean' }).notNull().default(false),
   globalPausedUntil: text('global_paused_until'),
   icalSecretToken: text('ical_secret_token').notNull(),
   googleClientId: text('google_client_id'),

@@ -258,6 +258,7 @@ export interface SettingsState {
   dailyDigestTime: string;
   firstDayOfWeek: number;
   maxDailyDue: number;
+  strictDailyCap?: boolean;
   birthdayDaysAdvance: number;
   googleSyncInterval: string;
   googleCalendarPushEnabled: boolean;

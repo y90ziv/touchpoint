@@ -102,7 +102,9 @@ export function buildContactReminderMessage(
 
   const keyboard = new InlineKeyboard()
     .text('✅ Mark Contacted', `tp:pick_method:${contact.id}`)
-    .text(`💤 Snooze ${defaultSnoozeDays}d`, `tp:snooze:${contact.id}:${defaultSnoozeDays}`);
+    .row()
+    .text(`💤 Snooze ${defaultSnoozeDays}d`, `tp:snooze:${contact.id}:${defaultSnoozeDays}`)
+    .text(`⏭️ Skip (${contact.cadence.effectiveIntervalDays}d)`, `tp:skip:${contact.id}`);
 
   return {
     contactId: contact.id,
@@ -141,7 +143,7 @@ export function processTelegramCallbackData(
   referenceDate: Date = new Date()
 ): {
   authorized: boolean;
-  action: 'show_methods' | 'logged' | 'snoozed' | 'back' | 'ignored';
+  action: 'show_methods' | 'logged' | 'snoozed' | 'skipped' | 'back' | 'ignored';
   confirmationText?: string;
   keyboard?: InlineKeyboard;
 } {
@@ -187,6 +189,20 @@ export function processTelegramCallbackData(
     };
   }
 
+  if (step === 'skip') {
+    const contact = getContactById(contactId, referenceDate);
+    if (!contact) {
+      return { authorized: true, action: 'ignored' };
+    }
+    const skipDays = Math.max(1, contact.cadence.effectiveIntervalDays || 1);
+    const updated = snoozeContact(contactId, skipDays, referenceDate);
+    return {
+      authorized: true,
+      action: 'skipped',
+      confirmationText: `⏭️ Skipped ${updated.fullName} — next due in ${skipDays} days (${updated.cadence.nextDueDate}).`,
+    };
+  }
+
   if (step === 'log') {
     const method = (parts[3] || 'call') as ContactMethod;
     const { contact } = logTouchpoint({
@@ -225,7 +241,9 @@ export function buildDailyDigestPayloads(referenceDate: Date = new Date()) {
   const allContacts = listContactsWithDetails(referenceDate);
   const evaluations = allContacts.map((c) => c.cadence);
 
-  const { surfacedToday, deferredToTomorrow } = applySmartSpreading(evaluations, maxDailyDue);
+  const { surfacedToday, deferredToTomorrow } = applySmartSpreading(evaluations, maxDailyDue, {
+    strictCap: Boolean(cfg?.strictDailyCap),
+  });
 
   // Deduplicate surfaced contacts by ID and normalized name to prevent duplicate notifications
   const contactNameById = new Map<number, string>(allContacts.map((c) => [c.id, c.fullName]));
@@ -811,7 +829,7 @@ export async function startTelegramLongPolling(token: string) {
       if (result.action === 'show_methods' || result.action === 'back') {
         await ctx.editMessageReplyMarkup({ reply_markup: result.keyboard });
         await ctx.answerCallbackQuery();
-      } else if (result.action === 'logged' || result.action === 'snoozed') {
+      } else if (result.action === 'logged' || result.action === 'snoozed' || result.action === 'skipped') {
         const originalText = ctx.callbackQuery.message?.text || '';
         await ctx.editMessageText(`${originalText}\n\n${result.confirmationText}`, {
           reply_markup: undefined,
