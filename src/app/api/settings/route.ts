@@ -26,6 +26,7 @@ const ALLOWED_SETTING_KEYS = [
   'firstDayOfWeek',
   'birthdayDaysAdvance',
   'maxDailyDue',
+  'strictDailyCap',
   'globalPausedUntil',
   'cadenceFuzzinessEnabled',
   'cadenceFuzzinessPercent',

@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS settings (
   first_day_of_week INTEGER NOT NULL DEFAULT 0,
   birthday_days_advance INTEGER NOT NULL DEFAULT 7,
   max_daily_due INTEGER NOT NULL DEFAULT 3,
+  strict_daily_cap INTEGER NOT NULL DEFAULT 0,
   global_paused_until TEXT,
   ical_secret_token TEXT NOT NULL,
   google_client_id TEXT,
@@ -249,6 +250,7 @@ export function createDatabase(dbPath?: string): {
     ['birthday_digest_day', 'INTEGER NOT NULL DEFAULT 6'],
     ['birthday_digest_time', "TEXT NOT NULL DEFAULT '19:00'"],
     ['last_birthday_digest_date', 'TEXT'],
+    ['strict_daily_cap', 'INTEGER NOT NULL DEFAULT 0'],
   ];
   for (const [col, def] of migrations) {
     if (!existingCols.includes(col)) {

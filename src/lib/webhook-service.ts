@@ -57,7 +57,8 @@ export function buildWebhookDigestPayload(
   const allContacts = listContactsWithDetails(referenceDate);
   const spread = applySmartSpreading(
     allContacts.map((c) => c.cadence),
-    maxDailyDue
+    maxDailyDue,
+    { strictCap: Boolean(cfg?.strictDailyCap) }
   );
 
   const attentionIds = new Set(spread.surfacedToday.map((x) => x.contactId));

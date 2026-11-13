@@ -791,3 +791,73 @@ export function createCustomFieldTemplate(input: {
   logger.crud('CREATE', 'custom_field_template', { id: inserted.id, name: inserted.name });
   return inserted;
 }
+
+/**
+ * Evenly distributes due dates (`snoozedUntil`) across each contact's effective
+ * cadence interval so bulk-enabled or uncontacted contacts do not flood the same day.
+ */
+export function rebalanceContactSchedule(options?: {
+  onlyUncontacted?: boolean;
+  referenceDate?: Date;
+}): { rebalancedCount: number; maxPerDay: number } {
+  const db = getDb();
+  const refDate = options?.referenceDate ?? new Date();
+  const todayUtc = new Date(
+    Date.UTC(refDate.getUTCFullYear(), refDate.getUTCMonth(), refDate.getUTCDate())
+  );
+  const onlyUncontacted = options?.onlyUncontacted ?? true;
+
+  const allContacts = listContactsWithDetails(refDate);
+  const tracked = allContacts.filter(
+    (c) => c.keepInTouch && c.cadence.status !== 'paused'
+  );
+
+  const dayCounts = new Map<string, number>();
+  const addCount = (dateStr: string) => {
+    dayCounts.set(dateStr, (dayCounts.get(dateStr) || 0) + 1);
+  };
+
+  const toRebalance: typeof tracked = [];
+  for (const c of tracked) {
+    if (onlyUncontacted && c.lastContactedAt) {
+      addCount(c.cadence.nextDueDate);
+    } else {
+      toRebalance.push(c);
+    }
+  }
+
+  toRebalance.sort(
+    (a, b) => a.cadence.effectiveIntervalDays - b.cadence.effectiveIntervalDays || a.id - b.id
+  );
+
+  for (const c of toRebalance) {
+    const span = Math.max(1, c.cadence.effectiveIntervalDays);
+    let bestDate = '';
+    let bestCount = Infinity;
+
+    for (let offset = 1; offset <= span; offset++) {
+      const candidate = new Date(todayUtc.getTime() + offset * 86400000);
+      const dateStr = candidate.toISOString().slice(0, 10);
+      const count = dayCounts.get(dateStr) || 0;
+      if (count < bestCount) {
+        bestCount = count;
+        bestDate = dateStr;
+      }
+    }
+
+    db.update(contacts)
+      .set({ snoozedUntil: bestDate })
+      .where(eq(contacts.id, c.id))
+      .run();
+    addCount(bestDate);
+  }
+
+  const maxPerDay = dayCounts.size > 0 ? Math.max(...dayCounts.values()) : 0;
+  logger.crud('BULK', 'contacts_rebalance', {
+    rebalancedCount: toRebalance.length,
+    onlyUncontacted,
+    maxPerDay,
+  });
+
+  return { rebalancedCount: toRebalance.length, maxPerDay };
+}

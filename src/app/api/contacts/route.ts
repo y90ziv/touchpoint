@@ -7,6 +7,7 @@ import {
   mergeContacts,
   listCustomFieldTemplates,
   createCustomFieldTemplate,
+  rebalanceContactSchedule,
 } from '@/lib/contacts-service';
 import { logger } from '@/lib/logger';
 import { getRequestUserId } from '@/lib/auth';
@@ -72,6 +73,17 @@ export async function POST(request: Request) {
         });
         logger.http('POST', '/api/contacts (custom_template)', 201, Date.now() - start, { userId });
         return NextResponse.json({ template }, { status: 201 });
+      }
+
+      if (body.operation === 'rebalance_schedule') {
+        const result = rebalanceContactSchedule({
+          onlyUncontacted: body.onlyUncontacted !== false,
+        });
+        logger.http('POST', '/api/contacts (rebalance_schedule)', 200, Date.now() - start, {
+          ...result,
+          userId,
+        });
+        return NextResponse.json(result);
       }
 
       const effectiveFullName = (

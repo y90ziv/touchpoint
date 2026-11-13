@@ -97,6 +97,7 @@ const DEFAULT_SETTINGS_STATE: SettingsState = {
   dailyDigestTime: '09:00',
   firstDayOfWeek: 0,
   maxDailyDue: 3,
+  strictDailyCap: false,
   birthdayDaysAdvance: 7,
   googleSyncInterval: 'manual',
   googleCalendarPushEnabled: false,

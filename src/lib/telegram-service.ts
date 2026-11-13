@@ -225,7 +225,9 @@ export function buildDailyDigestPayloads(referenceDate: Date = new Date()) {
   const allContacts = listContactsWithDetails(referenceDate);
   const evaluations = allContacts.map((c) => c.cadence);
 
-  const { surfacedToday, deferredToTomorrow } = applySmartSpreading(evaluations, maxDailyDue);
+  const { surfacedToday, deferredToTomorrow } = applySmartSpreading(evaluations, maxDailyDue, {
+    strictCap: Boolean(cfg?.strictDailyCap),
+  });
 
   // Deduplicate surfaced contacts by ID and normalized name to prevent duplicate notifications
   const contactNameById = new Map<number, string>(allContacts.map((c) => [c.id, c.fullName]));

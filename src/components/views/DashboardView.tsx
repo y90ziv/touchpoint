@@ -87,7 +87,8 @@ export function DashboardView({
   const health = calculateRelationshipHealthScore(evaluations);
   const { surfacedToday } = applySmartSpreading(
     evaluations,
-    Number(settingsState.maxDailyDue || 3)
+    Number(settingsState.maxDailyDue || 3),
+    { strictCap: Boolean(settingsState.strictDailyCap) }
   );
   const surfacedIds = new Set(surfacedToday.map((s) => s.contactId));
   const attentionContacts = contacts.filter((c) => surfacedIds.has(c.id));
